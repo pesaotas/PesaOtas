@@ -116,7 +116,11 @@ describe("conversion from PesaFlow v1", () => {
 
   it("produces identical totals before and after (approved calculations unchanged)", () => {
     const legacy = legacyState();
-    assert.deepEqual(computeTotals(D.normalizeState(legacy).state), computeTotals(legacy));
+    const { destinationBalances, ...after } = computeTotals(D.normalizeState(legacy).state);
+    const { destinationBalances: none, ...before } = computeTotals(legacy);
+    assert.deepEqual(after, before);
+    assert.deepEqual(none, {});
+    assert.deepEqual(destinationBalances, { "kcb-mpesa": 0, "m-shwari": 0 }, "new destinations start at zero");
   });
 });
 
@@ -187,9 +191,11 @@ describe("restore checks: KI-03 (bad and duplicate transactions)", () => {
     assert.equal(computeTotals(r.state).cash, computeTotals(legacyState()).cash);
   });
 
-  it("unknown and not-yet-supported savings types are left out with a clear reason", () => {
+  it("unknown types, savings entries without a valid destination, and deferred adjustments are left out with a clear reason", () => {
     assert.ok(has(withRow(row({ type: "transfer" })).rejected, "unknown type"));
-    assert.ok(has(withRow(row({ type: "savings_transfer" })).rejected, "savings entry"));
+    assert.ok(has(withRow(row({ type: "savings_transfer" })).rejected, "savings destination that doesn't exist"));
+    assert.ok(has(withRow(row({ type: "savings_withdrawal", destinationId: "nowhere" })).rejected, "savings destination that doesn't exist"));
+    assert.ok(has(withRow(row({ type: "savings_adjustment", destinationId: "m-shwari" })).rejected, "can't use yet"));
   });
 
   it("an exact duplicate (same ID, same details) is removed so it isn't counted twice", () => {
@@ -255,8 +261,8 @@ describe("restore checks: preview summary and round trip", () => {
     const r = D.analyzeBackup(backup(legacyState()));
     assert.deepEqual(r.summary, {
       openingBalance: 20000, payday: "2026-12-01", categoryCount: 5, transactionCount: 4,
-      incomeCount: 1, expenseCount: 3, incomeTotal: 3000, expenseTotal: 2400, cash: 20600,
-      firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"]
+      incomeCount: 1, expenseCount: 3, savingsCount: 0, incomeTotal: 3000, expenseTotal: 2400, cash: 20600,
+      totalSavings: 0, firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"]
     });
   });
 
@@ -273,5 +279,108 @@ describe("restore checks: preview summary and round trip", () => {
   it("gives the same result every time for the same file", () => {
     const text = backup({ ...legacyState(), openingBalance: "20000" });
     assert.deepEqual(D.analyzeBackup(text), D.analyzeBackup(text));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2: savings entries, allocation links, category types, income sources
+// ---------------------------------------------------------------------------
+const withSavings = () => {
+  const s = v2();
+  s.categories.find(c => c.id === "emergency").destinationId = "m-shwari";
+  s.savingsDestinations[1].openingBalance = 10000;
+  s.transactions.push(
+    { id: "s1", type: "savings_transfer", amount: 2000, destinationId: "m-shwari", date: "2026-11-05", note: "Monthly saving", createdAt: 5 },
+    { id: "s2", type: "savings_withdrawal", amount: 500, destinationId: "kcb-mpesa", date: "2026-11-05", note: "", createdAt: 6 }
+  );
+  s.savingsDestinations[0].openingBalance = 1000;
+  return s;
+};
+
+describe("Phase 2: savings entries in the data model", () => {
+  it("accepts transfers and withdrawals with a valid destination, stored without a spending category", () => {
+    const r = D.normalizeState(withSavings());
+    assert.ok(D.isClean(r), [...r.errors, ...r.rejected].join(" | "));
+    const s1 = r.state.transactions.find(t => t.id === "s1");
+    assert.deepEqual(Object.keys(s1).sort(), ["amount", "createdAt", "date", "destinationId", "id", "note", "type"]);
+  });
+
+  it("keeps a Savings category's link to its destination", () => {
+    const r = D.normalizeState(withSavings());
+    assert.equal(r.state.categories.find(c => c.id === "emergency").destinationId, "m-shwari");
+  });
+
+  it("refuses a link on a non-Savings category, to a missing destination, or two categories on one destination", () => {
+    const a = withSavings(); a.categories.find(c => c.id === "food").destinationId = "kcb-mpesa";
+    assert.ok(has(D.normalizeState(a).errors, "not a Savings category"));
+    const b = withSavings(); b.categories.find(c => c.id === "emergency").destinationId = "nowhere";
+    assert.ok(has(D.normalizeState(b).errors, "doesn't exist"));
+    const c = withSavings(); c.categories.push({ id: "second", name: "Second pot", budget: 100, kind: "Savings", destinationId: "m-shwari" });
+    assert.ok(has(D.normalizeState(c).errors, "only one category"));
+  });
+
+  it("warns (but keeps the data) when withdrawals exceed what a destination ever held", () => {
+    const s = withSavings();
+    s.transactions.push({ id: "s3", type: "savings_withdrawal", amount: 5000, destinationId: "kcb-mpesa", date: "2026-11-05", note: "", createdAt: 7 });
+    const r = D.normalizeState(s);
+    assert.ok(D.isClean(r));
+    assert.ok(has(r.warnings, "KCB M-PESA would show −KSh 4,500"), r.warnings.join(" | "));
+  });
+
+  it("an exact duplicate savings transfer is removed so it isn't counted twice", () => {
+    const s = withSavings(); s.transactions.push({ ...s.transactions.find(t => t.id === "s1") });
+    const r = D.normalizeState(s);
+    assert.equal(r.state.transactions.filter(t => t.id === "s1").length, 1);
+    assert.equal(computeTotals(r.state).destinationBalances["m-shwari"], 12000);
+  });
+
+  it("backup round trip keeps savings entries, links and balances exactly", () => {
+    const original = D.normalizeState(withSavings()).state;
+    const r = D.analyzeBackup(D.serializeBackup(original));
+    assert.deepEqual(r.state, original);
+    assert.equal(r.summary.savingsCount, 2);
+    assert.equal(r.summary.totalSavings, 12000 + 500);
+  });
+
+  it("data saved by v1.1.0 (no savings yet) is still valid and loads unchanged", () => {
+    const phase1 = v2();
+    const r = D.normalizeState(JSON.parse(JSON.stringify(phase1)));
+    assert.ok(D.isClean(r));
+    assert.deepEqual(r.fixed, []);
+    assert.deepEqual(r.state, phase1);
+  });
+});
+
+describe("Phase 2: category types come from a fixed list (KI-07)", () => {
+  const typeOf = (kind) => { const s = v2(); s.categories[0].kind = kind; const r = D.normalizeState(s); return [r.state.categories[0].kind, r.fixed]; };
+  it("standard types are kept as written", () => {
+    for (const t of D.CATEGORY_TYPES) assert.deepEqual(typeOf(t), [t, []]);
+  });
+  it("any capitalisation or spacing is read as the standard type and reported", () => {
+    const [kind, fixed] = typeOf("  flexible ");
+    assert.equal(kind, "Flexible");
+    assert.ok(has(fixed, 'read as "Flexible"'));
+  });
+  it("non-standard or missing types become 'Other' and are reported", () => {
+    assert.equal(typeOf("Fun")[0], "Other");
+    assert.ok(has(typeOf("Fun")[1], "isn't one of the standard types"));
+    assert.equal(typeOf(undefined)[0], "Other");
+  });
+});
+
+describe("Phase 2: income sources (KI-10)", () => {
+  it("offers a separate list of income sources", () => {
+    assert.deepEqual(D.INCOME_SOURCES.map(s => s.name), ["Salary", "Business", "Side income", "Gift received", "Refund", "Other income"]);
+  });
+  it("income tagged with an income source, or with a category by older versions, is accepted without warnings", () => {
+    const s = v2();
+    s.transactions.push({ id: "i1", type: "income", amount: 50000, categoryId: "inc-salary", date: "2026-11-01", note: "Salary", createdAt: 9 });
+    const r = D.normalizeState(s);
+    assert.ok(D.isClean(r));
+    assert.deepEqual(r.warnings, []);
+  });
+  it("income with no category is set to 'Other income'", () => {
+    const s = v2(); delete s.transactions[1].categoryId;
+    assert.equal(D.normalizeState(s).state.transactions[1].categoryId, "inc-other");
   });
 });

@@ -36,6 +36,11 @@ dailyGuide  = floor( safeToSpend ÷ daysToPayday )   (whole amount on payday)
   (a future feature) will feed into the same reserved amount.
 - The interface must explain the figure in plain words, showing the parts of
   the sum (e.g. "Flexible left 2,500 + unallocated −800 = 1,700").
+- *Implemented in Phase 2 (v1.2.0)* in `src/finance.js` (`computeTotals().safeToSpend`,
+  `dailyGuide`) and explained on the Overview ("How is 'safe to spend' worked out?").
+  Note: flexible + unallocated always equals spending cash minus what non-flexible
+  categories still reserve, so it can never exceed cash; the cap is kept as a
+  guard. With no payday set there is no daily guide.
 
 ## D-04 Savings are internal transfers to named destinations — approved 2026-11-05
 
@@ -75,16 +80,24 @@ Opening balances are whole shillings ≥ 0. Savings transaction types are
 reserved: Phase 1 refuses them in restored files rather than mis-counting them.
 Calculations and UI follow in Phase 2.
 
-**To confirm before Phase 2 is built:**
+**Details approved 2026-11-05 (Phase 2 approval), implemented in v1.2.0:**
 
-1. *Linking budget allocations to transfers.* Proposed: a Savings-type budget
-   category can be linked to a destination, and transfers to it fulfil that
-   allocation. Without this, a transfer lowers cash while its allocation stays
-   reserved, so the money would be held back twice.
-2. *Limits.* Proposed: block a withdrawal larger than the destination's
-   balance; warn (but allow) a transfer larger than spending cash.
-3. *Interest and fees* (e.g. M-Shwari interest). Proposed: a later
-   "adjustment" entry per destination; not in the first savings release.
+1. *Linking — approved.* A Savings-type category can be linked to one
+   destination (`categories[].destinationId`); at most one category per
+   destination. Transfers to that destination fulfil the allocation, so the
+   money is never reserved twice. Example: allocate KSh 5,000, transfer
+   KSh 2,000 to M-Shwari → KSh 3,000 of the allocation remains. Saving more than
+   the allocation is not "over budget"; the extra comes out of unallocated money.
+2. *Limits — approved.* A withdrawal larger than the destination's recorded
+   balance is blocked. A transfer larger than spending cash shows a warning and
+   needs confirmation. Deleting a transfer that would leave a destination below
+   zero is blocked, as is a starting balance that would do so.
+3. *Interest and fees — deferred.* Not implemented. Room is left: the type
+   `savings_adjustment` is reserved (refused for now in restored files), and a
+   destination balance is a simple sum, so adjustments can be added to it later.
+
+Custom destinations are supported by the data model and calculations; the
+screen for adding them is not built yet (requested "in future").
 
 ## D-05 Plain JavaScript scripts, no build step — approved 2026-11-05
 
@@ -141,6 +154,32 @@ Rules (enforced in `src/storage.js`, covered by `tests/storage.test.js`):
 8. Restores always show a preview (contents, what is left out, what is
    corrected) and need explicit confirmation; the replaced data is kept as the
    pre-restore copy.
+
+## D-10 Withdrawals return money to available spending — proposed 2026-11-05 (Phase 2), awaiting confirmation
+
+A withdrawal adds to spending cash and does **not** re-open the linked savings
+allocation. The withdrawn money arrives as unallocated, so it is available to
+spend. Example: allocate 5,000, transfer 5,000 (allocation met), withdraw
+1,000 → the allocation stays met and safe-to-spend rises by 1,000.
+
+This follows "withdrawals back into available spending money" (D-04). The
+alternative — re-opening the allocation, so the plan asks you to save that
+1,000 again and safe-to-spend does not rise — is a one-line change in
+`computeTotals` if preferred.
+
+## D-11 Fixed category types and income sources — Phase 2 (v1.2.0)
+
+- Category types come from a fixed list: Essential, Bills, Savings, Flexible,
+  Personal, Event, Other (fixes KI-07). Only Flexible money counts towards
+  safe-to-spend; the rest are commitments. Older data is read case-insensitively
+  ("flexible" → Flexible); a non-standard type becomes Other, which is how it
+  was already treated.
+- Income is recorded against an income source — Salary, Business, Side income,
+  Gift received, Refund, Other income — never a spending category (fixes KI-10).
+  Older income entries tagged with a spending category are left unchanged in
+  storage and simply shown as "Income".
+- Schema v2 is extended additively (no version bump): data and backups from
+  v1.1.0 remain valid.
 
 ## D-08 Phase gating — approved 2026-11-05
 

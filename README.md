@@ -4,12 +4,31 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Status — v1.1.0 (Phase 1 complete).** PesaOtas is being developed from the
-> PesaFlow v1.0 prototype in small, tested phases. Saved data, migration from
-> PesaFlow and backup restore are now protected (Phase 1). The interface still
-> shows the PesaFlow name and demonstration data, and the safe-spending figures
-> are not yet reliable when you overspend; these are fixed in later phases.
-> Known defects: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+> **Status — v1.2.0 (Phase 2 complete).** PesaOtas is being developed from the
+> PesaFlow v1.0 prototype in small, tested phases. Saved data and restores are
+> protected (Phase 1); safe-to-spend and savings with KCB M-PESA and M-Shwari
+> work (Phase 2). Not yet done: pay cycles (the budget doesn't reset at payday),
+> and the PesaOtas name and blank onboarding. Known defects:
+> [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+
+## How "safe to spend" works
+
+**Safe to spend = flexible budget left + unallocated money**, never more than
+your spending cash and never below zero. In other words: your cash minus
+everything still set aside for bills, essentials, savings and other
+commitments. Overspending or allocating more than you have lowers it. The
+Overview explains the figure step by step. The daily guide divides it by the
+days left until payday.
+
+## Savings
+
+Record money you move to **KCB M-PESA** or **M-Shwari** with **Save**, and money
+you bring back with **Withdraw**. These are never counted as spending or
+income. Each account's balance is tracked separately; set what they already
+held under **Settings → Savings starting balances**. Link a Savings budget
+category to an account (Budget screen) and your transfers fill that allocation
+automatically. Everything is entered by hand: PesaOtas never connects to these
+services or asks for PINs or passwords.
 
 ## Upgrading from PesaFlow
 
@@ -70,7 +89,7 @@ index.html          App markup
 styles.css          Styles (mobile breakpoints at 1100, 800 and 390px)
 app.js              UI: rendering, forms, restore preview, recovery screens
 src/validation.js   Amounts, dates and IDs (pure, tested)
-src/finance.js      Financial calculations (pure, tested)
+src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (pure, tested)
 src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
 sw.js               Service worker (offline cache)

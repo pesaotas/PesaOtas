@@ -11,10 +11,9 @@
  *     opened directly from disk). Exposes `window.PesaFinance`.
  *   - Node (tests): `require("./src/finance.js")`.
  *
- * Phase 0 note: these functions were extracted from app.js WITHOUT changing
- * their behaviour. Known defects (e.g. no input validation, safe-to-spend
- * ignoring overspending) are listed in docs/KNOWN_ISSUES.md and will be fixed
- * in later phases with their own tests.
+ * History: extracted unchanged from app.js in Phase 0; savings, linked
+ * allocations, safe-to-spend and the daily guide added in Phase 2 (v1.2.0).
+ * Remaining known defects: docs/KNOWN_ISSUES.md.
  */
 (function (root, factory) {
   "use strict";
@@ -28,45 +27,116 @@
   "use strict";
 
   const MS_PER_DAY = 86400000;
+  const isKind = (c, kind) => String(c.kind || "").trim().toLowerCase() === kind;
+  const add = (map, key, amount) => { map[key] = (map[key] || 0) + amount; };
 
   /**
-   * Summarise a budget state.
+   * Summarise a budget state. All amounts are whole KSh.
+   *
+   * Transaction types (decision D-04):
+   *   income              +spending cash                      counted as income
+   *   expense             −spending cash                      counted as spending
+   *   savings_transfer    −spending cash, +destination        NOT income or spending
+   *   savings_withdrawal  +spending cash, −destination        NOT income or spending
+   * (Room is left for a future "savings_adjustment" type for interest and fees;
+   *  it would change a destination balance only.)
+   *
+   * Linked savings allocations (D-04, approved Phase 2): a Savings category with
+   * `destinationId` is fulfilled by transfers to that destination, so the same
+   * money is never reserved twice. Withdrawals return money to available
+   * spending cash and do not re-open the allocation (D-10).
+   *
+   * Safe to spend (D-03):
+   *   safeToSpend = clamp(flexible + unallocated, 0, max(0, cash))
    *
    * @param {object} state
-   * @param {number} state.openingBalance  Whole KSh held at the start of the plan.
-   * @param {Array<{id:string,budget:number,kind:string}>} state.categories
-   * @param {Array<{type:"income"|"expense",amount:number,categoryId:string}>} state.transactions
    * @returns {{
-   *   spent:number,             // sum of recorded expenses
-   *   earned:number,            // sum of recorded income
-   *   cash:number,              // opening + earned - spent (actual money held)
-   *   spentByCategory:Object<string,number>,
-   *   allocatedRemaining:number,// sum of unspent allocation per category (never < 0 per category)
-   *   planned:number,           // sum of all category allocations
-   *   unallocated:number,       // cash - allocatedRemaining (negative = plan is short)
-   *   overCount:number,         // categories whose spending exceeds their allocation
-   *   flexible:number           // unspent allocation in "Flexible" categories only
+   *   spent:number, earned:number,            // expenses / income only
+   *   transferredToSavings:number, withdrawnFromSavings:number,
+   *   cash:number,                            // spending cash
+   *   spentByCategory:Object<string,number>,  // expenses only
+   *   savedByCategory:Object<string,number>,  // transfers fulfilling linked Savings categories
+   *   allocatedRemaining:number,              // still reserved, never < 0 per category
+   *   planned:number, unallocated:number, overCount:number,
+   *   flexible:number,                        // unspent allocation of Flexible categories
+   *   uncategorisedSpent:number,              // expenses not in any existing category
+   *   destinationBalances:Object<string,number>, totalSavings:number,
+   *   safeToSpend:number
    * }}
    */
   function computeTotals(state) {
-    const expenses = state.transactions.filter(t => t.type === "expense");
-    const income = state.transactions.filter(t => t.type === "income");
-    const spent = expenses.reduce((sum, t) => sum + t.amount, 0);
-    const earned = income.reduce((sum, t) => sum + t.amount, 0);
-    const cash = state.openingBalance + earned - spent;
+    const categories = state.categories;
+    const destinations = Array.isArray(state.savingsDestinations) ? state.savingsDestinations : [];
+    let spent = 0, earned = 0, transferredToSavings = 0, withdrawnFromSavings = 0;
     const spentByCategory = {};
-    expenses.forEach(t => {
-      spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount;
-    });
-    const allocatedRemaining = state.categories.reduce(
-      (sum, c) => sum + Math.max(0, c.budget - (spentByCategory[c.id] || 0)), 0);
-    const planned = state.categories.reduce((sum, c) => sum + c.budget, 0);
+    const transfersTo = {};
+    const withdrawalsFrom = {};
+    for (const t of state.transactions) {
+      if (t.type === "expense") { spent += t.amount; add(spentByCategory, t.categoryId, t.amount); }
+      else if (t.type === "income") earned += t.amount;
+      else if (t.type === "savings_transfer") { transferredToSavings += t.amount; add(transfersTo, t.destinationId, t.amount); }
+      else if (t.type === "savings_withdrawal") { withdrawnFromSavings += t.amount; add(withdrawalsFrom, t.destinationId, t.amount); }
+    }
+    const cash = state.openingBalance + earned - spent - transferredToSavings + withdrawnFromSavings;
+
+    const savedByCategory = {};
+    for (const c of categories) {
+      if (isKind(c, "savings") && c.destinationId) savedByCategory[c.id] = transfersTo[c.destinationId] || 0;
+    }
+    const used = (c) => (spentByCategory[c.id] || 0) + (savedByCategory[c.id] || 0);
+    const allocatedRemaining = categories.reduce((sum, c) => sum + Math.max(0, c.budget - used(c)), 0);
+    const planned = categories.reduce((sum, c) => sum + c.budget, 0);
     const unallocated = cash - allocatedRemaining;
-    const overCount = state.categories.filter(c => (spentByCategory[c.id] || 0) > c.budget).length;
-    const flexible = state.categories
-      .filter(c => c.kind === "Flexible")
+    const overCount = categories.filter(c => (spentByCategory[c.id] || 0) > c.budget).length;
+    const flexible = categories
+      .filter(c => isKind(c, "flexible"))
       .reduce((sum, c) => sum + Math.max(0, c.budget - (spentByCategory[c.id] || 0)), 0);
-    return { spent, earned, cash, spentByCategory, allocatedRemaining, planned, unallocated, overCount, flexible };
+
+    const known = new Set(categories.map(c => c.id));
+    const uncategorisedSpent = Object.keys(spentByCategory)
+      .filter(id => !known.has(id))
+      .reduce((sum, id) => sum + spentByCategory[id], 0);
+
+    const destinationBalances = {};
+    for (const d of destinations) {
+      destinationBalances[d.id] = (d.openingBalance || 0) + (transfersTo[d.id] || 0) - (withdrawalsFrom[d.id] || 0);
+    }
+    const totalSavings = Object.values(destinationBalances).reduce((a, b) => a + b, 0);
+
+    // flexible + unallocated equals cash minus what non-flexible categories still
+    // reserve, so it can never exceed cash; the cap is kept as a guard (D-03).
+    const safeToSpend = Math.min(Math.max(0, flexible + unallocated), Math.max(0, cash));
+
+    return {
+      spent, earned, transferredToSavings, withdrawnFromSavings, cash,
+      spentByCategory, savedByCategory, allocatedRemaining, planned, unallocated, overCount, flexible,
+      uncategorisedSpent, destinationBalances, totalSavings, safeToSpend
+    };
+  }
+
+  /**
+   * Suggested spending per day until payday (D-03): whole shillings, rounded down.
+   * On payday (0 days) the whole amount is available. With no payday set, null.
+   *
+   * @param {number} safeToSpend
+   * @param {number} days  from daysToPayday
+   * @returns {number|null}
+   */
+  function dailyGuide(safeToSpend, days) {
+    if (typeof days !== "number" || !Number.isFinite(days) || days < 0) return null;
+    if (days === 0) return safeToSpend;
+    return Math.floor(safeToSpend / days);
+  }
+
+  /**
+   * Format whole shillings for display: "KSh 25,000", "−KSh 800".
+   * Deterministic (does not depend on the browser's locale data).
+   * @param {number} value
+   */
+  function formatKSh(value) {
+    const n = Math.round(Number(value) || 0);
+    const digits = String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (n < 0 ? "−" : "") + "KSh " + digits;
   }
 
   /**
@@ -84,5 +154,5 @@
     return Math.max(0, Math.ceil((payday - today) / MS_PER_DAY));
   }
 
-  return Object.freeze({ computeTotals, daysToPayday });
+  return Object.freeze({ computeTotals, daysToPayday, dailyGuide, formatKSh });
 });

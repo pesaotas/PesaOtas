@@ -3,6 +3,56 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.0] — 2026-11-05 — Phase 2: calculation correctness and savings
+
+Fixes KI-06, 07, 08, 10, 11, 18. All migration, restore and recovery
+protections from Phase 1 are unchanged and were re-verified in Chrome.
+
+### Added
+- **Safe to spend** (D-03) on the Overview: flexible budget left + unallocated
+  money, never more than spending cash and never below zero. Replaces
+  "Flexible budget left" in the stat cards; that figure now appears in the
+  explanation.
+- **Daily guide** = safe to spend ÷ days to payday, rounded down; the whole
+  amount on payday; none when no payday is set.
+- **"How is 'safe to spend' worked out?"**: a plain-language breakdown showing
+  each part of the sum, the cash ceiling, and the daily pace.
+- **Savings with KCB M-PESA and M-Shwari** (D-04): Save and Withdraw options in
+  the entry form; separate balances; a "Your savings" card on the Overview;
+  starting balances in Settings. Entries are manual only; no connection to any
+  service and no PINs or passwords.
+- **Linked savings allocations** (approved): a Savings category can be linked
+  to one destination in the Budget screen; transfers fulfil the allocation
+  (KSh 5,000 allocated, KSh 2,000 saved → KSh 3,000 left).
+- **Limits** (approved): withdrawals above a destination's balance are blocked;
+  transfers above spending cash need confirmation; deleting a transfer or
+  lowering a starting balance can't leave a destination below zero.
+- **Income sources** (Salary, Business, Side income, Gift received, Refund,
+  Other income) instead of spending categories.
+- "Savings moves" filter in transaction history; "Other / uncategorised" row in
+  Insights; savings in the restore preview.
+- `src/finance.js`: savings types, destination balances, linked fulfilment,
+  `safeToSpend`, `uncategorisedSpent`, `dailyGuide()`, `formatKSh()`.
+- `src/data-model.js`: savings entries and links (validated), fixed category
+  types, income sources, warning when a destination would be below zero.
+- `tests/savings-and-safe-to-spend.test.js` (33 tests) and 13 Phase 2 tests in
+  `data-model.test.js`. Total: 139 tests, 136 pass, 0 fail, 3 todo (Phase 3).
+- DECISIONS: D-04 details recorded; D-10 (withdrawals, awaiting confirmation);
+  D-11 (category types, income sources). KNOWN_ISSUES KI-23 to KI-26.
+
+### Changed
+- Amounts display as "KSh 25,000" / "−KSh 800" (was "Ksh", "-Ksh").
+- Category types come from a fixed list; adding a category with another type is
+  refused with the list. Older data is read case-insensitively.
+- Insights list spending only; linked savings categories are not shown as spending.
+- Schema v2 extended additively: v1.1.0 data and backups remain valid.
+- `sw.js` cache renamed `pesaflow-v1.2.0`; `package.json` version 1.2.0.
+
+### Fixed
+- KI-06: safe-to-spend and the daily guide now account for overspending and
+  over-allocation (the Phase 0 example now shows KSh 0/day, not KSh 132/day).
+- KI-07, KI-08, KI-10, KI-11, KI-18 as above.
+
 ## [1.1.0] — 2026-11-05 — Phase 1: data integrity
 
 Fixes KI-01 to KI-05. No calculation was changed: `src/finance.js` is

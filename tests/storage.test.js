@@ -23,7 +23,10 @@ describe("migration from PesaFlow", () => {
     const store = new FakeStorage({ [KEYS.legacy]: legacyRaw() });
     const res = S.load(store, NOW);
     assert.equal(res.status, "migrated");
-    assert.deepEqual(computeTotals(res.state), computeTotals(legacyState()));
+    const { destinationBalances, ...after } = computeTotals(res.state);
+    const { destinationBalances: _none, ...before } = computeTotals(legacyState());
+    assert.deepEqual(after, before);
+    assert.deepEqual(destinationBalances, { "kcb-mpesa": 0, "m-shwari": 0 });
     assert.deepEqual(res.state.transactions, legacyState().transactions);
     const saved = JSON.parse(store.getItem(KEYS.current));
     assert.deepEqual(saved, res.state);

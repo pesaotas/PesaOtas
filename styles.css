@@ -48,3 +48,37 @@
   .summary-list{grid-template-columns:1fr}
   .safety-row{flex-direction:column;align-items:stretch}
 }
+
+/* ---- Phase 2: safe-to-spend explanation, savings, four-way entry form ---- */
+.type-switch-4{grid-template-columns:repeat(4,1fr);gap:2px}
+.form-helper{margin:2px 0 0;padding:10px 12px;border-radius:9px;background:var(--green-soft);color:#1d4d3c;font-size:12px;line-height:1.5}
+.explain-card summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--green);list-style:none;display:flex;align-items:center;gap:8px}
+.explain-card summary::-webkit-details-marker{display:none}
+.explain-card summary::before{content:"＋";font-size:13px}
+.explain-card[open] summary::before{content:"−"}
+.explain-card[open] summary{margin-bottom:12px}
+.breakdown{font-size:13px;line-height:1.55}
+.breakdown p{margin:0 0 10px}
+.breakdown-lead{color:#3d5149}
+.breakdown-rows{border:1px solid var(--line);border-radius:11px;overflow:hidden;margin:0 0 10px}
+.breakdown-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line)}
+.breakdown-row:last-child{border-bottom:0}
+.breakdown-row small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.breakdown-row strong{white-space:nowrap;font-size:14px}
+.breakdown-row .is-negative{color:#b84c40}
+.breakdown-total{background:var(--green-soft);font-weight:700}
+.breakdown-total strong{color:var(--green);font-size:16px}
+.savings-list{display:grid;gap:2px}
+.savings-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f0f3f1;font-size:13px}
+.savings-row strong{font-size:14px}
+.savings-total{border-bottom:0;font-weight:700;color:var(--green)}
+.savings-list .tiny-muted{margin:4px 0 0;font-size:11.5px}
+.activity-amount.transfer{color:#5b6e66}
+.activity-icon-savings{background:#eef1fa;color:#56609a}
+.link-field{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:11px;font-weight:700;color:#52635b}
+.link-field .input{max-width:200px}
+@media(max-width:800px){
+  .type-switch-4{grid-template-columns:repeat(2,1fr)}
+  .type-switch-4 span{font-size:12px}
+  .breakdown-row{align-items:flex-start}
+}

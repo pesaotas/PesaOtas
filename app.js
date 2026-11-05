@@ -1,9 +1,9 @@
 (() => {
   "use strict";
 
-  const money = (value) => new Intl.NumberFormat("en-KE", {
-    style: "currency", currency: "KES", maximumFractionDigits: 0
-  }).format(Math.round(Number(value) || 0));
+  const money = (value) => PesaFinance.formatKSh(value); // "KSh 25,000" (KI-18)
+  const SAVINGS_TYPES = ["savings_transfer", "savings_withdrawal"];
+  const isSavingsType = (type) => SAVINGS_TYPES.includes(type);
   const todayISO = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -122,6 +122,16 @@
   function categoryName(id) {
     return state.categories.find(c => c.id === id)?.name || "Other";
   }
+  // Income is described by its source, never by a spending category (KI-10).
+  // Older entries tagged with a spending category simply show as "Income".
+  function incomeSourceName(id) {
+    return PesaData.INCOME_SOURCES.find(s => s.id === id)?.name || "Income";
+  }
+  const activeDestinations = () => (state.savingsDestinations || []).filter(d => !d.archived);
+  function destinationName(id) {
+    return (state.savingsDestinations || []).find(d => d.id === id)?.name || "Savings";
+  }
+  const isSavingsCategory = (c) => PesaData.canonicalType(c.kind) === "Savings";
   function setView(view) {
     document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === `view-${view}`));
     document.querySelectorAll(".nav-link").forEach(el => el.classList.toggle("active", el.dataset.view === view));
@@ -131,29 +141,81 @@
     if (view === "transactions") renderTransactions();
     window.scrollTo({top:0,behavior:"smooth"});
   }
+  // Amount of a category's allocation used: spending, plus transfers to its
+  // linked savings destination (D-04: transfers fulfil the allocation).
+  const usedOf = (t, c) => (t.spentByCategory[c.id] || 0) + (t.savedByCategory[c.id] || 0);
   function budgetProgress(c) {
-    const spent = totals().spentByCategory[c.id] || 0;
-    const pct = c.budget > 0 ? Math.min(100, spent/c.budget*100) : (spent > 0 ? 100 : 0);
-    const over = spent > c.budget;
+    const t = totals();
+    const used = usedOf(t, c);
+    const pct = c.budget > 0 ? Math.min(100, used/c.budget*100) : (used > 0 ? 100 : 0);
+    const over = (t.spentByCategory[c.id] || 0) > c.budget;
+    const suffix = c.destinationId ? " saved" : "";
     return `<div class="budget-item">
-      <div class="budget-item-head"><span class="budget-name">${escapeHTML(c.name)}</span><span class="budget-amount">${money(spent)} / ${money(c.budget)}</span></div>
+      <div class="budget-item-head"><span class="budget-name">${escapeHTML(c.name)}</span><span class="budget-amount">${money(used)}${suffix} / ${money(c.budget)}</span></div>
       <div class="progress-track"><div class="progress-fill ${over?"over":""}" style="width:${pct}%"></div></div>
     </div>`;
   }
+  function describeTransaction(t) {
+    if (t.type === "income") {
+      const source = incomeSourceName(t.categoryId);
+      return { icon: "↗", title: t.note || source, sub: source, amount: `+${money(t.amount)}`, cls: "positive" };
+    }
+    if (t.type === "savings_transfer") {
+      const dest = destinationName(t.destinationId);
+      return { icon: "→", title: t.note || `Saved to ${dest}`, sub: `Moved to ${dest} · not spending`, amount: `−${money(t.amount)}`, cls: "transfer" };
+    }
+    if (t.type === "savings_withdrawal") {
+      const dest = destinationName(t.destinationId);
+      return { icon: "←", title: t.note || `Withdrawn from ${dest}`, sub: `From ${dest} · not income`, amount: `+${money(t.amount)}`, cls: "transfer" };
+    }
+    const cat = categoryName(t.categoryId);
+    return { icon: "↘", title: t.note || cat, sub: cat, amount: `−${money(t.amount)}`, cls: "negative" };
+  }
   function transactionMarkup(t, withDelete=false) {
-    const isIncome = t.type === "income";
-    const icon = isIncome ? "↗" : "↘";
-    const amountClass = isIncome ? "positive" : "negative";
+    const d = describeTransaction(t);
     return `<div class="activity-row">
-      <div class="activity-icon">${icon}</div>
-      <div class="activity-info"><strong>${escapeHTML(t.note || categoryName(t.categoryId))}</strong><small>${escapeHTML(categoryName(t.categoryId))} · ${formatDate(t.date)}</small></div>
-      <span class="activity-amount ${amountClass}">${isIncome?"+":"−"}${money(t.amount)}</span>
-      ${withDelete?`<button class="delete-transaction" data-delete="${escapeHTML(t.id)}" title="Delete transaction" aria-label="Delete transaction">×</button>`:""}
+      <div class="activity-icon ${d.cls === "transfer" ? "activity-icon-savings" : ""}">${d.icon}</div>
+      <div class="activity-info"><strong>${escapeHTML(d.title)}</strong><small>${escapeHTML(d.sub)} · ${formatDate(t.date)}</small></div>
+      <span class="activity-amount ${d.cls}">${d.amount}</span>
+      ${withDelete?`<button class="delete-transaction" data-delete="${escapeHTML(t.id)}" title="Delete entry" aria-label="Delete entry">×</button>`:""}
     </div>`;
   }
+
+  /** Plain-language breakdown of the safe-to-spend figure (D-03). */
+  function renderSafeBreakdown(t, days, guide) {
+    const sum = t.flexible + t.unallocated;
+    const unallocatedNote = t.unallocated < 0
+      ? "Below zero: your plan needs more than you have (from overspending or allocating more than you hold), so this comes off."
+      : "Cash that hasn't been given a job in your budget yet.";
+    const paceLine = guide === null
+      ? `<p>Set your payday in Settings to get a daily guide.</p>`
+      : days === 0
+        ? `<p>It's payday, so the whole amount is available today.</p>`
+        : `<p>Spread over <strong>${days} day${days === 1 ? "" : "s"}</strong> to payday, that's about <strong>${money(guide)} a day</strong> (rounded down).</p>`;
+    document.getElementById("safe-breakdown").innerHTML = `
+      <p class="breakdown-lead">It's your spending cash minus everything still set aside for bills, essentials, savings and other commitments.</p>
+      <div class="breakdown-rows" role="table" aria-label="Safe to spend calculation">
+        <div class="breakdown-row" role="row"><span role="cell">Flexible budget left<small>Unspent money in your Flexible categories</small></span><strong role="cell" id="flexible-left">${money(t.flexible)}</strong></div>
+        <div class="breakdown-row" role="row"><span role="cell">+ Unallocated money<small>${escapeHTML(unallocatedNote)}</small></span><strong role="cell" class="${t.unallocated < 0 ? "is-negative" : ""}">${money(t.unallocated)}</strong></div>
+        <div class="breakdown-row breakdown-total" role="row"><span role="cell">= Safe to spend now</span><strong role="cell">${money(t.safeToSpend)}</strong></div>
+      </div>
+      <p class="tiny-muted">Never more than your spending cash (${money(t.cash)}) and never below zero.${sum < 0 ? ` Right now the sum is ${money(sum)}, so it shows ${money(0)}.` : ""}</p>
+      ${paceLine}
+      <p class="tiny-muted">Moving money to savings is not spending. It leaves your spending cash, and if the destination is linked to a Savings budget category, it fulfils that allocation so the money is never set aside twice.</p>`;
+  }
+
+  function renderSavingsOverview(t) {
+    const rows = activeDestinations().map(d => `<div class="savings-row"><span>${escapeHTML(d.name)}</span><strong>${money(t.destinationBalances[d.id] || 0)}</strong></div>`).join("");
+    const linked = state.categories.filter(c => c.destinationId && isSavingsCategory(c)).map(c =>
+      `<p class="tiny-muted">${escapeHTML(c.name)}: ${money(t.savedByCategory[c.id] || 0)} of ${money(c.budget)} saved to ${escapeHTML(destinationName(c.destinationId))}.</p>`).join("");
+    document.getElementById("savings-overview").innerHTML =
+      rows + `<div class="savings-row savings-total"><span>Total savings</span><strong>${money(t.totalSavings)}</strong></div>` + linked;
+  }
+
   function renderOverview() {
     const t = totals();
     const days = daysToPayday();
+    const guide = state.payday ? PesaFinance.dailyGuide(t.safeToSpend, days) : null;
     document.getElementById("cash-balance").textContent = money(t.cash);
     document.getElementById("reserved-total").textContent = money(t.allocatedRemaining);
     document.getElementById("unallocated-total").textContent = money(t.unallocated);
@@ -161,8 +223,11 @@
     document.getElementById("payday-date").textContent = state.payday ? new Date(`${state.payday}T12:00:00`).toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"}) : "Set your payday in settings";
     document.getElementById("income-total").textContent = money(t.earned);
     document.getElementById("expense-total").textContent = money(t.spent);
-    document.getElementById("flexible-left").textContent = money(t.flexible);
-    document.getElementById("daily-guide").textContent = money(days > 0 ? t.flexible/days : t.flexible);
+    document.getElementById("safe-to-spend").textContent = money(t.safeToSpend);
+    document.getElementById("daily-guide").textContent = guide === null ? "—" : money(guide);
+    document.getElementById("daily-guide-note").textContent = guide === null ? "Set a payday to see this" : days === 0 ? "It's payday" : "Safe to spend ÷ days to payday";
+    renderSafeBreakdown(t, days, guide);
+    renderSavingsOverview(t);
     const daysElapsed = state.payday ? Math.max(0,30-days) : 0;
     document.getElementById("payday-progress").style.width = `${Math.min(100,Math.max(4,daysElapsed/30*100))}%`;
     document.getElementById("overview-budgets").innerHTML = state.categories.slice(0,5).map(budgetProgress).join("");
@@ -181,7 +246,8 @@
   }
   function renderTransactions() {
     const filter = document.getElementById("transaction-filter").value;
-    const items = [...state.transactions].filter(t=>filter==="all" || t.type===filter)
+    const items = [...state.transactions]
+      .filter(t => filter === "all" || (filter === "savings" ? isSavingsType(t.type) : t.type === filter))
       .sort(newestFirst);
     document.getElementById("transaction-count").textContent = `${items.length} ${items.length===1?"entry":"entries"}`;
     document.getElementById("all-transactions").innerHTML = items.length ? items.map(t=>transactionMarkup(t,true)).join("") : `<div class="empty-state">Nothing here yet.<br>Your recorded transactions will appear here.</div>`;
@@ -193,9 +259,18 @@
     document.getElementById("over-budget-count").textContent = t.overCount;
     document.getElementById("budget-list").innerHTML = state.categories.map(c=>{
       const spent = t.spentByCategory[c.id] || 0;
+      const used = usedOf(t, c);
+      let status = `${money(spent)} spent · ${money(Math.max(0,c.budget-used))} left`;
+      let link = "";
+      if (isSavingsCategory(c)) {
+        const options = activeDestinations().map(d => `<option value="${escapeHTML(d.id)}" ${c.destinationId === d.id ? "selected" : ""}>${escapeHTML(d.name)}</option>`).join("");
+        link = `<label class="link-field"><span>Saved to</span><select class="input compact-input savings-link" data-link-id="${escapeHTML(c.id)}" aria-label="${escapeHTML(c.name)}: savings destination"><option value="">Not linked</option>${options}</select></label>`;
+        if (c.destinationId) status = `${money(t.savedByCategory[c.id] || 0)} saved${spent ? ` + ${money(spent)} spent` : ""} · ${money(Math.max(0,c.budget-used))} left`;
+      }
       return `<article class="card budget-edit-card">
         <div class="budget-edit-top"><strong>${escapeHTML(c.name)}</strong><span class="category-kind">${escapeHTML(c.kind)}</span></div>
-        <div class="budget-edit-bottom"><input class="input budget-value" type="number" min="0" step="50" value="${c.budget}" data-budget-id="${escapeHTML(c.id)}" aria-label="${escapeHTML(c.name)} budget"><span>${money(spent)} spent · ${money(Math.max(0,c.budget-spent))} left</span></div>
+        <div class="budget-edit-bottom"><input class="input budget-value" type="number" min="0" step="50" value="${c.budget}" data-budget-id="${escapeHTML(c.id)}" aria-label="${escapeHTML(c.name)} budget"><span>${status}</span></div>
+        ${link}
       </article>`;
     }).join("");
   }
@@ -204,30 +279,91 @@
     document.getElementById("insight-expenses").textContent = money(t.spent);
     document.getElementById("insight-income").textContent = money(t.earned);
     document.getElementById("insight-count").textContent = state.transactions.length;
-    const expenses = state.categories.map(c=>({name:c.name,spent:t.spentByCategory[c.id]||0,budget:c.budget}))
-      .sort((a,b)=>b.spent-a.spent);
-    document.getElementById("insight-categories").innerHTML = expenses.map(c=>{
-      const pct = c.budget ? Math.min(100,c.spent/c.budget*100) : (c.spent?100:0);
-      return `<div class="insight-line"><strong>${escapeHTML(c.name)}</strong><div class="progress-track"><div class="progress-fill ${c.spent>c.budget?"over":""}" style="width:${pct}%"></div></div><span class="tiny-muted">${money(c.spent)} / ${money(c.budget)}</span></div>`;
+    // Spending only: savings moves never appear as spending (KI-08).
+    const rows = state.categories.filter(c => !(c.destinationId && isSavingsCategory(c)))
+      .map(c => ({ name: c.name, spent: t.spentByCategory[c.id] || 0, budget: c.budget }));
+    if (t.uncategorisedSpent > 0) rows.push({ name: "Other / uncategorised", spent: t.uncategorisedSpent, budget: null }); // KI-11
+    rows.sort((a,b) => b.spent - a.spent);
+    document.getElementById("insight-categories").innerHTML = rows.map(c => {
+      const noBudget = c.budget === null;
+      const pct = noBudget ? 100 : c.budget ? Math.min(100,c.spent/c.budget*100) : (c.spent?100:0);
+      const over = noBudget || c.spent > c.budget;
+      return `<div class="insight-line"><strong>${escapeHTML(c.name)}</strong><div class="progress-track"><div class="progress-fill ${over?"over":""}" style="width:${pct}%"></div></div><span class="tiny-muted">${money(c.spent)} / ${noBudget ? "no budget" : money(c.budget)}</span></div>`;
     }).join("");
     let message = "Record a few transactions and PesaFlow will start identifying spending patterns.";
     if (state.transactions.length) {
-      const top = expenses[0];
-      if (top && top.spent > 0) message = `${top.name} is currently your highest recorded spending category at ${money(top.spent)}. Keep recording purchases so you can spot patterns early.`;
+      const top = rows[0];
+      message = top && top.spent > 0
+        ? `${top.name} is currently your highest recorded spending category at ${money(top.spent)}. Keep recording purchases so you can spot patterns early.`
+        : "No spending recorded yet.";
       if (t.overCount) message += ` You have ${t.overCount} category/categories above their planned budget.`;
-      else message += " None of your recorded categories are over budget. Keep it up.";
+      else if (top && top.spent > 0) message += " None of your recorded categories are over budget. Keep it up.";
+      if (t.uncategorisedSpent > 0) message += ` ${money(t.uncategorisedSpent)} of spending has no budget category, so it comes out of your unallocated money.`;
+      if (t.transferredToSavings || t.withdrawnFromSavings) {
+        message += ` You moved ${money(t.transferredToSavings)} into savings${t.withdrawnFromSavings ? ` and took ${money(t.withdrawnFromSavings)} back out` : ""}; savings moves are not counted as spending or income.`;
+      }
     }
     document.getElementById("insight-message").textContent = message;
   }
+
+  // ---------------------------------------------------------------------------
+  // Entry form: expense · income · save · withdraw
+  // ---------------------------------------------------------------------------
+  const currentType = () => document.querySelector('input[name="transaction-type"]:checked').value;
   function populateCategorySelect() {
+    const type = currentType();
     const select = document.getElementById("tx-category");
     const old = select.value;
-    select.innerHTML = state.categories.map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)}</option>`).join("") + `<option value="other">Other / uncategorised</option>`;
+    if (type === "income") {
+      select.innerHTML = PesaData.INCOME_SOURCES.map(s => `<option value="${s.id}">${escapeHTML(s.name)}</option>`).join("");
+    } else {
+      select.innerHTML = state.categories.map(c=>`<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)}</option>`).join("") + `<option value="other">Other / uncategorised</option>`;
+    }
     if ([...select.options].some(o=>o.value===old)) select.value = old;
+    const dest = document.getElementById("tx-destination");
+    const oldDest = dest.value;
+    const t = totals();
+    dest.innerHTML = activeDestinations().map(d => `<option value="${escapeHTML(d.id)}">${escapeHTML(d.name)} (${money(t.destinationBalances[d.id] || 0)})</option>`).join("");
+    if ([...dest.options].some(o=>o.value===oldDest)) dest.value = oldDest;
+    updateTxForm();
   }
+  function updateTxForm() {
+    const type = currentType();
+    const savings = isSavingsType(type);
+    document.getElementById("tx-category-field").classList.toggle("hidden", savings);
+    document.getElementById("tx-destination-field").classList.toggle("hidden", !savings);
+    document.getElementById("tx-category-label").textContent = type === "income" ? "Income source" : "Category";
+    document.getElementById("tx-destination-label").textContent = type === "savings_withdrawal" ? "Withdraw from" : "Save to";
+    const helper = document.getElementById("tx-helper");
+    const t = totals();
+    const destId = document.getElementById("tx-destination").value;
+    if (type === "savings_transfer") {
+      helper.textContent = `Spending cash available: ${money(t.cash)}. Moving money to savings is not spending.`;
+    } else if (type === "savings_withdrawal") {
+      helper.textContent = destId
+        ? `${destinationName(destId)} holds ${money(t.destinationBalances[destId] || 0)}. You can withdraw up to that. Withdrawals are not income.`
+        : "";
+    } else {
+      helper.textContent = "";
+    }
+    helper.classList.toggle("hidden", !helper.textContent);
+  }
+  document.querySelectorAll('input[name="transaction-type"]').forEach(r => r.addEventListener("change", populateCategorySelect));
+  document.getElementById("tx-destination").addEventListener("change", updateTxForm);
+  document.querySelectorAll("[data-open-savings]").forEach(btn => btn.addEventListener("click", () => {
+    setView("transactions");
+    document.querySelector(`input[name="transaction-type"][value="${btn.dataset.openSavings}"]`).checked = true;
+    populateCategorySelect();
+  }));
+
   function populateSettings() {
     document.getElementById("opening-balance").value = state.openingBalance;
     document.getElementById("payday-input").value = state.payday;
+    const t = totals();
+    document.getElementById("savings-balance-fields").innerHTML = activeDestinations().map(d => `
+      <label class="field-label" for="dest-open-${escapeHTML(d.id)}">${escapeHTML(d.name)} — starting balance (KSh)</label>
+      <input class="input dest-opening" id="dest-open-${escapeHTML(d.id)}" data-dest-id="${escapeHTML(d.id)}" type="number" min="0" step="1" value="${d.openingBalance}">
+      <small class="tiny-muted">Balance now: ${money(t.destinationBalances[d.id] || 0)}</small>`).join("");
   }
   function renderAll() {
     renderOverview(); renderTransactions(); renderBudget(); renderInsights(); populateCategorySelect();
@@ -240,29 +376,61 @@
   document.getElementById("transaction-form").addEventListener("submit",e=>{
     e.preventDefault();
     const amountCheck = PesaValidation.parseWholeShillings(document.getElementById("tx-amount").value);
-    const type = document.querySelector('input[name="transaction-type"]:checked').value;
-    const categoryId = document.getElementById("tx-category").value;
+    const type = currentType();
     const date = document.getElementById("tx-date").value;
     const note = document.getElementById("tx-note").value.trim();
     if (!amountCheck.ok) return showToast(`Amount ${amountCheck.error}.`);
     if (!PesaValidation.isValidISODate(date)) return showToast("Choose a valid date.");
-    if (categoryId !== "other" && !state.categories.some(c=>c.id===categoryId)) return showToast("Choose a category.");
-    const transaction = {id:makeId("tx"),type,amount:amountCheck.value,categoryId,date,note,createdAt:Date.now()};
+    const amount = amountCheck.value;
+    let transaction, done;
+    if (isSavingsType(type)) {
+      const destinationId = document.getElementById("tx-destination").value;
+      if (!activeDestinations().some(d => d.id === destinationId)) return showToast("Choose a savings destination.");
+      const t = totals();
+      const name = destinationName(destinationId);
+      if (type === "savings_withdrawal") {
+        const balance = t.destinationBalances[destinationId] || 0;
+        if (amount > balance) return showToast(`${name} holds ${money(balance)}. You can't withdraw more than that.`);
+      } else if (amount > Math.max(0, t.cash)) {
+        if (!confirm(`This transfer of ${money(amount)} is more than your spending cash (${money(t.cash)}). Your spending cash would go below zero. Record it anyway?`)) return;
+      }
+      transaction = {id:makeId("sv"),type,amount,destinationId,date,note,createdAt:Date.now()};
+      done = type === "savings_withdrawal" ? `Withdrew ${money(amount)} from ${name}.` : `Saved ${money(amount)} to ${name}.`;
+    } else {
+      const categoryId = document.getElementById("tx-category").value;
+      const valid = type === "income"
+        ? PesaData.INCOME_SOURCES.some(s => s.id === categoryId)
+        : categoryId === "other" || state.categories.some(c=>c.id===categoryId);
+      if (!valid) return showToast(type === "income" ? "Choose an income source." : "Choose a category.");
+      transaction = {id:makeId("tx"),type,amount,categoryId,date,note,createdAt:Date.now()};
+      done = "Transaction saved.";
+    }
     state.transactions.push(transaction);
     if (saveState()) {
       e.target.reset();
       document.getElementById("tx-date").value = todayISO();
       document.querySelector('input[name="transaction-type"][value="expense"]').checked = true;
-      renderAll(); showToast("Transaction saved.");
+      renderAll(); showToast(done);
     }
   });
   document.getElementById("transaction-filter").addEventListener("change",renderTransactions);
   document.getElementById("all-transactions").addEventListener("click",e=>{
     const btn = e.target.closest("[data-delete]");
     if (!btn) return;
-    if (!confirm("Delete this transaction? Your balance and budget totals will be recalculated.")) return;
-    state.transactions = state.transactions.filter(t=>t.id!==btn.dataset.delete);
-    if (saveState()) showToast("Transaction deleted.");
+    const tx = state.transactions.find(t => t.id === btn.dataset.delete);
+    if (!tx) return;
+    const remaining = state.transactions.filter(t => t.id !== tx.id);
+    if (tx.type === "savings_transfer") {
+      // Removing a transfer must not leave a destination showing less than nothing.
+      const after = PesaFinance.computeTotals({ ...state, transactions: remaining }).destinationBalances[tx.destinationId] || 0;
+      if (after < 0) return showToast(`Can't delete this: ${destinationName(tx.destinationId)} would show ${money(after)}. Delete the later withdrawal first.`);
+    }
+    const what = isSavingsType(tx.type)
+      ? `Delete this savings entry? Your spending cash and ${destinationName(tx.destinationId)} balance will be recalculated.`
+      : "Delete this transaction? Your balance and budget totals will be recalculated.";
+    if (!confirm(what)) return;
+    state.transactions = remaining;
+    if (saveState()) showToast("Entry deleted.");
     renderAll();
   });
   document.getElementById("save-budget-button").addEventListener("click",()=>{
@@ -274,9 +442,35 @@
       if (!check.ok) { input.focus(); return showToast(`${category.name}: allocation ${check.error}. Nothing was changed.`); }
       updates.push([category, check.value]);
     }
+    const links = [...document.querySelectorAll(".savings-link")].map(sel => [state.categories.find(c => c.id === sel.dataset.linkId), sel.value]).filter(([c]) => c);
+    const chosen = links.map(([, v]) => v).filter(Boolean);
+    const clash = chosen.find((v, i) => chosen.indexOf(v) !== i);
+    if (clash) return showToast(`Only one Savings category can be linked to ${destinationName(clash)}. Nothing was changed.`);
     updates.forEach(([category, value]) => { category.budget = value; });
+    links.forEach(([category, value]) => { if (value) category.destinationId = value; else delete category.destinationId; });
     if (saveState()) showToast("Budget allocations updated.");
     renderAll();
+  });
+  document.getElementById("savings-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const changes = [];
+    for (const input of document.querySelectorAll(".dest-opening")) {
+      const dest = state.savingsDestinations.find(d => d.id === input.dataset.destId);
+      if (!dest) continue;
+      const check = PesaValidation.parseWholeShillings(input.value, {allowZero:true});
+      if (!check.ok) { input.focus(); return showToast(`${dest.name}: starting balance ${check.error}. Nothing was changed.`); }
+      changes.push([dest.id, check.value]);
+    }
+    const candidate = { ...state, savingsDestinations: state.savingsDestinations.map(d => {
+      const change = changes.find(([id]) => id === d.id);
+      return change ? { ...d, openingBalance: change[1] } : d;
+    }) };
+    const balances = PesaFinance.computeTotals(candidate).destinationBalances;
+    const negative = candidate.savingsDestinations.find(d => balances[d.id] < 0);
+    if (negative) return showToast(`${negative.name} would show ${money(balances[negative.id])} after your recorded withdrawals. Enter a higher starting balance.`);
+    state.savingsDestinations = candidate.savingsDestinations;
+    if (saveState()) showToast("Savings balances saved.");
+    renderAll(); populateSettings();
   });
   document.getElementById("add-category-button").addEventListener("click",()=>{
     const name = prompt("What would you like to call this budget category?");
@@ -285,8 +479,11 @@
     if (budgetRaw === null) return;
     const budget = PesaValidation.parseWholeShillings(budgetRaw, {allowZero:true});
     if (!budget.ok) return showToast(`The allocation ${budget.error}.`);
-    const kindRaw = prompt("Category type: Essential, Bills, Flexible, Personal, Savings or Other","Other") || "Other";
-    state.categories.push({id:makeId("cat"),name:name.trim().slice(0,40),budget:budget.value,kind:kindRaw.trim().slice(0,20) || "Other"});
+    const kindRaw = prompt(`Category type: ${PesaData.CATEGORY_TYPES.join(", ")}`, "Other");
+    if (kindRaw === null) return;
+    const kind = PesaData.canonicalType(kindRaw.trim() || "Other"); // fixed list (KI-07)
+    if (!kind) return showToast(`Choose one of: ${PesaData.CATEGORY_TYPES.join(", ")}.`);
+    state.categories.push({id:makeId("cat"),name:name.trim().slice(0,40),budget:budget.value,kind});
     if (saveState()) showToast("Budget category added.");
     renderAll();
   });
@@ -367,6 +564,7 @@
       ["Transactions", `${s.transactionCount} (${s.incomeCount} income, ${s.expenseCount} expenses)`],
       ["Dates covered", s.firstDate ? `${formatDate(s.firstDate)} – ${formatDate(s.lastDate)}` : "No transactions"],
       ["Cash after restoring", money(s.cash)],
+      ["Savings after restoring", `${money(s.totalSavings)} (${s.savingsCount} savings ${s.savingsCount === 1 ? "entry" : "entries"})`],
       ["Savings destinations", s.destinations.join(", ") || "None"]
     ];
     return `<dl class="summary-list">${rows.map(([k,v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}</dl>`;

@@ -95,17 +95,30 @@
           </article>
           <article class="card stat-card">
             <span class="stat-icon purple">◎</span>
-            <span class="stat-label">Flexible budget left</span>
-            <strong id="flexible-left">KSh 3,000</strong>
-            <small>Entertainment + miscellaneous</small>
+            <span class="stat-label">Safe to spend now</span>
+            <strong id="safe-to-spend">KSh 0</strong>
+            <small>After bills, essentials and savings</small>
           </article>
           <article class="card stat-card">
             <span class="stat-icon amber">◷</span>
-            <span class="stat-label">Daily flexible guide</span>
-            <strong id="daily-guide">KSh 111</strong>
-            <small>Suggested pace until payday</small>
+            <span class="stat-label">Daily guide</span>
+            <strong id="daily-guide">KSh 0</strong>
+            <small id="daily-guide-note">Suggested pace until payday</small>
           </article>
         </div>
+
+        <details class="card panel-card explain-card" id="safe-explainer">
+          <summary>How is “safe to spend” worked out?</summary>
+          <div id="safe-breakdown" class="breakdown"></div>
+        </details>
+
+        <article class="card panel-card" id="savings-card">
+          <div class="panel-heading">
+            <div><h3>Your savings</h3><p class="muted">Money moved out of your spending cash. Not counted as spending or income.</p></div>
+            <button class="text-button" data-open-savings="savings_transfer">Save or withdraw →</button>
+          </div>
+          <div id="savings-overview" class="savings-list"></div>
+        </article>
 
         <div class="content-grid">
           <article class="card panel-card">
@@ -134,14 +147,23 @@
           <article class="card panel-card">
             <div class="panel-heading"><div><h3>Add a transaction</h3><p class="muted">A few details are all you need.</p></div></div>
             <form id="transaction-form" class="form-stack">
-              <div class="type-switch">
+              <div class="type-switch type-switch-4" role="radiogroup" aria-label="Type of entry">
                 <label><input type="radio" name="transaction-type" value="expense" checked><span>− Expense</span></label>
                 <label><input type="radio" name="transaction-type" value="income"><span>＋ Income</span></label>
+                <label><input type="radio" name="transaction-type" value="savings_transfer"><span>→ Save</span></label>
+                <label><input type="radio" name="transaction-type" value="savings_withdrawal"><span>← Withdraw</span></label>
               </div>
               <label class="field-label" for="tx-amount">Amount (KSh)</label>
               <input id="tx-amount" class="input amount-input" type="number" min="1" step="1" placeholder="e.g. 250" required>
-              <label class="field-label" for="tx-category">Category</label>
-              <select id="tx-category" class="input" required></select>
+              <div id="tx-category-field" class="form-stack">
+                <label class="field-label" for="tx-category" id="tx-category-label">Category</label>
+                <select id="tx-category" class="input"></select>
+              </div>
+              <div id="tx-destination-field" class="form-stack hidden">
+                <label class="field-label" for="tx-destination" id="tx-destination-label">Savings destination</label>
+                <select id="tx-destination" class="input"></select>
+              </div>
+              <p id="tx-helper" class="form-helper hidden" aria-live="polite"></p>
               <label class="field-label" for="tx-date">Date</label>
               <input id="tx-date" class="input" type="date" required>
               <label class="field-label" for="tx-note">Description <span class="optional">(optional)</span></label>
@@ -154,7 +176,7 @@
             <div class="panel-heading"><div><h3>Transaction history</h3><p class="muted">Review or remove an entry.</p></div></div>
             <div class="filter-row">
               <select id="transaction-filter" class="input compact-input">
-                <option value="all">All transactions</option><option value="expense">Expenses</option><option value="income">Income</option>
+                <option value="all">All transactions</option><option value="expense">Expenses</option><option value="income">Income</option><option value="savings">Savings moves</option>
               </select>
               <span class="tiny-muted" id="transaction-count">0 entries</span>
             </div>
@@ -221,6 +243,14 @@
             <p class="tiny-muted">Backups include your budget, settings and transaction history. Keep the file somewhere private.</p>
           </article>
         </div>
+        <article class="card panel-card" id="savings-settings">
+          <div class="panel-heading"><div><h3>Savings starting balances</h3><p class="muted">What each savings account already held before you started recording savings here. This does not change your spending cash.</p></div></div>
+          <form id="savings-form" class="form-stack">
+            <div id="savings-balance-fields" class="form-stack"></div>
+            <button class="button button-primary" type="submit">Save balances</button>
+          </form>
+          <p class="tiny-muted">Entered by hand. PesaOtas never connects to KCB M-PESA, M-Shwari or any account, and never asks for PINs or passwords.</p>
+        </article>
         <article class="card panel-card" id="data-safety">
           <div class="panel-heading"><div><h3>Data safety</h3><p class="muted">Copies kept on this device so nothing is lost when PesaOtas moves, restores or resets your data.</p></div></div>
           <div id="data-safety-list" class="safety-list"></div>

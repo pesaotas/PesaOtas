@@ -11,6 +11,12 @@
  *   fixed     – lossless corrections, e.g. "2500" (text) → 2500
  *   warnings  – kept as-is but worth checking
  *   notes     – informational, e.g. default savings destinations added
+ *
+ * Schema v2 (Phase 1), extended additively in Phase 2 — data saved by
+ * v1.1.0 remains valid:
+ *   categories[].destinationId   optional; Savings categories only (D-04)
+ *   transactions[].type          also "savings_transfer" / "savings_withdrawal",
+ *                                which carry destinationId instead of categoryId
  */
 (function (root, factory) {
   "use strict";
@@ -27,6 +33,8 @@
   const MAX_BACKUP_CHARS = 5000000; // ~5 MB, about LocalStorage's own limit
   const MAX_NOTE_LENGTH = 200;
   const SAVINGS_TYPES = new Set(["savings_transfer", "savings_withdrawal"]);
+  // Reserved for a future release (interest and fees, D-04 item 3); refused for now.
+  const FUTURE_TYPES = new Set(["savings_adjustment"]);
 
   /** Built-in savings destinations (decision D-04). Users may add others later. */
   const DEFAULT_DESTINATIONS = Object.freeze([
@@ -34,13 +42,38 @@
     Object.freeze({ id: "m-shwari", name: "M-Shwari", openingBalance: 0, archived: false, builtIn: true })
   ]);
 
+  /**
+   * The fixed list of category types (fixes KI-07). Only Flexible money counts
+   * towards safe-to-spend; every other type is a commitment that stays reserved.
+   */
+  const CATEGORY_TYPES = Object.freeze(["Essential", "Bills", "Savings", "Flexible", "Personal", "Event", "Other"]);
+
+  /** Where income comes from (fixes KI-10). Income is never tagged with a spending category. */
+  const INCOME_SOURCES = Object.freeze([
+    Object.freeze({ id: "inc-salary", name: "Salary" }),
+    Object.freeze({ id: "inc-business", name: "Business" }),
+    Object.freeze({ id: "inc-side", name: "Side income" }),
+    Object.freeze({ id: "inc-gift", name: "Gift received" }),
+    Object.freeze({ id: "inc-refund", name: "Refund" }),
+    Object.freeze({ id: "inc-other", name: "Other income" })
+  ]);
+  const INCOME_IDS = new Set(INCOME_SOURCES.map(s => s.id));
+
   const isObject = (o) => o !== null && typeof o === "object" && !Array.isArray(o);
   const ksh = (n) => "KSh " + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const show = (v) => {
     const s = typeof v === "string" ? `"${v}"` : JSON.stringify(v);
     return s === undefined ? "nothing" : (s.length > 30 ? s.slice(0, 27) + "…" : s);
   };
+  const isBlank = (v) => v === undefined || v === null || v === "";
   const defaultDestinations = () => DEFAULT_DESTINATIONS.map(d => ({ ...d }));
+
+  /** The standard spelling of a category type, or null if it isn't one. */
+  function canonicalType(value) {
+    if (typeof value !== "string") return null;
+    const v = value.trim().toLowerCase();
+    return CATEGORY_TYPES.find(t => t.toLowerCase() === v) || null;
+  }
 
   /** An empty plan: no categories, no transactions, no payday yet. */
   function createBlankState() {
@@ -97,13 +130,40 @@
     }
 
     let payday = "";
-    if (input.payday === "" || input.payday === undefined || input.payday === null) payday = "";
+    if (isBlank(input.payday)) payday = "";
     else if (V.isValidISODate(input.payday)) payday = input.payday;
     else r.rejected.push(`Payday ${show(input.payday)} is not a valid date and will be cleared — set it again in Settings.`);
+
+    // --- Savings destinations (read first: categories and transactions refer to them) ---
+    let savingsDestinations = [];
+    if (r.format === "pesaflow-v1" || input.savingsDestinations === undefined) {
+      savingsDestinations = defaultDestinations();
+      r.notes.push("Default savings destinations added: KCB M-PESA and M-Shwari (balance KSh 0 each).");
+    } else if (!Array.isArray(input.savingsDestinations)) {
+      r.errors.push("The savings destinations list is damaged.");
+    } else {
+      const ids = new Set();
+      input.savingsDestinations.forEach((d, i) => {
+        const where = `Savings destination ${i + 1}`;
+        if (!isObject(d)) { r.errors.push(`${where} is not a valid entry.`); return; }
+        const name = V.cleanName(d.name, 40);
+        const label = name ? `Savings destination "${name}"` : where;
+        if (!V.isSafeId(d.id) || ids.has(d.id)) { r.errors.push(`${label} has a missing, invalid or repeated ID.`); return; }
+        if (!name) { r.errors.push(`${where} has no usable name.`); return; }
+        const bal = V.parseWholeShillings(d.openingBalance === undefined ? 0 : d.openingBalance, { allowZero: true });
+        if (!bal.ok) { r.errors.push(`${label}: the opening balance ${bal.error} (found ${show(d.openingBalance)}).`); return; }
+        if (bal.coerced) r.fixed.push(`${label}: opening balance stored as text; read as ${ksh(bal.value)}.`);
+        ids.add(d.id);
+        savingsDestinations.push({ id: d.id, name, openingBalance: bal.value, archived: d.archived === true, builtIn: d.builtIn === true });
+      });
+    }
+    const destinationIds = new Set(savingsDestinations.map(d => d.id));
+    const destinationName = (id) => (savingsDestinations.find(d => d.id === id) || {}).name || id;
 
     // --- Categories (problems here are fatal: transactions depend on them) ---
     const categories = [];
     const categoryIds = new Set();
+    const linkedDestinations = new Map(); // destinationId → category name
     if (!Array.isArray(input.categories)) {
       r.errors.push("The budget categories are missing or damaged.");
     } else {
@@ -118,10 +178,32 @@
         const budget = V.parseWholeShillings(c.budget, { allowZero: true });
         if (!budget.ok) { r.errors.push(`${label}: the allocation ${budget.error} (found ${show(c.budget)}).`); return; }
         if (budget.coerced) r.fixed.push(`${label}: allocation stored as text; read as ${ksh(budget.value)}.`);
-        let kind = V.cleanName(c.kind, 20);
-        if (!kind) { kind = "Other"; r.fixed.push(`${label}: missing category type set to "Other".`); }
+
+        let kind = canonicalType(c.kind);
+        if (!kind) {
+          kind = "Other";
+          r.fixed.push(isBlank(c.kind)
+            ? `${label}: missing category type set to "Other".`
+            : `${label}: type ${show(c.kind)} isn't one of the standard types; set to "Other" (it was already treated as a fixed commitment).`);
+        } else if (kind !== c.kind) {
+          r.fixed.push(`${label}: type ${show(c.kind)} read as "${kind}".`);
+        }
+
+        const category = { id: c.id, name, budget: budget.value, kind };
+        if (!isBlank(c.destinationId)) {
+          if (kind !== "Savings") { r.errors.push(`${label} is linked to a savings destination but is not a Savings category.`); return; }
+          if (!V.isSafeId(c.destinationId) || !destinationIds.has(c.destinationId)) {
+            r.errors.push(`${label} is linked to a savings destination that doesn't exist.`); return;
+          }
+          if (linkedDestinations.has(c.destinationId)) {
+            r.errors.push(`${label} and "${linkedDestinations.get(c.destinationId)}" are both linked to ${destinationName(c.destinationId)}; only one category can be linked to each destination.`);
+            return;
+          }
+          linkedDestinations.set(c.destinationId, name);
+          category.destinationId = c.destinationId;
+        }
         categoryIds.add(c.id);
-        categories.push({ id: c.id, name, budget: budget.value, kind });
+        categories.push(category);
       });
     }
 
@@ -136,8 +218,9 @@
         const reject = (why) => r.rejected.push(`${label} ${why} — it will be left out.`);
         if (!isObject(t)) return reject("is not a valid entry");
 
-        if (SAVINGS_TYPES.has(t.type)) return reject("is a savings entry, which this version can't use yet");
-        if (t.type !== "income" && t.type !== "expense") return reject(`has an unknown type ${show(t.type)}`);
+        const isSavings = SAVINGS_TYPES.has(t.type);
+        if (FUTURE_TYPES.has(t.type)) return reject("is a savings adjustment (interest or fees), which this version can't use yet");
+        if (!isSavings && t.type !== "income" && t.type !== "expense") return reject(`has an unknown type ${show(t.type)}`);
 
         const amount = V.parseWholeShillings(t.amount);
         if (!amount.ok) return reject(`has an amount that ${amount.error} (found ${show(t.amount)})`);
@@ -145,17 +228,25 @@
         if (!V.isValidISODate(t.date)) return reject(`has ${t.date ? `an invalid date ${show(t.date)}` : "no date"}`);
 
         let id = t.id;
-        if (id === undefined || id === null || id === "") {
+        if (isBlank(id)) {
           let n = i + 1;
           do { id = `restored-${n++}`; } while (byId.has(id));
           r.fixed.push(`${label} had no ID; one was assigned.`);
         } else if (!V.isSafeId(id)) return reject("has an invalid ID");
 
-        let categoryId = t.categoryId;
-        if (categoryId === undefined || categoryId === null || categoryId === "") {
-          categoryId = "other";
-          r.fixed.push(`${label} had no category; set to "Other".`);
-        } else if (!V.isSafeId(categoryId)) return reject("has an invalid category");
+        let categoryId, destinationId;
+        if (isSavings) {
+          destinationId = t.destinationId;
+          if (!V.isSafeId(destinationId) || !destinationIds.has(destinationId)) {
+            return reject("refers to a savings destination that doesn't exist");
+          }
+        } else {
+          categoryId = t.categoryId;
+          if (isBlank(categoryId)) {
+            categoryId = t.type === "income" ? "inc-other" : "other";
+            r.fixed.push(`${label} had no category; set to "${t.type === "income" ? "Other income" : "Other"}".`);
+          } else if (!V.isSafeId(categoryId)) return reject("has an invalid category");
+        }
 
         let note = "";
         if (typeof t.note === "string") note = t.note.trim();
@@ -173,8 +264,10 @@
 
         if (amount.coerced) r.fixed.push(`${label}: amount stored as text ${show(t.amount)}; read as ${ksh(amount.value)}.`);
 
-        const row = { id, type: t.type, amount: amount.value, categoryId, date: t.date, note, createdAt };
-        const fingerprint = JSON.stringify([row.type, row.amount, row.categoryId, row.date, row.note, row.createdAt]);
+        const row = isSavings
+          ? { id, type: t.type, amount: amount.value, destinationId, date: t.date, note, createdAt }
+          : { id, type: t.type, amount: amount.value, categoryId, date: t.date, note, createdAt };
+        const fingerprint = JSON.stringify([row.type, row.amount, row.categoryId, row.destinationId, row.date, row.note, row.createdAt]);
         if (byId.has(id)) {
           const first = byId.get(id);
           if (first.fingerprint === fingerprint) {
@@ -185,8 +278,11 @@
           return;
         }
         byId.set(id, { index: i, fingerprint });
-        if (categoryId !== "other" && !categoryIds.has(categoryId) && r.errors.length === 0 && Array.isArray(input.categories)) {
-          r.warnings.push(`${label} refers to a budget category that doesn't exist; it will show as "Other".`);
+        if (r.errors.length === 0 && Array.isArray(input.categories)) {
+          const knownForType = t.type === "expense"
+            ? categoryIds.has(categoryId) || categoryId === "other"
+            : t.type === "income" ? categoryIds.has(categoryId) || INCOME_IDS.has(categoryId) || categoryId === "other" : true;
+          if (!knownForType) r.warnings.push(`${label} refers to a budget category that doesn't exist; it will show as "Other".`);
         }
         transactions.push(row);
       });
@@ -194,40 +290,16 @@
       // Same details, different IDs: could be genuine (two KSh 50 fares in a day). Warn only.
       const groups = new Map();
       transactions.forEach(t => {
-        const key = [t.type, t.amount, t.categoryId, t.date, t.note].join("|");
+        const key = JSON.stringify([t.type, t.amount, t.categoryId || t.destinationId, t.date, t.note]);
         groups.set(key, (groups.get(key) || 0) + 1);
       });
       for (const [key, count] of groups) {
         if (count > 1) {
-          const [type, amount, , date, note] = key.split("|");
-          r.warnings.push(`${count} ${type === "income" ? "income" : "expense"} entries look identical (${date}, ${ksh(Number(amount))}${note ? `, "${note.slice(0, 30)}"` : ""}). All are kept — check they aren't duplicates.`);
+          const [type, amount, , date, note] = JSON.parse(key);
+          const word = type === "income" ? "income" : type === "expense" ? "expense" : "savings";
+          r.warnings.push(`${count} ${word} entries look identical (${date}, ${ksh(amount)}${note ? `, "${note.slice(0, 30)}"` : ""}). All are kept — check they aren't duplicates.`);
         }
       }
-    }
-
-    // --- Savings destinations (schema v2; KCB M-PESA and M-Shwari by default) ---
-    let savingsDestinations;
-    if (r.format === "pesaflow-v1" || input.savingsDestinations === undefined) {
-      savingsDestinations = defaultDestinations();
-      r.notes.push("Default savings destinations added: KCB M-PESA and M-Shwari (balance KSh 0 each).");
-    } else if (!Array.isArray(input.savingsDestinations)) {
-      r.errors.push("The savings destinations list is damaged.");
-    } else {
-      savingsDestinations = [];
-      const ids = new Set();
-      input.savingsDestinations.forEach((d, i) => {
-        const where = `Savings destination ${i + 1}`;
-        if (!isObject(d)) { r.errors.push(`${where} is not a valid entry.`); return; }
-        const name = V.cleanName(d.name, 40);
-        const label = name ? `Savings destination "${name}"` : where;
-        if (!V.isSafeId(d.id) || ids.has(d.id)) { r.errors.push(`${label} has a missing, invalid or repeated ID.`); return; }
-        if (!name) { r.errors.push(`${where} has no usable name.`); return; }
-        const bal = V.parseWholeShillings(d.openingBalance === undefined ? 0 : d.openingBalance, { allowZero: true });
-        if (!bal.ok) { r.errors.push(`${label}: the opening balance ${bal.error} (found ${show(d.openingBalance)}).`); return; }
-        if (bal.coerced) r.fixed.push(`${label}: opening balance stored as text; read as ${ksh(bal.value)}.`);
-        ids.add(d.id);
-        savingsDestinations.push({ id: d.id, name, openingBalance: bal.value, archived: d.archived === true, builtIn: d.builtIn === true });
-      });
     }
 
     if (r.errors.length) return r;
@@ -244,6 +316,14 @@
       openingBalance, payday, categories, transactions, savingsDestinations, meta
     };
     if (typeof input.month === "string" && /^\d{4}-\d{2}$/.test(input.month)) state.month = input.month;
+
+    // A destination can't really hold less than nothing; flag it (the opening balance is probably missing).
+    const balances = F.computeTotals(state).destinationBalances;
+    for (const d of savingsDestinations) {
+      if (balances[d.id] < 0) {
+        r.warnings.push(`${d.name} would show ${ksh(balances[d.id]).replace("KSh -", "−KSh ")}: more has been withdrawn than was recorded going in. Check its starting balance in Settings.`);
+      }
+    }
 
     r.ok = true;
     r.state = state;
@@ -264,9 +344,11 @@
       transactionCount: state.transactions.length,
       incomeCount: state.transactions.filter(x => x.type === "income").length,
       expenseCount: state.transactions.filter(x => x.type === "expense").length,
+      savingsCount: state.transactions.filter(x => SAVINGS_TYPES.has(x.type)).length,
       incomeTotal: t.earned,
       expenseTotal: t.spent,
       cash: t.cash,
+      totalSavings: t.totalSavings,
       firstDate: dates[0] || null,
       lastDate: dates[dates.length - 1] || null,
       destinations: state.savingsDestinations.filter(d => !d.archived).map(d => d.name)
@@ -295,7 +377,7 @@
   const serializeBackup = (state) => JSON.stringify(state, null, 2);
 
   return Object.freeze({
-    SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS,
-    createBlankState, normalizeState, isClean, summarize, analyzeBackup, serializeBackup
+    SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS, CATEGORY_TYPES, INCOME_SOURCES,
+    canonicalType, createBlankState, normalizeState, isClean, summarize, analyzeBackup, serializeBackup
   });
 });

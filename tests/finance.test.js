@@ -235,13 +235,10 @@ describe("daysToPayday", () => {
 // Known defects — documented, deliberately NOT encoded. See docs/KNOWN_ISSUES.md.
 // Each becomes a real test in the phase that fixes it.
 // ---------------------------------------------------------------------------
-// KI-01 to KI-05 were fixed in Phase 1; their tests are in data-model.test.js
-// and storage.test.js.
+// KI-01 to KI-05 were fixed in Phase 1 (data-model.test.js, storage.test.js).
+// KI-06, 07, 08, 10, 11, 18 were fixed in Phase 2 (savings-and-safe-to-spend.test.js,
+// data-model.test.js).
 describe("Known issues (fixed in later phases)", () => {
-  it.todo("KI-06 [Phase 2] safe-to-spend = flexible remaining + unallocated, capped at cash, never below 0");
-  it.todo("KI-06 [Phase 2] daily guide = safe-to-spend ÷ days to payday, rounded down, no divide-by-zero");
-  it.todo("KI-07 [Phase 2] category type comes from a fixed list; flexible total is not case-sensitive to user typing");
-  it.todo("KI-08 [Phase 2] savings transfers/withdrawals change destination balances, not income/expense totals");
   it.todo("KI-09 [Phase 3] only transactions in the current pay cycle count against the budget");
   it.todo("KI-09 [Phase 3] pay-cycle length comes from real dates, not a fixed 30 days");
   it.todo("KI-16 [Phase 3] daysToPayday is correct across daylight-saving changes (non-Kenyan time zones)");
