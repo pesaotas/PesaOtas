@@ -15,9 +15,10 @@ features are never removed silently.
   data, not real records. Nothing personal is hard-coded in the app.
 - A new user starts with a clean, blank onboarding.
 - Data saved under the old PesaFlow key (`pesaflow.personal.v1`) is migrated
-  to PesaOtas automatically. The migration code is kept permanently, and the
-  old key is only removed after the migrated data has been saved and
-  re-read successfully.
+  to PesaOtas automatically. The migration code is kept permanently.
+- *Tightened 2026-11-05 (Phase 1 approval):* the PesaFlow key is **never**
+  modified or deleted automatically, even after a verified migration. Any
+  future removal must be an explicit user action. See D-09.
 
 ## D-03 Safe-to-spend definition — approved 2026-11-05
 
@@ -66,8 +67,13 @@ destinationBalance = destinationOpening + Σtransfers(to it) − Σwithdrawals(f
 totalSavings       = Σ destinationBalance            (shown separately from spending cash)
 ```
 
-**Data model:** Phase 1 schema v2 includes `savingsDestinations` from the
-start, so no later migration is needed. Calculations and UI follow in Phase 2.
+**Data model (done in Phase 1, v1.1.0):** schema v2 stores
+`savingsDestinations: [{ id, name, openingBalance, archived, builtIn }]`.
+KCB M-PESA (`kcb-mpesa`) and M-Shwari (`m-shwari`) are created by default with
+`builtIn: true`; custom destinations use their own IDs with `builtIn: false`.
+Opening balances are whole shillings ≥ 0. Savings transaction types are
+reserved: Phase 1 refuses them in restored files rather than mis-counting them.
+Calculations and UI follow in Phase 2.
 
 **To confirm before Phase 2 is built:**
 
@@ -103,6 +109,38 @@ start, so no later migration is needed. Calculations and UI follow in Phase 2.
 - Local-first; no paid APIs, subscriptions or dependencies; no data sent to third parties.
 - Preserve the existing design language (deep forest green, rounded cards, clear hierarchy).
 - No new features ahead of reliable core calculations.
+
+## D-09 Storage, migration and recovery safety — approved 2026-11-05 (Phase 1)
+
+Browser storage keys:
+
+| Key | Holds | Written by PesaOtas? |
+|---|---|---|
+| `pesaflow.personal.v1` | Original PesaFlow data | **Never** |
+| `pesaotas.data.v2` | Live PesaOtas data (schema v2) | Yes, verified on every save |
+| `pesaotas.preserved.pesaflow-v1` | Copies of the original PesaFlow text, made before migrating | Added to only; identical copies not repeated |
+| `pesaotas.quarantine` | Damaged data set aside, with date and reason | Added to only; identical copies not repeated |
+| `pesaotas.pre-restore` | Data as it was before the last restore, recovery or reset | Replaced each time |
+
+Rules (enforced in `src/storage.js`, covered by `tests/storage.test.js`):
+
+1. The PesaFlow key is never modified or deleted.
+2. Before migrating, the original text is copied to the preserved key and read
+   back. If that fails, migration does not happen.
+3. Migrated data counts as saved only after it is written, read back,
+   compared byte-for-byte and re-checked. Otherwise the attempt is removed and
+   retried at the next launch; the original is untouched.
+4. Migration runs only when no PesaOtas data exists, so it never repeats or
+   duplicates data. Damaged PesaOtas data never falls back to older PesaFlow data.
+5. Migration is automatic only when it is lossless. If anything would be left
+   out, the data goes to recovery and the user decides.
+6. Damaged data is quarantined and left where it is; nothing is saved until the
+   user chooses: recover the valid records, restore a backup, or start empty.
+   If quarantine fails, the user must download the damaged data first.
+7. Invalid data is never saved. A failed save reverts the change on screen.
+8. Restores always show a preview (contents, what is left out, what is
+   corrected) and need explicit confirmation; the replaced data is kept as the
+   pre-restore copy.
 
 ## D-08 Phase gating — approved 2026-11-05
 

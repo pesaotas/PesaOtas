@@ -44,6 +44,11 @@
         </div>
       </header>
 
+      <div id="data-notice" class="data-notice hidden" role="status" aria-live="polite">
+        <p id="data-notice-text"></p>
+        <div id="data-notice-actions" class="data-notice-actions"></div>
+      </div>
+
       <section id="view-overview" class="view active">
         <div class="welcome-row">
           <div>
@@ -216,6 +221,10 @@
             <p class="tiny-muted">Backups include your budget, settings and transaction history. Keep the file somewhere private.</p>
           </article>
         </div>
+        <article class="card panel-card" id="data-safety">
+          <div class="panel-heading"><div><h3>Data safety</h3><p class="muted">Copies kept on this device so nothing is lost when PesaOtas moves, restores or resets your data.</p></div></div>
+          <div id="data-safety-list" class="safety-list"></div>
+        </article>
         <article class="card panel-card danger-zone">
           <h3>Reset application</h3>
           <p class="muted">Restore the original PesaFlow demonstration budget. This permanently removes locally saved changes and transactions.</p>
@@ -228,8 +237,36 @@
     </main>
   </div>
 
+  <dialog id="restore-dialog" class="sheet" aria-labelledby="restore-title">
+    <div class="sheet-body">
+      <h2 id="restore-title">Check this backup before restoring</h2>
+      <div id="restore-content"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="button button-secondary" id="restore-cancel" type="button">Cancel</button>
+      <button class="button button-primary" id="restore-confirm" type="button">Replace my data</button>
+    </div>
+  </dialog>
+
+  <dialog id="recovery-dialog" class="sheet" aria-labelledby="recovery-title">
+    <div class="sheet-body">
+      <h2 id="recovery-title">Your saved budget data needs attention</h2>
+      <div id="recovery-content"></div>
+    </div>
+    <div class="sheet-actions sheet-actions-stack">
+      <button class="button button-secondary" id="recovery-download" type="button">↓ Download the damaged data</button>
+      <button class="button button-primary" id="recovery-recover" type="button">Recover</button>
+      <label class="button button-secondary file-button" id="recovery-restore-label">↑ Restore from a backup file<input id="recovery-import" type="file" accept="application/json,.json"></label>
+      <button class="button button-danger" id="recovery-blank" type="button">Start with an empty budget</button>
+      <button class="text-button" id="recovery-later" type="button">Decide later (nothing will be saved)</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="src/validation.js"></script>
   <script src="src/finance.js"></script>
+  <script src="src/data-model.js"></script>
+  <script src="src/storage.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

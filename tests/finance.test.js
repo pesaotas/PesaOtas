@@ -235,13 +235,9 @@ describe("daysToPayday", () => {
 // Known defects — documented, deliberately NOT encoded. See docs/KNOWN_ISSUES.md.
 // Each becomes a real test in the phase that fixes it.
 // ---------------------------------------------------------------------------
+// KI-01 to KI-05 were fixed in Phase 1; their tests are in data-model.test.js
+// and storage.test.js.
 describe("Known issues (fixed in later phases)", () => {
-  it.todo("KI-01 [Phase 1] restoring a backup with a text opening balance must not inflate cash");
-  it.todo("KI-02 [Phase 1] text amounts in a backup must never be string-concatenated into totals");
-  it.todo("KI-03 [Phase 1] negative, zero or non-numeric amounts are rejected on entry and on restore");
-  it.todo("KI-03 [Phase 1] duplicate transaction IDs on restore are detected and not double-counted");
-  it.todo("KI-04 [Phase 1] a transaction with a missing or invalid date cannot break rendering");
-  it.todo("KI-05 [Phase 1] unreadable saved data is quarantined, never silently overwritten");
   it.todo("KI-06 [Phase 2] safe-to-spend = flexible remaining + unallocated, capped at cash, never below 0");
   it.todo("KI-06 [Phase 2] daily guide = safe-to-spend ÷ days to payday, rounded down, no divide-by-zero");
   it.todo("KI-07 [Phase 2] category type comes from a fixed list; flexible total is not case-sensitive to user typing");
