@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10231f">
+  <meta name="description" content="PesaFlow personal budgeting assistant.">
+  <title>PesaFlow — Personal Finance</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" aria-label="PesaFlow home">
+        <span class="brand-mark">P</span>
+        <span><strong>PesaFlow</strong><small>Money, made clearer.</small></span>
+      </a>
+      <nav class="side-nav" aria-label="Main navigation">
+        <button class="nav-link active" data-view="overview"><span>▦</span> Overview</button>
+        <button class="nav-link" data-view="transactions"><span>⇄</span> Transactions</button>
+        <button class="nav-link" data-view="budget"><span>◷</span> Budget plan</button>
+        <button class="nav-link" data-view="insights"><span>✦</span> Insights</button>
+        <button class="nav-link" data-view="settings"><span>⚙</span> Settings & backup</button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="note-icon">✦</span>
+        <strong>Small steps count.</strong>
+        <p>Know what your money needs to do before you spend it.</p>
+      </div>
+      <div class="sidebar-footer">PesaFlow v1.0 · Your data stays on this device</div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow" id="today-label">PERSONAL FINANCE</div>
+          <h1 id="page-title">Your money at a glance</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="local-pill"><span class="status-dot"></span> Saved on this device</span>
+          <button class="avatar" type="button" title="Personal account">PF</button>
+        </div>
+      </header>
+
+      <section id="view-overview" class="view active">
+        <div class="welcome-row">
+          <div>
+            <h2>Good to see you.</h2>
+            <p class="muted">A clearer picture of your money starts here.</p>
+          </div>
+          <button class="button button-primary" data-open-transaction>＋ Add transaction</button>
+        </div>
+
+        <div class="hero-grid">
+          <article class="card balance-card">
+            <div class="card-topline">
+              <span class="card-label">Cash available</span>
+              <span class="subtle-tag">Current plan</span>
+            </div>
+            <div class="hero-amount" id="cash-balance">KSh 25,000</div>
+            <p class="hero-caption">Your opening balance, adjusted for recorded transactions.</p>
+            <div class="balance-meta">
+              <div><span class="meta-label">Allocated but unspent</span><strong id="reserved-total">KSh 24,800</strong></div>
+              <div><span class="meta-label">Unallocated</span><strong id="unallocated-total">KSh 200</strong></div>
+            </div>
+          </article>
+          <article class="card payday-card">
+            <div class="card-topline"><span class="card-label">Next payday</span><span class="calendar-icon">▦</span></div>
+            <div class="payday-number" id="days-to-payday">27 <small>days</small></div>
+            <p class="hero-caption" id="payday-date">Tuesday, 1 December 2026</p>
+            <div class="payday-line"><span id="payday-progress" style="width:10%"></span></div>
+            <p class="tiny-muted">Plan your spending to make your money last.</p>
+          </article>
+        </div>
+
+        <div class="stat-grid">
+          <article class="card stat-card">
+            <span class="stat-icon green">↗</span>
+            <span class="stat-label">Income recorded</span>
+            <strong id="income-total">KSh 0</strong>
+            <small>Since starting this plan</small>
+          </article>
+          <article class="card stat-card">
+            <span class="stat-icon coral">↘</span>
+            <span class="stat-label">Expenses recorded</span>
+            <strong id="expense-total">KSh 0</strong>
+            <small>Transactions you've entered</small>
+          </article>
+          <article class="card stat-card">
+            <span class="stat-icon purple">◎</span>
+            <span class="stat-label">Flexible budget left</span>
+            <strong id="flexible-left">KSh 3,000</strong>
+            <small>Entertainment + miscellaneous</small>
+          </article>
+          <article class="card stat-card">
+            <span class="stat-icon amber">◷</span>
+            <span class="stat-label">Daily flexible guide</span>
+            <strong id="daily-guide">KSh 111</strong>
+            <small>Suggested pace until payday</small>
+          </article>
+        </div>
+
+        <div class="content-grid">
+          <article class="card panel-card">
+            <div class="panel-heading">
+              <div><h3>Budget at a glance</h3><p class="muted">How your allocations are doing.</p></div>
+              <button class="text-button" data-view-link="budget">View budget →</button>
+            </div>
+            <div id="overview-budgets" class="budget-preview"></div>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading">
+              <div><h3>Recent activity</h3><p class="muted">Your latest recorded transactions.</p></div>
+              <button class="text-button" data-view-link="transactions">See all →</button>
+            </div>
+            <div id="recent-transactions" class="activity-list"></div>
+          </article>
+        </div>
+        <div id="budget-alert" class="alert-box hidden"></div>
+      </section>
+
+      <section id="view-transactions" class="view">
+        <div class="section-intro">
+          <div><h2>Transactions</h2><p class="muted">Record money coming in and going out. Your totals update automatically.</p></div>
+        </div>
+        <div class="content-grid transaction-layout">
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Add a transaction</h3><p class="muted">A few details are all you need.</p></div></div>
+            <form id="transaction-form" class="form-stack">
+              <div class="type-switch">
+                <label><input type="radio" name="transaction-type" value="expense" checked><span>− Expense</span></label>
+                <label><input type="radio" name="transaction-type" value="income"><span>＋ Income</span></label>
+              </div>
+              <label class="field-label" for="tx-amount">Amount (KSh)</label>
+              <input id="tx-amount" class="input amount-input" type="number" min="1" step="1" placeholder="e.g. 250" required>
+              <label class="field-label" for="tx-category">Category</label>
+              <select id="tx-category" class="input" required></select>
+              <label class="field-label" for="tx-date">Date</label>
+              <input id="tx-date" class="input" type="date" required>
+              <label class="field-label" for="tx-note">Description <span class="optional">(optional)</span></label>
+              <input id="tx-note" class="input" type="text" maxlength="70" placeholder="e.g. Lunch, fare, salary">
+              <button class="button button-primary button-full" type="submit">Save transaction</button>
+              <p class="form-footnote">Your transaction is saved in this browser only.</p>
+            </form>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Transaction history</h3><p class="muted">Review or remove an entry.</p></div></div>
+            <div class="filter-row">
+              <select id="transaction-filter" class="input compact-input">
+                <option value="all">All transactions</option><option value="expense">Expenses</option><option value="income">Income</option>
+              </select>
+              <span class="tiny-muted" id="transaction-count">0 entries</span>
+            </div>
+            <div id="all-transactions" class="activity-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-budget" class="view">
+        <div class="section-intro">
+          <div><h2>Your budget plan</h2><p class="muted">Give every shilling a job. Change allocations whenever your plans change.</p></div>
+          <button class="button button-secondary" id="add-category-button">＋ Add category</button>
+        </div>
+        <article class="card panel-card budget-summary-card">
+          <div class="budget-summary">
+            <div><span class="stat-label">Total planned allocations</span><strong id="budget-total">KSh 24,800</strong></div>
+            <div><span class="stat-label">Unallocated cash</span><strong id="budget-unallocated">KSh 200</strong></div>
+            <div><span class="stat-label">Over-budget categories</span><strong id="over-budget-count">0</strong></div>
+          </div>
+          <p class="tiny-muted">Rent is excluded because you confirmed it has already been paid. Your KSh10,000 gown and return transport payment is also already reflected in the KSh25,000 opening balance.</p>
+        </article>
+        <div id="budget-list" class="budget-list"></div>
+        <div class="budget-actions">
+          <button class="button button-primary" id="save-budget-button">Save budget changes</button>
+          <span class="tiny-muted" id="budget-save-status">Changes are saved on this device.</span>
+        </div>
+      </section>
+
+      <section id="view-insights" class="view">
+        <div class="section-intro"><div><h2>Expense Detective</h2><p class="muted">Understand your habits without the complicated spreadsheets.</p></div></div>
+        <div class="stat-grid insight-stats">
+          <article class="card stat-card"><span class="stat-icon coral">↘</span><span class="stat-label">Total expenses</span><strong id="insight-expenses">KSh 0</strong><small>Recorded spending</small></article>
+          <article class="card stat-card"><span class="stat-icon green">＋</span><span class="stat-label">Total income</span><strong id="insight-income">KSh 0</strong><small>Recorded income</small></article>
+          <article class="card stat-card"><span class="stat-icon purple">◎</span><span class="stat-label">Transactions</span><strong id="insight-count">0</strong><small>Entries recorded</small></article>
+        </div>
+        <article class="card panel-card">
+          <div class="panel-heading"><div><h3>Where your money is going</h3><p class="muted">Recorded expenses compared with each category's plan.</p></div></div>
+          <div id="insight-categories" class="insight-category-list"></div>
+        </article>
+        <article class="card panel-card insight-tip">
+          <span class="tip-sparkle">✦</span><div><h3>Your first financial insight</h3><p id="insight-message">Record a few transactions and PesaFlow will start identifying spending patterns.</p></div>
+        </article>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="section-intro"><div><h2>Settings & backup</h2><p class="muted">Manage your starting position and keep a copy of your data.</p></div></div>
+        <div class="content-grid">
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Budget settings</h3><p class="muted">Set the balance and payday for this plan.</p></div></div>
+            <form id="settings-form" class="form-stack">
+              <label class="field-label" for="opening-balance">Opening balance (KSh)</label>
+              <input id="opening-balance" class="input" type="number" min="0" step="1" required>
+              <label class="field-label" for="payday-input">Next payday</label>
+              <input id="payday-input" class="input" type="date" required>
+              <button class="button button-primary" type="submit">Save settings</button>
+            </form>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Backup your data</h3><p class="muted">Export a copy before changing devices or clearing browser data.</p></div></div>
+            <div class="backup-actions">
+              <button class="button button-primary button-full" id="export-button">↓ Download backup (JSON)</button>
+              <label class="button button-secondary button-full file-button">↑ Restore from backup<input id="import-file" type="file" accept="application/json,.json"></label>
+            </div>
+            <p class="tiny-muted">Backups include your budget, settings and transaction history. Keep the file somewhere private.</p>
+          </article>
+        </div>
+        <article class="card panel-card danger-zone">
+          <h3>Reset application</h3>
+          <p class="muted">Restore the original PesaFlow demonstration budget. This permanently removes locally saved changes and transactions.</p>
+          <button class="button button-danger" id="reset-button">Reset to starter budget</button>
+        </article>
+        <article class="privacy-note"><strong>Privacy note</strong><p>PesaFlow v1.0 does not connect to your bank or M-Pesa, and does not send your financial data to a server. Anyone with access to this browser profile may be able to open the app, so protect your device and keep backups secure.</p></article>
+      </section>
+
+      <footer class="mobile-footer">PesaFlow · Make your money make sense.</footer>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
