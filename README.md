@@ -4,11 +4,11 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Status — v1.2.0 (Phase 2 complete).** PesaOtas is being developed from the
+> **Status — v1.3.0 (Phase 3 complete).** PesaOtas is being developed from the
 > PesaFlow v1.0 prototype in small, tested phases. Saved data and restores are
 > protected (Phase 1); safe-to-spend and savings with KCB M-PESA and M-Shwari
-> work (Phase 2). Not yet done: pay cycles (the budget doesn't reset at payday),
-> and the PesaOtas name and blank onboarding. Known defects:
+> work (Phase 2); budgets follow your pay cycle (Phase 3). Not yet done: the
+> PesaOtas name, blank onboarding and editing entries. Known defects:
 > [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
 ## How "safe to spend" works
@@ -27,8 +27,29 @@ you bring back with **Withdraw**. These are never counted as spending or
 income. Each account's balance is tracked separately; set what they already
 held under **Settings → Savings starting balances**. Link a Savings budget
 category to an account (Budget screen) and your transfers fill that allocation
-automatically. Everything is entered by hand: PesaOtas never connects to these
-services or asks for PINs or passwords.
+automatically. If you withdraw from that account, the withdrawn amount stops
+counting towards the allocation. Everything is entered by hand: PesaOtas never
+connects to these services or asks for PINs or passwords.
+
+## Pay cycles and payday
+
+Your budget runs from the start of your pay cycle until your next payday. Only
+spending in the current cycle counts against your allocations; earlier
+transactions stay in your history.
+
+When payday arrives, PesaOtas asks you to **start your new pay cycle**. It never
+does this on its own. You'll see a summary of the cycle that's ending, then:
+
+- **Nothing is deleted.** Every transaction stays in your history.
+- **Your spending cash carries over as it is.** It's real money, so it never resets.
+- **Allocations start again** at their full amounts for the new cycle.
+- **Money left in allocations is released** into your spending cash, and the new
+  cycle's allocations are set aside from it.
+- **Savings balances don't change.** You can choose to move some leftover to
+  KCB M-PESA or M-Shwari as part of the step.
+
+A copy of your data is kept in Data safety before the new cycle starts. Closed
+cycles are listed under **Insights → Previous pay cycles**.
 
 ## Upgrading from PesaFlow
 

@@ -14,20 +14,16 @@ misleading money figures · **Medium** = wrong or awkward but not misleading ·
 
 | ID | Severity | Issue | Fix phase |
 |---|---|---|---|
-| KI-09 | High | No pay-cycle model: all transactions ever recorded count against the current budget; nothing resets at payday; once payday passes the countdown stays at 0; the payday progress bar assumes a 30-day cycle. | 3 |
 | KI-12 | Medium | Unsaved edits on the Budget screen are discarded whenever anything re-renders (e.g. saving a transaction). *(Found by code reading.)* | 4 |
 | KI-13 | Medium | Demonstration data is hard-coded: starter categories in `app.js`, figures and a personal note in `index.html`, and "Reset" restores the demo instead of a blank start. | 4 |
 | KI-14 | Medium | Transactions cannot be edited; categories can only be added (via browser `prompt()`), not renamed or deleted. | 4 |
 | KI-15 | Medium | Accessibility/readability on mobile: 9–10px nav and button text; glyph icons are read aloud by screen readers; no `aria-current` on navigation; the toast covers the "Settings & backup" nav item; the over-allocation warning appears at the very bottom of the overview. | 4 |
-| KI-16 | Low | `daysToPayday` is off by one across a daylight-saving change (e.g. US time zones in November). Kenya has no DST, so Kenyan users are unaffected. | 3 |
 | KI-17 | Medium | Service worker is cache-first with a manually versioned cache: deployed fixes may not reach installed users unless the cache name is bumped. Only an SVG icon is provided, so installing on some Android/iOS devices is unreliable. *(Found by code reading.)* | 5 |
 | KI-19 | Low | Safety copies (original PesaFlow data, preserved copy, quarantine, pre-restore copy) share the browser's ~5 MB storage with live data, and there is no way yet to delete old copies once the user is satisfied. Typical use (a few thousand transactions) is well within the limit. *(Found in Phase 1.)* | 5 |
 | KI-20 | Low | If an old PesaFlow copy (e.g. another tab still open) keeps saving to the PesaFlow key after migration, PesaOtas ignores those later changes — by design, so data is never imported twice. The original key is preserved and downloadable from Data safety. *(Found in Phase 1, by design.)* | — |
 | KI-21 | Low | A budget category whose ID is literally `other` would clash with the "Other / uncategorised" choice in the transaction form. The app never creates such an ID; only a hand-edited file could. *(Found by code reading.)* | 4 |
 | KI-22 | Low | Backups are now saved in PesaOtas format (schema v2). The old PesaFlow app cannot restore them; PesaOtas restores both formats. *(Consequence of Phase 1.)* | — |
 | KI-23 | Low | Savings recorded as an *expense* before Phase 2 (the only option then) stay as expenses and still count as spending. PesaOtas does not reinterpret past records. To correct one, delete it and record it again as a Save. *(Phase 2, by design.)* | — |
-| KI-24 | Low | Withdrawal limits and savings balances use the total recorded so far, not the date order of entries: a withdrawal dated before the transfer that funded it is accepted if the total allows it. *(Found in Phase 2.)* | 3 |
-| KI-25 | Low | After payday passes, the countdown shows 0 and the daily guide shows the whole safe-to-spend amount until a new payday is entered. Part of the pay-cycle work. *(Phase 2 behaviour, see KI-09.)* | 3 |
 | KI-26 | Low | Custom savings destinations and archiving are supported by the data and calculations, but there is no screen to add them yet. *(By instruction: "in future".)* | — |
 
 ## Fixed
@@ -45,3 +41,7 @@ misleading money figures · **Medium** = wrong or awkward but not misleading ·
 | KI-10 | Medium | Income was tagged with spending categories. Now recorded against income sources. | 1.2.0 (Phase 2) | `data-model.test.js` "income sources"; browser check |
 | KI-11 | Medium | Uncategorised spending was missing from insights. Now shown as "Other / uncategorised". | 1.2.0 (Phase 2) | `savings-and-safe-to-spend.test.js` "uncategorised"; browser check |
 | KI-18 | Low | Amounts showed "Ksh". Now "KSh", formatted the same on every device. | 1.2.0 (Phase 2) | `savings-and-safe-to-spend.test.js` "KSh display" |
+| KI-09 | High | No pay cycles: everything ever recorded counted against the budget; nothing reset at payday; progress assumed 30 days. Now budgets are scoped to the current pay cycle with real lengths, and a new cycle starts only when the user confirms it. | 1.3.0 (Phase 3) | `pay-cycles.test.js` (scoping, real lengths, 14 rollover tests); browser checks |
+| KI-16 | Low | Days to payday were off by one across daylight-saving changes. Days are now counted between calendar dates. | 1.3.0 (Phase 3) | `pay-cycles.test.js` "KI-16" (run in a real US time zone) |
+| KI-24 | Low | Savings balances ignored date order, so a withdrawal could be dated before the transfer that funded it. Withdrawals are now limited by what the destination held on that date, protecting later withdrawals. | 1.3.0 (Phase 3) | `pay-cycles.test.js` "date-ordered savings"; browser checks |
+| KI-25 | Low | After payday the daily guide showed the whole safe-to-spend amount. It now asks the user to start the new pay cycle. | 1.3.0 (Phase 3) | browser checks; `pay-cycles.test.js` "rollover is due on payday" |

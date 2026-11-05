@@ -3,6 +3,58 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] — 2026-11-05 — Phase 3: pay cycles and rollover
+
+Fixes KI-09, KI-16, KI-24, KI-25 and applies the D-10 decision. All Phase 1
+migration, backup, restore and recovery protections are unchanged
+(`src/storage.js` and `src/validation.js` untouched) and were re-verified in
+Chrome. No transaction is ever deleted or changed when a cycle starts.
+
+### Added
+- **Pay cycles** (D-12): budgets, insights and income/expense figures count the
+  current cycle (`cycleStart` → payday). Spending cash and savings balances
+  are never reset; they always count every transaction.
+- **Real cycle lengths**: the progress bar shows "Day X of Y" from the actual
+  start and payday (28–31 days, or any length), not an assumed 30.
+- **User-confirmed rollover**: from payday a prompt appears; the rollover
+  screen previews the ending cycle (income, spending, net savings, cash at the
+  end, what's left in each allocation, overspends) and explains what happens
+  before anything changes. Start date defaults to payday (earlier if paid
+  early); next payday is suggested (same day next month, adjusted for short
+  months). Optional: move part of the leftover to savings. A copy of the data
+  is kept first. Missed paydays are closed one at a time.
+- **Previous pay cycles** under Insights, computed live from transactions.
+- **Settings**: "This pay cycle started on" (optional) and "Start a new pay
+  cycle…"; the opening balance is explained.
+- **Date-ordered savings** (KI-24): withdrawals limited by what the destination
+  held on that date, protecting later withdrawals; delete and starting-balance
+  guards use the same rule; restored files that break the order get a warning.
+- "This pay cycle" filter in transaction history; pay cycle in the restore preview.
+- Confirmation before recording an entry dated before the current cycle.
+- `src/finance.js`: `cycleInfo`, `cycleSummary`, `startNewCycle` (pure),
+  `suggestNextPayday`, `availableToWithdraw`, `balanceOn`,
+  `savingsOrderIssues`, calendar-date helpers.
+- `src/data-model.js`: validates and preserves `cycleStart` and `cycles`.
+- `tests/pay-cycles.test.js` (38 tests, including a daylight-saving check run in
+  a real US time zone). Total: 176 tests, 176 pass, 0 fail, 0 todo.
+- DECISIONS D-12; D-10 rewritten as decided.
+
+### Changed
+- **D-10 (decided):** a withdrawal re-opens the linked savings allocation
+  (allocate 5,000, transfer 5,000, withdraw 1,000 → 1,000 remaining). Net
+  savings never go below zero. Safe-to-spend is unchanged by the withdrawal
+  (no double reserving).
+- On and after payday the daily guide asks for the new cycle instead of
+  showing the whole amount (KI-25).
+- `daysToPayday` counts calendar days (fixes KI-16).
+- The demonstration budget now has a cycle start (1 Nov 2026).
+- "Data safety" lists the copy made before a new pay cycle.
+- `sw.js` cache `pesaflow-v1.3.0`; `package.json` version 1.3.0.
+
+### Fixed
+- KI-09: past cycles no longer use this cycle's allocations.
+- KI-16, KI-24, KI-25 as above.
+
 ## [1.2.0] — 2026-11-05 — Phase 2: calculation correctness and savings
 
 Fixes KI-06, 07, 08, 10, 11, 18. All migration, restore and recovery

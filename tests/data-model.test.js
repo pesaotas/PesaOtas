@@ -260,7 +260,7 @@ describe("restore checks: preview summary and round trip", () => {
   it("summarises what the backup contains", () => {
     const r = D.analyzeBackup(backup(legacyState()));
     assert.deepEqual(r.summary, {
-      openingBalance: 20000, payday: "2026-12-01", categoryCount: 5, transactionCount: 4,
+      openingBalance: 20000, payday: "2026-12-01", cycleStart: "", closedCycles: 0, categoryCount: 5, transactionCount: 4,
       incomeCount: 1, expenseCount: 3, savingsCount: 0, incomeTotal: 3000, expenseTotal: 2400, cash: 20600,
       totalSavings: 0, firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"]
     });

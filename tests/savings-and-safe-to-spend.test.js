@@ -180,12 +180,27 @@ describe("savings transfers and withdrawals (D-04, fixes KI-08)", () => {
     assert.equal(t.destinationBalances["m-shwari"], 8500);
   });
 
-  it("a withdrawal is available to spend and does not re-open the savings allocation (D-10)", () => {
+  it("D-10 (decided Phase 3): YOUR EXAMPLE — allocate 5,000, transfer 5,000, withdraw 1,000 → net 4,000 saved, 1,000 of the allocation remaining", () => {
+    const back = computeTotals(exampleState(transfer(5000, "m-shwari"), withdrawal(1000, "m-shwari")));
+    assert.equal(back.savedByCategory.emergency, 4000);
+    assert.equal(5000 - back.savedByCategory.emergency, 1000);
+  });
+
+  it("D-10: the withdrawal does not double-reserve — the 1,000 is back in cash and reserved once, so safe-to-spend is unchanged", () => {
     const saved = computeTotals(exampleState(transfer(5000, "m-shwari")));
     const back = computeTotals(exampleState(transfer(5000, "m-shwari"), withdrawal(1000, "m-shwari")));
-    assert.equal(back.savedByCategory.emergency, 5000, "allocation stays fulfilled");
-    assert.equal(back.allocatedRemaining, saved.allocatedRemaining);
-    assert.equal(back.safeToSpend - saved.safeToSpend, 1000);
+    assert.equal(back.cash - saved.cash, 1000, "cash rises by the withdrawal");
+    assert.equal(back.allocatedRemaining - saved.allocatedRemaining, 1000, "allocation re-opens by the same amount");
+    assert.equal(back.unallocated, saved.unallocated);
+    assert.equal(back.safeToSpend, saved.safeToSpend);
+  });
+
+  it("D-10: net savings towards an allocation never go below zero (withdrawing older savings doesn't inflate the reservation)", () => {
+    const t = computeTotals(exampleState(transfer(1000, "m-shwari"), withdrawal(3000, "m-shwari")));
+    assert.equal(t.savedByCategory.emergency, 0);
+    const none = computeTotals(exampleState());
+    assert.equal(t.allocatedRemaining, none.allocatedRemaining, "reservation is at most the full allocation");
+    assert.equal(t.safeToSpend - none.safeToSpend, 2000, "the net 2,000 withdrawn is spendable");
   });
 
   it("KCB M-PESA and M-Shwari are tracked separately", () => {

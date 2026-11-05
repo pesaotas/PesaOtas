@@ -238,8 +238,5 @@ describe("daysToPayday", () => {
 // KI-01 to KI-05 were fixed in Phase 1 (data-model.test.js, storage.test.js).
 // KI-06, 07, 08, 10, 11, 18 were fixed in Phase 2 (savings-and-safe-to-spend.test.js,
 // data-model.test.js).
-describe("Known issues (fixed in later phases)", () => {
-  it.todo("KI-09 [Phase 3] only transactions in the current pay cycle count against the budget");
-  it.todo("KI-09 [Phase 3] pay-cycle length comes from real dates, not a fixed 30 days");
-  it.todo("KI-16 [Phase 3] daysToPayday is correct across daylight-saving changes (non-Kenyan time zones)");
-});
+// KI-09, 16, 24, 25 were fixed in Phase 3 (pay-cycles.test.js).
+// No calculation defects remain open; remaining issues are UI/deployment (Phases 4–5).

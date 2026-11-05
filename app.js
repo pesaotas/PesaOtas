@@ -21,6 +21,7 @@
   const starterState = () => ({
     ...PesaData.createBlankState(),
     month: "2026-11",
+    cycleStart: "2026-11-01",
     openingBalance: 25000,
     payday: "2026-12-01",
     categories: [
@@ -115,6 +116,9 @@
   function daysToPayday() {
     return PesaFinance.daysToPayday(state.payday, new Date());
   }
+  function cycle() {
+    return PesaFinance.cycleInfo(state, new Date());
+  }
   // Newest first; tolerant of missing fields so one bad record can never stop the page rendering (KI-04).
   function newestFirst(a, b) {
     return String(b.date || "").localeCompare(String(a.date || "")) || (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0);
@@ -182,15 +186,15 @@
   }
 
   /** Plain-language breakdown of the safe-to-spend figure (D-03). */
-  function renderSafeBreakdown(t, days, guide) {
+  function renderSafeBreakdown(t, days, guide, due) {
     const sum = t.flexible + t.unallocated;
     const unallocatedNote = t.unallocated < 0
       ? "Below zero: your plan needs more than you have (from overspending or allocating more than you hold), so this comes off."
       : "Cash that hasn't been given a job in your budget yet.";
-    const paceLine = guide === null
+    const paceLine = due
+      ? `<p>Payday has arrived. Start your new pay cycle to get a daily guide for it.</p>`
+      : guide === null
       ? `<p>Set your payday in Settings to get a daily guide.</p>`
-      : days === 0
-        ? `<p>It's payday, so the whole amount is available today.</p>`
         : `<p>Spread over <strong>${days} day${days === 1 ? "" : "s"}</strong> to payday, that's about <strong>${money(guide)} a day</strong> (rounded down).</p>`;
     document.getElementById("safe-breakdown").innerHTML = `
       <p class="breakdown-lead">It's your spending cash minus everything still set aside for bills, essentials, savings and other commitments.</p>
@@ -212,10 +216,37 @@
       rows + `<div class="savings-row savings-total"><span>Total savings</span><strong>${money(t.totalSavings)}</strong></div>` + linked;
   }
 
+  // Progress through the pay cycle uses the real start and payday (no 30-day assumption).
+  function renderCycleProgress(info) {
+    const bar = document.getElementById("payday-progress");
+    const note = document.getElementById("cycle-progress-note");
+    if (info.rolloverDue) {
+      bar.style.width = "100%";
+      note.textContent = "This pay cycle has ended. Start your new cycle when you're ready.";
+    } else if (info.lengthDays) {
+      const day = Math.min(info.lengthDays, info.elapsedDays + 1);
+      bar.style.width = `${Math.max(4, Math.min(100, info.elapsedDays / info.lengthDays * 100))}%`;
+      note.textContent = `Day ${day} of ${info.lengthDays} in this pay cycle.`;
+    } else {
+      bar.style.width = "4%";
+      note.textContent = state.payday ? "Set when this pay cycle started (Settings) to see your progress." : "Set your payday in Settings.";
+    }
+  }
+  function renderRolloverBanner(info) {
+    const banner = document.getElementById("rollover-banner");
+    banner.classList.toggle("hidden", !info.rolloverDue);
+    if (!info.rolloverDue) return;
+    const when = info.today === info.payday ? "Today is payday." : `Payday was on ${formatDate(info.payday)}.`;
+    document.getElementById("rollover-banner-text").textContent =
+      `${when} Your budget is still counting the old pay cycle. Start the new cycle when you're ready — you'll see a summary first, and nothing changes until you confirm.`;
+  }
+
   function renderOverview() {
     const t = totals();
     const days = daysToPayday();
-    const guide = state.payday ? PesaFinance.dailyGuide(t.safeToSpend, days) : null;
+    const info = cycle();
+    // On or after payday the new cycle is due: no daily guide until the user starts it (KI-25).
+    const guide = state.payday && !info.rolloverDue ? PesaFinance.dailyGuide(t.safeToSpend, days) : null;
     document.getElementById("cash-balance").textContent = money(t.cash);
     document.getElementById("reserved-total").textContent = money(t.allocatedRemaining);
     document.getElementById("unallocated-total").textContent = money(t.unallocated);
@@ -225,11 +256,14 @@
     document.getElementById("expense-total").textContent = money(t.spent);
     document.getElementById("safe-to-spend").textContent = money(t.safeToSpend);
     document.getElementById("daily-guide").textContent = guide === null ? "—" : money(guide);
-    document.getElementById("daily-guide-note").textContent = guide === null ? "Set a payday to see this" : days === 0 ? "It's payday" : "Safe to spend ÷ days to payday";
-    renderSafeBreakdown(t, days, guide);
+    document.getElementById("daily-guide-note").textContent = info.rolloverDue ? "Start your new pay cycle" : guide === null ? "Set a payday to see this" : "Safe to spend ÷ days to payday";
+    renderSafeBreakdown(t, days, guide, info.rolloverDue);
     renderSavingsOverview(t);
-    const daysElapsed = state.payday ? Math.max(0,30-days) : 0;
-    document.getElementById("payday-progress").style.width = `${Math.min(100,Math.max(4,daysElapsed/30*100))}%`;
+    renderCycleProgress(info);
+    renderRolloverBanner(info);
+    document.querySelectorAll(".period-label").forEach(el => {
+      el.textContent = state.cycleStart ? `This pay cycle (since ${formatDate(state.cycleStart)})` : "Since you started recording";
+    });
     document.getElementById("overview-budgets").innerHTML = state.categories.slice(0,5).map(budgetProgress).join("");
     const recent = [...state.transactions].sort(newestFirst).slice(0,5);
     document.getElementById("recent-transactions").innerHTML = recent.length ? recent.map(x=>transactionMarkup(x)).join("") : `<div class="empty-state">No transactions yet.<br>Record your first expense to see your activity here.</div>`;
@@ -247,7 +281,10 @@
   function renderTransactions() {
     const filter = document.getElementById("transaction-filter").value;
     const items = [...state.transactions]
-      .filter(t => filter === "all" || (filter === "savings" ? isSavingsType(t.type) : t.type === filter))
+      .filter(t => filter === "all"
+        || (filter === "savings" ? isSavingsType(t.type)
+          : filter === "cycle" ? !state.cycleStart || t.date >= state.cycleStart
+          : t.type === filter))
       .sort(newestFirst);
     document.getElementById("transaction-count").textContent = `${items.length} ${items.length===1?"entry":"entries"}`;
     document.getElementById("all-transactions").innerHTML = items.length ? items.map(t=>transactionMarkup(t,true)).join("") : `<div class="empty-state">Nothing here yet.<br>Your recorded transactions will appear here.</div>`;
@@ -304,6 +341,31 @@
       }
     }
     document.getElementById("insight-message").textContent = message;
+    renderCycleHistory();
+  }
+
+  // Closed pay cycles, worked out live from transactions and the stored dates/allocations.
+  function renderCycleHistory() {
+    const el = document.getElementById("cycle-history");
+    const cycles = [...(state.cycles || [])].reverse();
+    if (!cycles.length) {
+      el.innerHTML = `<p class="muted">Your closed pay cycles will appear here after you start your first new cycle.</p>`;
+      return;
+    }
+    el.innerHTML = cycles.map(c => {
+      const sum = PesaFinance.cycleSummary(state, c.start, c.end, c.budgets);
+      const last = PesaFinance.addDays(c.end, -1);
+      const range = c.start ? `${formatDate(c.start)} – ${formatDate(last)} (${sum.lengthDays} days)` : `Up to ${formatDate(last)}`;
+      return `<div class="cycle-row">
+        <strong>${escapeHTML(range)}</strong>
+        <dl class="cycle-figures">
+          <div><dt>Income</dt><dd>${money(sum.earned)}</dd></div>
+          <div><dt>Spending</dt><dd>${money(sum.spent)}</dd></div>
+          <div><dt>Saved (net)</dt><dd>${money(sum.savedNet)}</dd></div>
+          <div><dt>Cash at the end</dt><dd>${money(sum.closingCash)}</dd></div>
+        </dl>
+      </div>`;
+    }).join("");
   }
 
   // ---------------------------------------------------------------------------
@@ -340,9 +402,7 @@
     if (type === "savings_transfer") {
       helper.textContent = `Spending cash available: ${money(t.cash)}. Moving money to savings is not spending.`;
     } else if (type === "savings_withdrawal") {
-      helper.textContent = destId
-        ? `${destinationName(destId)} holds ${money(t.destinationBalances[destId] || 0)}. You can withdraw up to that. Withdrawals are not income.`
-        : "";
+      helper.textContent = destId ? withdrawalHint(destId, entryDate()) : "";
     } else {
       helper.textContent = "";
     }
@@ -350,15 +410,40 @@
   }
   document.querySelectorAll('input[name="transaction-type"]').forEach(r => r.addEventListener("change", populateCategorySelect));
   document.getElementById("tx-destination").addEventListener("change", updateTxForm);
+  document.getElementById("tx-date").addEventListener("change", updateTxForm);
+  const entryDate = () => {
+    const d = document.getElementById("tx-date").value;
+    return PesaValidation.isValidISODate(d) ? d : todayISO();
+  };
+  // What a destination holds on a date, and how much of it later withdrawals depend on (KI-24).
+  function withdrawalHint(destId, date, blocked = false) {
+    const held = PesaFinance.balanceOn(state, destId, date);
+    const available = PesaFinance.availableToWithdraw(state, destId, date);
+    const name = destinationName(destId);
+    const base = `${name} holds ${money(held)} on ${formatDate(date)}.`;
+    const limit = available < held
+      ? ` ${money(held - available)} of that is needed for withdrawals recorded later, so you can withdraw up to ${money(available)}.`
+      : " You can withdraw up to that.";
+    if (blocked) return `Not saved. ${base}${available < held ? limit : ""}`;
+    return `${base}${limit} Withdrawals are not income.`;
+  }
   document.querySelectorAll("[data-open-savings]").forEach(btn => btn.addEventListener("click", () => {
     setView("transactions");
     document.querySelector(`input[name="transaction-type"][value="${btn.dataset.openSavings}"]`).checked = true;
     populateCategorySelect();
   }));
 
+  /** A day below zero that `candidate` would create (ignores problems already present). */
+  function newSavingsIssue(candidate, onlyDestinationId) {
+    const before = new Set(PesaFinance.savingsOrderIssues(state).map(i => i.destinationId));
+    return PesaFinance.savingsOrderIssues(candidate)
+      .find(i => !before.has(i.destinationId) && (!onlyDestinationId || i.destinationId === onlyDestinationId)) || null;
+  }
+
   function populateSettings() {
     document.getElementById("opening-balance").value = state.openingBalance;
     document.getElementById("payday-input").value = state.payday;
+    document.getElementById("cycle-start-input").value = state.cycleStart || "";
     const t = totals();
     document.getElementById("savings-balance-fields").innerHTML = activeDestinations().map(d => `
       <label class="field-label" for="dest-open-${escapeHTML(d.id)}">${escapeHTML(d.name)} — starting balance (KSh)</label>
@@ -382,6 +467,9 @@
     if (!amountCheck.ok) return showToast(`Amount ${amountCheck.error}.`);
     if (!PesaValidation.isValidISODate(date)) return showToast("Choose a valid date.");
     const amount = amountCheck.value;
+    if (state.cycleStart && date < state.cycleStart) {
+      if (!confirm(`This date is before your current pay cycle (which started ${formatDate(state.cycleStart)}). It will be saved in your history and will change your cash, but it won't count against this cycle's budget. Record it?`)) return;
+    }
     let transaction, done;
     if (isSavingsType(type)) {
       const destinationId = document.getElementById("tx-destination").value;
@@ -389,8 +477,8 @@
       const t = totals();
       const name = destinationName(destinationId);
       if (type === "savings_withdrawal") {
-        const balance = t.destinationBalances[destinationId] || 0;
-        if (amount > balance) return showToast(`${name} holds ${money(balance)}. You can't withdraw more than that.`);
+        const available = PesaFinance.availableToWithdraw(state, destinationId, date);
+        if (amount > available) return showToast(withdrawalHint(destinationId, date, true));
       } else if (amount > Math.max(0, t.cash)) {
         if (!confirm(`This transfer of ${money(amount)} is more than your spending cash (${money(t.cash)}). Your spending cash would go below zero. Record it anyway?`)) return;
       }
@@ -421,9 +509,9 @@
     if (!tx) return;
     const remaining = state.transactions.filter(t => t.id !== tx.id);
     if (tx.type === "savings_transfer") {
-      // Removing a transfer must not leave a destination showing less than nothing.
-      const after = PesaFinance.computeTotals({ ...state, transactions: remaining }).destinationBalances[tx.destinationId] || 0;
-      if (after < 0) return showToast(`Can't delete this: ${destinationName(tx.destinationId)} would show ${money(after)}. Delete the later withdrawal first.`);
+      // Removing a transfer must not leave a destination below zero on any day (KI-24).
+      const issue = newSavingsIssue({ ...state, transactions: remaining }, tx.destinationId);
+      if (issue) return showToast(`Can't delete this: ${destinationName(issue.destinationId)} would hold ${money(issue.balance)} on ${formatDate(issue.date)}. Delete the later withdrawal first.`);
     }
     const what = isSavingsType(tx.type)
       ? `Delete this savings entry? Your spending cash and ${destinationName(tx.destinationId)} balance will be recalculated.`
@@ -465,9 +553,8 @@
       const change = changes.find(([id]) => id === d.id);
       return change ? { ...d, openingBalance: change[1] } : d;
     }) };
-    const balances = PesaFinance.computeTotals(candidate).destinationBalances;
-    const negative = candidate.savingsDestinations.find(d => balances[d.id] < 0);
-    if (negative) return showToast(`${negative.name} would show ${money(balances[negative.id])} after your recorded withdrawals. Enter a higher starting balance.`);
+    const issue = newSavingsIssue(candidate);
+    if (issue) return showToast(`${destinationName(issue.destinationId)} would hold ${money(issue.balance)} on ${formatDate(issue.date)} after your recorded withdrawals. Enter a higher starting balance.`);
     state.savingsDestinations = candidate.savingsDestinations;
     if (saveState()) showToast("Savings balances saved.");
     renderAll(); populateSettings();
@@ -493,7 +580,13 @@
     const payday = document.getElementById("payday-input").value;
     if (!opening.ok) return showToast(`The opening balance ${opening.error}.`);
     if (!PesaValidation.isValidISODate(payday)) return showToast("Choose a valid payday.");
+    const cycleStart = document.getElementById("cycle-start-input").value;
+    if (cycleStart && !PesaValidation.isValidISODate(cycleStart)) return showToast("Choose a valid date for when this pay cycle started.");
+    if (cycleStart && cycleStart >= payday) return showToast("The pay cycle must start before payday.");
+    const lastClosed = (state.cycles || []).slice(-1)[0];
+    if (cycleStart && lastClosed && cycleStart < lastClosed.end) return showToast(`This pay cycle can't start before ${formatDate(lastClosed.end)}, when your last closed cycle ended.`);
     state.openingBalance = opening.value; state.payday = payday;
+    if (cycleStart) state.cycleStart = cycleStart; else delete state.cycleStart;
     if (saveState()) showToast("Settings saved.");
     renderAll(); populateSettings();
   });
@@ -560,6 +653,7 @@
     const rows = [
       ["Opening balance", money(s.openingBalance)],
       ["Next payday", formatLongDate(s.payday)],
+      ["Pay cycle", s.cycleStart ? `Started ${formatLongDate(s.cycleStart)}${s.closedCycles ? ` · ${s.closedCycles} earlier cycle(s) in history` : ""}` : "No start date set"],
       ["Budget categories", String(s.categoryCount)],
       ["Transactions", `${s.transactionCount} (${s.incomeCount} income, ${s.expenseCount} expenses)`],
       ["Dates covered", s.firstDate ? `${formatDate(s.firstDate)} – ${formatDate(s.lastDate)}` : "No transactions"],
@@ -627,6 +721,87 @@
       pendingRestore = null;
       closeDialog(document.getElementById("restore-dialog"));
       closeDialog(document.getElementById("recovery-dialog"));
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // New pay cycle (rollover): preview → explanation → explicit confirmation.
+  // Never automatic; never deletes or changes a transaction (D-12).
+  // ---------------------------------------------------------------------------
+  function openRolloverDialog() {
+    if (!state.payday) { setView("settings"); return showToast("Set your payday first."); }
+    const today = todayISO();
+    const start = state.payday <= today ? state.payday : today; // paid early → today
+    document.getElementById("roll-start").value = start;
+    document.getElementById("roll-next").value = PesaFinance.suggestNextPayday(start);
+    document.getElementById("roll-amount").value = "";
+    document.getElementById("roll-dest").innerHTML = activeDestinations().map(d => `<option value="${escapeHTML(d.id)}">${escapeHTML(d.name)}</option>`).join("");
+    document.getElementById("rollover-error").classList.add("hidden");
+    renderRolloverPreview();
+    openDialog(document.getElementById("rollover-dialog"));
+  }
+  function renderRolloverPreview() {
+    const start = document.getElementById("roll-start").value;
+    const content = document.getElementById("rollover-content");
+    if (!PesaValidation.isValidISODate(start)) { content.innerHTML = `<p class="muted">Choose the date the new cycle starts.</p>`; return; }
+    const sum = PesaFinance.cycleSummary(state, state.cycleStart || "", start);
+    const lastDay = PesaFinance.addDays(start, -1);
+    const range = state.cycleStart ? `${formatDate(state.cycleStart)} – ${formatDate(lastDay)} (${sum.lengthDays} days)` : `everything up to ${formatDate(lastDay)}`;
+    const after = state.transactions.filter(t => t.date >= start).length;
+    const left = sum.categories.filter(c => c.left > 0).map(c => `<li>${escapeHTML(c.name)}: ${money(c.left)} not used</li>`).join("");
+    const over = sum.overspent.map(o => `<li>${escapeHTML(o.name)}: over by ${money(o.by)}</li>`).join("");
+    const planned = state.categories.reduce((a, c) => a + c.budget, 0);
+    content.innerHTML = `
+      <h3 class="rollover-heading">The cycle that's ending: ${escapeHTML(range)}</h3>
+      <dl class="summary-list">
+        <div><dt>Income</dt><dd>${money(sum.earned)}</dd></div>
+        <div><dt>Spending</dt><dd>${money(sum.spent)}</dd></div>
+        <div><dt>Saved (net)</dt><dd>${money(sum.savedNet)}</dd></div>
+        <div><dt>Spending cash at the end</dt><dd>${money(sum.closingCash)}</dd></div>
+        <div><dt>Left in allocations</dt><dd>${money(sum.leftInAllocations)}</dd></div>
+        <div><dt>Savings balances</dt><dd>${money(totals().totalSavings)}</dd></div>
+      </dl>
+      ${left || over ? `<section class="issue-group issue-note"><h4>By category</h4><ul>${left}${over}</ul></section>` : ""}
+      <section class="issue-group issue-fixed">
+        <h4>What happens when you start the new cycle</h4>
+        <ul>
+          <li><strong>Nothing is deleted.</strong> Every transaction stays in your history, and this cycle is listed under Insights.</li>
+          <li><strong>Your spending cash carries over as it is</strong> (${money(sum.closingCash)} at the end of this cycle). It's real money, so it isn't reset.</li>
+          <li><strong>Allocations start again.</strong> Each category gets its full amount for the new cycle (${money(planned)} in total). You can change amounts in Budget.</li>
+          <li><strong>Money left in allocations (${money(sum.leftInAllocations)}) is released.</strong> It stays in your spending cash, and the new cycle's allocations are set aside from it. Until your salary is recorded, your plan may show as short.</li>
+          <li><strong>KCB M-PESA and M-Shwari balances don't change.</strong></li>
+          ${after ? `<li>${after} ${after === 1 ? "entry" : "entries"} dated from ${formatDate(start)} will count towards the new cycle.</li>` : ""}
+          <li>A copy of your data from before this step is kept in Settings → Data safety.</li>
+        </ul>
+      </section>`;
+  }
+  ["roll-start"].forEach(id => document.getElementById(id).addEventListener("change", () => {
+    const start = document.getElementById("roll-start").value;
+    if (PesaValidation.isValidISODate(start)) document.getElementById("roll-next").value = PesaFinance.suggestNextPayday(start);
+    renderRolloverPreview();
+  }));
+  document.querySelectorAll("[data-open-rollover]").forEach(btn => btn.addEventListener("click", openRolloverDialog));
+  document.getElementById("rollover-cancel").addEventListener("click", () => closeDialog(document.getElementById("rollover-dialog")));
+  document.getElementById("rollover-confirm").addEventListener("click", () => {
+    const err = document.getElementById("rollover-error");
+    const fail = (msg) => { err.textContent = msg; err.classList.remove("hidden"); };
+    if (!canSave) return fail("Nothing can be saved right now. Deal with the notice at the top of the page first.");
+    const start = document.getElementById("roll-start").value;
+    const nextPayday = document.getElementById("roll-next").value;
+    const rawAmount = document.getElementById("roll-amount").value.trim();
+    let transfer;
+    if (rawAmount) {
+      const check = PesaValidation.parseWholeShillings(rawAmount);
+      if (!check.ok) return fail(`The amount to save ${check.error}.`);
+      transfer = { amount: check.value, destinationId: document.getElementById("roll-dest").value, id: makeId("sv") };
+      const closing = PesaFinance.cycleSummary(state, state.cycleStart || "", start).closingCash;
+      if (check.value > Math.max(0, closing) && !confirm(`Saving ${money(check.value)} is more than your spending cash at the end of the cycle (${money(closing)}). Your spending cash would go below zero. Continue?`)) return;
+    }
+    const result = PesaFinance.startNewCycle(state, { start, nextPayday, now: new Date(), transfer });
+    if (!result.ok) return fail(result.errors.join(" "));
+    if (applyReplacement(result.state, `New pay cycle started on ${formatDate(start)}. Nothing was deleted; your earlier data is in Data safety.`)) {
+      closeDialog(document.getElementById("rollover-dialog"));
+      setView("overview");
     }
   });
 
@@ -752,7 +927,7 @@
     if (r.legacyPresent) rows.push(["Original PesaFlow data", "Still on this device, unchanged. PesaOtas never edits or deletes it.", "legacy", 0]);
     r.preserved.forEach(p => rows.push(["Copy of PesaFlow data made before moving", `Saved ${formatWhen(p.preservedAt)}`, "preserved", p.index]));
     r.quarantine.forEach(q => rows.push(["Damaged data set aside", `${formatWhen(q.quarantinedAt)} · ${q.reason || "failed its checks"}`, "quarantine", q.index]));
-    if (r.preRestore) rows.push(["Your data before the last restore, recovery or reset", `Saved ${formatWhen(r.preRestore.savedAt)}`, "preRestore", 0]);
+    if (r.preRestore) rows.push(["Your data before the last restore, recovery, reset or new pay cycle", `Saved ${formatWhen(r.preRestore.savedAt)}`, "preRestore", 0]);
     const damaged = r.damagedLists.length
       ? `<p class="replace-note">A safety list on this device is itself damaged. It has been left untouched.</p>` : "";
     el.innerHTML = rows.length

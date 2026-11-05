@@ -58,6 +58,11 @@
           <button class="button button-primary" data-open-transaction>＋ Add transaction</button>
         </div>
 
+        <div id="rollover-banner" class="data-notice notice-warning hidden" role="status">
+          <p id="rollover-banner-text"></p>
+          <div class="data-notice-actions"><button class="button button-primary" type="button" data-open-rollover>Start new pay cycle</button></div>
+        </div>
+
         <div class="hero-grid">
           <article class="card balance-card">
             <div class="card-topline">
@@ -76,7 +81,7 @@
             <div class="payday-number" id="days-to-payday">27 <small>days</small></div>
             <p class="hero-caption" id="payday-date">Tuesday, 1 December 2026</p>
             <div class="payday-line"><span id="payday-progress" style="width:10%"></span></div>
-            <p class="tiny-muted">Plan your spending to make your money last.</p>
+            <p class="tiny-muted" id="cycle-progress-note">Plan your spending to make your money last.</p>
           </article>
         </div>
 
@@ -85,13 +90,13 @@
             <span class="stat-icon green">↗</span>
             <span class="stat-label">Income recorded</span>
             <strong id="income-total">KSh 0</strong>
-            <small>Since starting this plan</small>
+            <small class="period-label">This pay cycle</small>
           </article>
           <article class="card stat-card">
             <span class="stat-icon coral">↘</span>
             <span class="stat-label">Expenses recorded</span>
             <strong id="expense-total">KSh 0</strong>
-            <small>Transactions you've entered</small>
+            <small class="period-label">This pay cycle</small>
           </article>
           <article class="card stat-card">
             <span class="stat-icon purple">◎</span>
@@ -176,7 +181,7 @@
             <div class="panel-heading"><div><h3>Transaction history</h3><p class="muted">Review or remove an entry.</p></div></div>
             <div class="filter-row">
               <select id="transaction-filter" class="input compact-input">
-                <option value="all">All transactions</option><option value="expense">Expenses</option><option value="income">Income</option><option value="savings">Savings moves</option>
+                <option value="all">All transactions</option><option value="cycle">This pay cycle</option><option value="expense">Expenses</option><option value="income">Income</option><option value="savings">Savings moves</option>
               </select>
               <span class="tiny-muted" id="transaction-count">0 entries</span>
             </div>
@@ -219,20 +224,32 @@
         <article class="card panel-card insight-tip">
           <span class="tip-sparkle">✦</span><div><h3>Your first financial insight</h3><p id="insight-message">Record a few transactions and PesaFlow will start identifying spending patterns.</p></div>
         </article>
+        <article class="card panel-card" id="cycle-history-card">
+          <div class="panel-heading"><div><h3>Previous pay cycles</h3><p class="muted">Worked out from your transactions, so they stay accurate if you correct an old entry.</p></div></div>
+          <div id="cycle-history" class="cycle-history"></div>
+        </article>
       </section>
 
       <section id="view-settings" class="view">
         <div class="section-intro"><div><h2>Settings & backup</h2><p class="muted">Manage your starting position and keep a copy of your data.</p></div></div>
         <div class="content-grid">
           <article class="card panel-card">
-            <div class="panel-heading"><div><h3>Budget settings</h3><p class="muted">Set the balance and payday for this plan.</p></div></div>
+            <div class="panel-heading"><div><h3>Budget settings</h3><p class="muted">Your starting balance and your pay cycle.</p></div></div>
             <form id="settings-form" class="form-stack">
               <label class="field-label" for="opening-balance">Opening balance (KSh)</label>
               <input id="opening-balance" class="input" type="number" min="0" step="1" required>
+              <small class="tiny-muted">The money you had when you started recording in PesaOtas. Your spending cash is worked out from this plus every transaction, so it carries across pay cycles by itself.</small>
+              <label class="field-label" for="cycle-start-input">This pay cycle started on <span class="optional">(optional)</span></label>
+              <input id="cycle-start-input" class="input" type="date">
+              <small class="tiny-muted">Only spending from this date counts against this cycle's budget. Leave empty to count everything recorded so far.</small>
               <label class="field-label" for="payday-input">Next payday</label>
               <input id="payday-input" class="input" type="date" required>
               <button class="button button-primary" type="submit">Save settings</button>
             </form>
+            <div class="cycle-actions">
+              <button class="button button-secondary button-full" type="button" data-open-rollover>Start a new pay cycle…</button>
+              <p class="tiny-muted">You'll see a summary first. Nothing is deleted, and nothing changes until you confirm.</p>
+            </div>
           </article>
           <article class="card panel-card">
             <div class="panel-heading"><div><h3>Backup your data</h3><p class="muted">Export a copy before changing devices or clearing browser data.</p></div></div>
@@ -289,6 +306,32 @@
       <label class="button button-secondary file-button" id="recovery-restore-label">↑ Restore from a backup file<input id="recovery-import" type="file" accept="application/json,.json"></label>
       <button class="button button-danger" id="recovery-blank" type="button">Start with an empty budget</button>
       <button class="text-button" id="recovery-later" type="button">Decide later (nothing will be saved)</button>
+    </div>
+  </dialog>
+
+  <dialog id="rollover-dialog" class="sheet" aria-labelledby="rollover-title">
+    <div class="sheet-body">
+      <h2 id="rollover-title">Start your new pay cycle</h2>
+      <div class="form-stack rollover-fields">
+        <label class="field-label" for="roll-start">New cycle starts on</label>
+        <input id="roll-start" class="input" type="date">
+        <label class="field-label" for="roll-next">Next payday</label>
+        <input id="roll-next" class="input" type="date">
+      </div>
+      <div id="rollover-content"></div>
+      <section class="rollover-save">
+        <h4>Optional: move some leftover to savings now</h4>
+        <div class="rollover-save-row">
+          <input id="roll-amount" class="input" type="number" min="1" step="1" placeholder="KSh amount (optional)" aria-label="Amount to move to savings">
+          <select id="roll-dest" class="input" aria-label="Savings destination"></select>
+        </div>
+        <p class="tiny-muted">Recorded as a normal Save dated on the new cycle's first day. Leave empty to keep it all as spending cash.</p>
+      </section>
+      <p id="rollover-error" class="replace-note hidden" role="alert"></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="button button-secondary" id="rollover-cancel" type="button">Not now</button>
+      <button class="button button-primary" id="rollover-confirm" type="button">Start new cycle</button>
     </div>
   </dialog>
 

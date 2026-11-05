@@ -82,3 +82,27 @@
   .type-switch-4 span{font-size:12px}
   .breakdown-row{align-items:flex-start}
 }
+
+/* ---- Phase 3: pay cycles and rollover ---- */
+#rollover-banner{margin-bottom:4px}
+.cycle-actions{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.cycle-actions .tiny-muted{margin:8px 0 0;font-size:11.5px}
+.form-stack small.tiny-muted{font-size:11.5px;margin-top:-2px}
+.cycle-history{display:grid;gap:10px}
+.cycle-row{padding:12px 14px;border:1px solid var(--line);border-radius:11px}
+.cycle-row strong{font-size:13px}
+.cycle-figures{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 14px;margin:8px 0 0}
+.cycle-figures dt{font-size:11px;color:var(--muted);font-weight:600}
+.cycle-figures dd{margin:2px 0 0;font-weight:700;font-size:13px}
+.rollover-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:0 0 14px}
+.rollover-fields .field-label{grid-row:1}
+.rollover-heading{font-size:14px;margin:0 0 10px}
+.rollover-save{margin:4px 0 12px;padding:12px 14px;border:1px dashed #cfe0d6;border-radius:11px}
+.rollover-save h4{margin:0 0 8px;font-size:13px}
+.rollover-save-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rollover-save .tiny-muted{margin:8px 0 0;font-size:11.5px}
+@media(max-width:800px){
+  .cycle-figures{grid-template-columns:1fr 1fr}
+  .rollover-fields,.rollover-save-row{grid-template-columns:1fr}
+  .rollover-fields .field-label{grid-row:auto}
+}

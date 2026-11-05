@@ -41,6 +41,9 @@ dailyGuide  = floor( safeToSpend ÷ daysToPayday )   (whole amount on payday)
   Note: flexible + unallocated always equals spending cash minus what non-flexible
   categories still reserve, so it can never exceed cash; the cap is kept as a
   guard. With no payday set there is no daily guide.
+- *Phase 3 (v1.3.0):* "days to payday" counts calendar days in the current pay
+  cycle. On and after payday the interface asks the user to start the new
+  cycle instead of showing a daily guide (KI-25); see D-12.
 
 ## D-04 Savings are internal transfers to named destinations — approved 2026-11-05
 
@@ -155,17 +158,23 @@ Rules (enforced in `src/storage.js`, covered by `tests/storage.test.js`):
    corrected) and need explicit confirmation; the replaced data is kept as the
    pre-restore copy.
 
-## D-10 Withdrawals return money to available spending — proposed 2026-11-05 (Phase 2), awaiting confirmation
+## D-10 A withdrawal re-opens the linked savings allocation — decided 2026-11-05 (Phase 3 approval), implemented v1.3.0
 
-A withdrawal adds to spending cash and does **not** re-open the linked savings
-allocation. The withdrawn money arrives as unallocated, so it is available to
-spend. Example: allocate 5,000, transfer 5,000 (allocation met), withdraw
-1,000 → the allocation stays met and safe-to-spend rises by 1,000.
+*Supersedes the Phase 2 proposal (withdrawals did not re-open the allocation).*
 
-This follows "withdrawals back into available spending money" (D-04). The
-alternative — re-opening the allocation, so the plan asks you to save that
-1,000 again and safe-to-spend does not rise — is a one-line change in
-`computeTotals` if preferred.
+Net savings towards a linked allocation = transfers to the destination minus
+withdrawals from it, within the current pay cycle, never below zero.
+
+Example: allocate 5,000; transfer 5,000 to M-Shwari (allocation met); withdraw
+1,000 → net saved 4,000, **1,000 of the allocation remaining**.
+
+No double reserving: the withdrawn 1,000 returns to spending cash and the
+allocation reserves 1,000 again — the same money, counted once. Unallocated
+money and safe-to-spend are therefore unchanged by the withdrawal. If more is
+withdrawn than was saved this cycle (e.g. older savings), net savings stop at
+zero, so the reservation never exceeds the allocation and the extra withdrawn
+money is spendable. Covered by `savings-and-safe-to-spend.test.js` (D-10 tests)
+and `pay-cycles.test.js` ("D-10 across pay cycles").
 
 ## D-11 Fixed category types and income sources — Phase 2 (v1.2.0)
 
@@ -180,6 +189,65 @@ alternative — re-opening the allocation, so the plan asks you to save that
   storage and simply shown as "Income".
 - Schema v2 is extended additively (no version bump): data and backups from
   v1.1.0 remain valid.
+
+## D-12 Pay cycles and rollover — approved 2026-11-05 (Phase 3), implemented v1.3.0
+
+**What a pay cycle is.** The current cycle runs from `cycleStart` up to (not
+including) `payday`. Closed cycles are listed in `cycles`:
+`[{ start, end, closedAt, budgets }]`. Both fields are additive to schema v2;
+data without them behaves exactly as before (everything counts).
+
+**What is scoped to the cycle** (only transactions dated on or after `cycleStart`):
+spending per category, savings towards linked allocations (D-10), income and
+expense figures, insights, and therefore safe-to-spend and the daily guide.
+
+**What is never reset:** spending cash and savings balances. They are real
+money, always worked out from the opening balance plus *every* transaction.
+Rollover never copies or rewrites a balance, so it cannot drift, and correcting
+an old transaction still updates cash correctly.
+
+**Opening balance** (Settings) is the money held when recording began. It does
+not change at rollover; each cycle's starting cash is simply the cash held on
+its first day.
+
+**Cycle lengths** are real calendar days between the start and payday (28–31,
+or any length), never an assumed 30. Day counts use calendar dates, immune to
+daylight saving (KI-16).
+
+**Rollover is never automatic.** From payday onwards the Overview shows "Payday
+has arrived" and the daily guide is replaced by a prompt (KI-25). Until the
+user confirms, the old cycle keeps counting, including new entries
+(conservative). The rollover screen shows the ending cycle (income, spending,
+net savings, cash at the end, money left in each allocation, overspends) and
+explains, before anything changes:
+
+1. Nothing is deleted; every transaction stays in the history.
+2. Spending cash carries over as it is.
+3. Allocations start again at their full amounts (editable in Budget).
+4. Money left in allocations is released into spending cash; the new cycle's
+   allocations are reserved from it. Until salary is recorded the plan may show
+   as short.
+5. Savings balances are untouched.
+6. Optional: move part of the leftover to a savings destination, recorded as a
+   normal Save dated the new cycle's first day.
+
+The user chooses the start date (payday by default; earlier if paid early) and
+the next payday (suggested: same day next month, moved back for short months).
+A copy of the data is kept first (Data safety), and the change goes through the
+same verified save as every other change (D-09). Missed paydays are closed one
+cycle at a time. Starting the same cycle twice is refused.
+
+**History** for closed cycles is computed live from transactions plus the stored
+dates and allocations, so it stays correct if an old entry is corrected.
+
+**Backdated entries** before the current cycle ask for confirmation: they change
+cash (and that cycle's history) but not the current budget.
+
+**Date-ordered savings (KI-24).** A withdrawal may not exceed what the
+destination held on its date, nor use money that later withdrawals depend on.
+Within one day, money in is counted before money out. Deleting a transfer or
+lowering a starting balance is refused if it would leave any day below zero.
+Restored data that breaks the order is kept, with a warning.
 
 ## D-08 Phase gating — approved 2026-11-05
 

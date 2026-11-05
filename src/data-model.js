@@ -134,6 +134,47 @@
     else if (V.isValidISODate(input.payday)) payday = input.payday;
     else r.rejected.push(`Payday ${show(input.payday)} is not a valid date and will be cleared — set it again in Settings.`);
 
+    // --- Pay cycle (Phase 3, additive) ---------------------------------------
+    let cycleStart = "";
+    if (!isBlank(input.cycleStart)) {
+      if (V.isValidISODate(input.cycleStart)) cycleStart = input.cycleStart;
+      else r.rejected.push(`The pay cycle start ${show(input.cycleStart)} is not a valid date and will be cleared — set it again in Settings.`);
+    }
+    if (cycleStart && payday && cycleStart >= payday) {
+      r.warnings.push(`This pay cycle starts on ${cycleStart}, which is on or after payday (${payday}). Check the dates in Settings.`);
+    }
+    const cycles = [];
+    if (input.cycles !== undefined) {
+      if (!Array.isArray(input.cycles)) {
+        r.rejected.push("The pay cycle history is damaged and will be left out (your transactions are not affected).");
+      } else {
+        input.cycles.forEach((c, i) => {
+          const bad = (why) => r.rejected.push(`Pay cycle record ${i + 1} ${why} and will be left out (your transactions are not affected).`);
+          if (!isObject(c)) return bad("is not a valid entry");
+          const start = c.start === "" ? "" : c.start;
+          if (!(start === "" || V.isValidISODate(start)) || !V.isValidISODate(c.end)) return bad("has invalid dates");
+          if (start && start >= c.end) return bad("ends before it starts");
+          const budgets = {};
+          if (c.budgets !== undefined && !isObject(c.budgets)) return bad("has damaged allocations");
+          for (const [id, amount] of Object.entries(c.budgets || {})) {
+            const b = V.parseWholeShillings(amount, { allowZero: true });
+            if (!V.isSafeId(id) || !b.ok) return bad("has damaged allocations");
+            budgets[id] = b.value;
+          }
+          cycles.push({ start, end: c.end, closedAt: typeof c.closedAt === "string" ? c.closedAt : "", budgets });
+        });
+        cycles.sort((a, b) => (a.end < b.end ? -1 : a.end > b.end ? 1 : 0));
+        for (let i = 1; i < cycles.length; i++) {
+          if (cycles[i].start && cycles[i].start < cycles[i - 1].end) {
+            r.warnings.push(`Pay cycle records overlap (${cycles[i - 1].end} and ${cycles[i].start}). History may double-count those days.`);
+          }
+        }
+        if (cycleStart && cycles.length && cycles[cycles.length - 1].end > cycleStart) {
+          r.warnings.push("The pay cycle history runs past the start of the current cycle. Check the dates in Settings.");
+        }
+      }
+    }
+
     // --- Savings destinations (read first: categories and transactions refer to them) ---
     let savingsDestinations = [];
     if (r.format === "pesaflow-v1" || input.savingsDestinations === undefined) {
@@ -316,12 +357,20 @@
       openingBalance, payday, categories, transactions, savingsDestinations, meta
     };
     if (typeof input.month === "string" && /^\d{4}-\d{2}$/.test(input.month)) state.month = input.month;
+    if (cycleStart) state.cycleStart = cycleStart;
+    if (cycles.length) state.cycles = cycles;
 
-    // A destination can't really hold less than nothing; flag it (the opening balance is probably missing).
+    // A destination can't really hold less than nothing, at the end or on any
+    // day (KI-24). Flag it; the data is kept.
+    const negative = (n) => ksh(n).replace("KSh -", "−KSh ");
     const balances = F.computeTotals(state).destinationBalances;
+    const orderIssues = F.savingsOrderIssues(state);
     for (const d of savingsDestinations) {
+      const issue = orderIssues.find(x => x.destinationId === d.id);
       if (balances[d.id] < 0) {
-        r.warnings.push(`${d.name} would show ${ksh(balances[d.id]).replace("KSh -", "−KSh ")}: more has been withdrawn than was recorded going in. Check its starting balance in Settings.`);
+        r.warnings.push(`${d.name} would show ${negative(balances[d.id])}: more has been withdrawn than was recorded going in. Check its starting balance in Settings.`);
+      } else if (issue) {
+        r.warnings.push(`On ${issue.date}, ${d.name} would have held ${negative(issue.balance)}: a withdrawal is dated before the money that funded it.`);
       }
     }
 
@@ -340,6 +389,8 @@
     return {
       openingBalance: state.openingBalance,
       payday: state.payday,
+      cycleStart: state.cycleStart || "",
+      closedCycles: (state.cycles || []).length,
       categoryCount: state.categories.length,
       transactionCount: state.transactions.length,
       incomeCount: state.transactions.filter(x => x.type === "income").length,
