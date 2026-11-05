@@ -3,6 +3,64 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.0] — 2026-11-06 — Phase 4: PesaOtas branding and user experience
+
+Fixes KI-12, 13, 14, 15, 21. No change to the approved safe-to-spend, savings or
+pay-cycle calculations (`src/finance.js` unchanged), and every Phase 1
+protection is intact (`src/storage.js` and `src/validation.js` unchanged).
+Existing users' data loads byte-for-byte unchanged.
+
+### Added
+- **Blank onboarding** (D-13): a new user starts empty, with a three-step
+  setup checklist and an optional "Add common categories" (names only, KSh 0).
+- **Edit transactions**: Edit on every entry loads it into the form; same
+  rules as new entries; ID and order preserved; every figure recalculated.
+- **Category manager**: a dialog to add, rename, change type, set allocation,
+  link a Savings category, and delete. Deleting a used category requires
+  choosing where its transactions go; nothing is deleted.
+- **Budget drafts** (KI-12): unsaved changes survive re-renders, are flagged,
+  and can be saved or discarded; leaving the page warns.
+- `src/entries.js`: pure rules for entries and categories (validateEntry,
+  validateDelete, validateCategory, deleteCategory, categoryUsage,
+  newCategoryId, addSuggestedCategories).
+- `tests/entries-and-categories.test.js` (30 tests). Total: 206 tests, 206 pass,
+  0 fail, 0 todo.
+- Restore preview counts entries on the device that the file doesn't contain;
+  README, DECISIONS (D-09 rule 9) and the Data safety card explain that
+  restoring any copy — including the pre-rollover copy — replaces everything,
+  and that only the most recent replaced copy is kept.
+- DECISIONS D-13; KNOWN_ISSUES KI-27 to KI-29.
+
+### Changed
+- **Rebranded to PesaOtas** everywhere users see it (title, sidebar, footer,
+  messages, reset text, privacy note, manifest). Historical PesaFlow
+  references kept where they describe the old data (D-13).
+- **Reset** is now "Erase and start empty" (keeps a Data safety copy).
+- **Reserved category IDs** (KI-21): `other` and income-source IDs.
+- **Mobile and accessibility** (KI-15): text at least 12px; WCAG AA contrast
+  (secondary text, icons, amounts, entry-type options, footer); 44px touch
+  targets; short mobile navigation labels ("Activity", "Budget", "Settings")
+  with full accessible names; `aria-current`; decorative icons hidden; labelled
+  edit/delete buttons; visible focus; skip link; focus moves to the screen
+  heading; toast above the bottom navigation; over-budget warning at the top;
+  16px form fields on phones; reduced motion respected.
+- The four entry types sit in a 2×2 grid on every screen size.
+- `sw.js` cache renamed `pesaotas-v1.4.0` and caches `src/entries.js`;
+  `package.json` 1.4.0; manifest name PesaOtas.
+
+### Removed
+- The hard-coded demonstration budget, the personal note about rent and a
+  gown, and fabricated placeholder figures.
+- Browser `prompt()` boxes for categories.
+
+### Fixed
+- KI-12, KI-13, KI-14, KI-15, KI-21 as above.
+- Pre-existing layout bugs found by the Phase 4 audit: an original rule squeezed
+  navigation labels to 19px (text clipped on phones, oversized on desktop);
+  the entry form spilled past its card on desktop (since Phase 2); two
+  original rules named fonts that were never loaded, so text fell back to a
+  serif.
+
 ## [1.3.0] — 2026-11-05 — Phase 3: pay cycles and rollover
 
 Fixes KI-09, KI-16, KI-24, KI-25 and applies the D-10 decision. All Phase 1

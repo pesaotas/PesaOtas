@@ -106,3 +106,120 @@
   .rollover-fields,.rollover-save-row{grid-template-columns:1fr}
   .rollover-fields .field-label{grid-row:auto}
 }
+
+/* ---- Phase 4: readability, contrast, touch targets and accessibility ---- */
+/* Secondary text darkened to meet WCAG AA contrast (≥ 4.5:1) on white and on the page background. */
+:root{--muted:#5a6661;--muted-2:#5f6b66}
+.tiny-muted,.stat-card small,.activity-info small,.form-footnote,.budget-amount,.budget-edit-bottom span{color:var(--muted-2)}
+/* Minimum 12px text everywhere. */
+.tiny-muted,.stat-card small,.activity-info small,.form-footnote,.budget-amount,.budget-edit-bottom span,.eyebrow,
+.meta-label,.subtle-tag,.mobile-footer,.sidebar-footer,.breakdown-row small,.cycle-actions .tiny-muted,
+.form-stack small.tiny-muted,.rollover-save .tiny-muted,.savings-list .tiny-muted{font-size:12px}
+.category-kind{font-size:12px;color:#44534c;background:#eaf0ec}
+.activity-info strong,.activity-amount,.budget-name,.insight-line strong,.empty-state,.alert-box,
+.field-label,.hero-caption,.insight-tip p,.local-pill,.stat-label,.summary-list dt,.cycle-figures dt,
+.danger-zone p,.privacy-note,.link-field,.brand small,.panel-heading .muted{font-size:13px}
+.text-button{font-size:13px;min-height:44px;padding:8px 6px}
+.type-switch span{font-size:13px;padding:11px 6px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.explain-card summary{min-height:44px}
+.button{font-size:14px;min-height:44px}
+.input{min-height:44px;font-size:15px}
+.welcome-row .button{font-size:13px}
+.hero-caption{color:#c4dace}
+.meta-label{color:#b5cdc1}
+.subtle-tag{color:#d3e6dc}
+.budget-edit-tags{display:flex;align-items:center;gap:6px}
+.budget-edit-tags .text-button{min-height:44px;padding:4px 10px}
+/* Keyboard focus is always visible. */
+:focus-visible{outline:3px solid #1f7a5c;outline-offset:2px}
+.sidebar :focus-visible{outline-color:#9fe2bd}
+#page-title:focus{outline:none}
+.skip-link{position:absolute;left:12px;top:-60px;z-index:50;background:#fff;color:var(--green-dark);padding:10px 14px;border-radius:8px;font-weight:700;box-shadow:var(--shadow)}
+.skip-link:focus{top:12px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* Navigation: clear active indicator. */
+.nav-link{min-height:44px}
+.nav-link.active{font-weight:700}
+.nav-short{display:none}
+/* Transaction rows: edit and delete. */
+.row-actions{display:flex;gap:4px;flex-shrink:0}
+.icon-button{width:44px;height:44px;border:1px solid var(--line);background:#fff;border-radius:10px;color:#3b5a4e;font-size:17px;display:grid;place-items:center;cursor:pointer}
+.icon-button:hover{background:var(--green-soft)}
+.icon-button-danger{color:#b84c40}
+.icon-button-danger:hover{background:#fff0ee}
+.delete-transaction{display:none}
+#transaction-form.is-editing{outline:2px solid #cfe8da;outline-offset:8px;border-radius:6px}
+/* Budget drafts (KI-12). */
+.budget-edit-card.has-draft{border-color:#e7c98f;box-shadow:0 0 0 2px #fbefd5}
+.draft-note{margin:8px 0 0;font-size:12px;font-weight:700;color:#80591c}
+.budget-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+/* Onboarding checklist. */
+.onboarding{border-color:#cfe8da}
+.setup-steps{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:10px}
+.setup-steps li{display:grid;grid-template-columns:32px 1fr auto;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:11px}
+.step-status{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;background:#eef3f0;color:#3b5a4e}
+.setup-steps li.is-done .step-status{background:var(--green);color:#fff}
+.setup-steps li.is-done .step-text strong{text-decoration:line-through;color:var(--muted)}
+.step-text strong{display:block;font-size:14px}
+.step-text small{display:block;font-size:13px;color:var(--muted-2);margin-top:2px}
+.step-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+/* Category dialog. */
+.sheet-form{display:flex;flex-direction:column;min-height:0;flex:1}
+.danger-inline{margin-top:16px;padding:14px;border:1px solid #f2d4d0;border-radius:11px;background:#fffafa}
+.danger-inline h3{margin:0 0 6px;font-size:14px;color:#a8433a}
+.danger-inline p{font-size:13px;margin:0 0 10px}
+.empty-state.card{padding:24px 16px;display:grid;gap:10px;justify-items:center}
+@media(max-width:800px){
+  .sidebar{height:auto;padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
+  .side-nav{gap:0}
+  .nav-link{font-size:12px;min-height:58px;padding:6px 2px;gap:3px;letter-spacing:-.1px}
+  .nav-link span.nav-icon{font-size:18px}
+  .nav-long,.nav-full{display:none}
+  .nav-short{display:inline}
+  .nav-link.active{background:#2a5a4b;color:#fff;box-shadow:inset 0 3px #8bd6ad}
+  .main-content{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  /* Toast sits above the bottom navigation, centred, never covering it. */
+  .toast{left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));text-align:center;font-size:14px;line-height:1.45}
+  .input{font-size:16px}
+  .local-pill{font-size:13px}
+  /* Phone: the pill shows only its dot; the words stay available to screen readers. */
+  .pill-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  /* The original rule ".nav-link span{font-size:17px}" was meant for the icon only; keep labels at 12px. */
+  .nav-link .nav-label,.nav-link .nav-label span{font-size:12px;line-height:1.2}
+  .mobile-footer{font-size:12px;color:var(--muted-2)}
+  .button,.welcome-row .button{font-size:14px;padding:11px 14px}
+  .setup-steps li{grid-template-columns:32px 1fr}
+  .step-actions{grid-column:1/-1;justify-content:flex-start}
+  .activity-row{flex-wrap:wrap}
+  .row-actions{margin-left:auto}
+  .budget-edit-bottom{flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+}
+
+/* Contrast fixes found by the Phase 4 audit (all ≥ 4.5:1). */
+.type-switch span{color:#4b5852}
+.optional{color:var(--muted-2)}
+.stat-icon.green{color:#1b6247}
+.stat-icon.coral{color:#a2402f}
+.stat-icon.purple{color:#55459a}
+.stat-icon.amber{color:#7c5410}
+.activity-icon{color:#1f5e47}
+.activity-amount.negative{color:#a23f2e}
+.activity-amount.positive{color:#1b6b4b}
+.tip-sparkle{color:#7c5410}
+.empty-state{color:var(--muted-2)}
+/* The original ".nav-link span{width:19px}" sizes the icon; labels must take their natural width. */
+.nav-link .nav-label,.nav-link .nav-label span{width:auto;text-align:inherit}
+@media(max-width:800px){.nav-link .nav-label{text-align:center;white-space:nowrap}}
+/* Desktop fixes found in Phase 4 review. */
+.nav-link .nav-label,.nav-link .nav-label span{font-size:14px}
+.avatar{display:grid;place-items:center;font-size:12px}
+/* The four entry types always sit in a 2×2 grid, so the form never spills past its card. */
+.type-switch-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+.form-stack,.form-stack>*{min-width:0}
+@media(max-width:800px){.nav-link .nav-label,.nav-link .nav-label span{font-size:12px}}
+/* Two original rules named fonts that are never loaded (Manrope, DM Sans), so browsers fell back to a serif. */
+.sidebar-note strong{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.payday-number small{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif}

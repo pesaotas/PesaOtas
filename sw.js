@@ -1,9 +1,9 @@
 // Bump CACHE_NAME whenever APP_FILES or any cached file changes, so installed
 // copies fetch the new files. (A proper update strategy is planned for Phase 5.)
-const CACHE_NAME = "pesaflow-v1.3.0";
+const CACHE_NAME = "pesaotas-v1.4.0";
 const APP_FILES = [
   "./", "./index.html", "./styles.css",
-  "./src/validation.js", "./src/finance.js", "./src/data-model.js", "./src/storage.js",
+  "./src/validation.js", "./src/finance.js", "./src/data-model.js", "./src/storage.js", "./src/entries.js",
   "./app.js", "./manifest.json", "./icon.svg"
 ];
 self.addEventListener("install", event => {

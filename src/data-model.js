@@ -59,6 +59,15 @@
   ]);
   const INCOME_IDS = new Set(INCOME_SOURCES.map(s => s.id));
 
+  /** ID used by transactions for "Other / uncategorised" spending. */
+  const UNCATEGORISED_ID = "other";
+  /**
+   * IDs no budget category may use (fixes KI-21): the uncategorised option and
+   * the income sources, so a category can never be confused with either.
+   */
+  const RESERVED_CATEGORY_IDS = Object.freeze([UNCATEGORISED_ID, ...INCOME_SOURCES.map(s => s.id)]);
+  const RESERVED = new Set(RESERVED_CATEGORY_IDS);
+
   const isObject = (o) => o !== null && typeof o === "object" && !Array.isArray(o);
   const ksh = (n) => "KSh " + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const show = (v) => {
@@ -75,14 +84,14 @@
     return CATEGORY_TYPES.find(t => t.toLowerCase() === v) || null;
   }
 
-  /** An empty plan: no categories, no transactions, no payday yet. */
+  /** An empty plan: no categories, no transactions, no payday yet (Phase 4: shows the setup checklist). */
   function createBlankState() {
     return {
       app: APP_ID, version: SCHEMA_VERSION, currency: "KES",
       openingBalance: 0, payday: "",
       categories: [], transactions: [],
       savingsDestinations: defaultDestinations(),
-      meta: {}
+      meta: { onboarding: "active" }
     };
   }
 
@@ -214,6 +223,10 @@
         const name = V.cleanName(c.name, 60);
         const label = name ? `Budget category "${name}"` : where;
         if (!V.isSafeId(c.id)) { r.errors.push(`${label} has a missing or invalid ID.`); return; }
+        if (RESERVED.has(c.id)) {
+          r.errors.push(`${label} uses the reserved ID "${c.id}", which belongs to ${c.id === UNCATEGORISED_ID ? "uncategorised spending" : "an income source"}. It can't be loaded safely without guessing which transactions belong to it.`);
+          return;
+        }
         if (categoryIds.has(c.id)) { r.errors.push(`${label} uses the same ID as another category ("${c.id}").`); return; }
         if (!name) { r.errors.push(`${where} has no usable name.`); return; }
         const budget = V.parseWholeShillings(c.budget, { allowZero: true });
@@ -348,6 +361,8 @@
     const meta = {};
     if (isObject(input.meta)) {
       if (typeof input.meta.createdAt === "string") meta.createdAt = input.meta.createdAt;
+      // Phase 4: whether the first-run setup checklist is showing ("active") or finished ("done").
+      if (input.meta.onboarding === "active" || input.meta.onboarding === "done") meta.onboarding = input.meta.onboarding;
       if (isObject(input.meta.migratedFrom) && typeof input.meta.migratedFrom.key === "string") {
         meta.migratedFrom = { key: input.meta.migratedFrom.key, migratedAt: String(input.meta.migratedFrom.migratedAt || "") };
       }
@@ -429,6 +444,7 @@
 
   return Object.freeze({
     SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS, CATEGORY_TYPES, INCOME_SOURCES,
+    UNCATEGORISED_ID, RESERVED_CATEGORY_IDS,
     canonicalType, createBlankState, normalizeState, isClean, summarize, analyzeBackup, serializeBackup
   });
 });

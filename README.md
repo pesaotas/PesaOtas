@@ -4,12 +4,43 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Status — v1.3.0 (Phase 3 complete).** PesaOtas is being developed from the
-> PesaFlow v1.0 prototype in small, tested phases. Saved data and restores are
-> protected (Phase 1); safe-to-spend and savings with KCB M-PESA and M-Shwari
-> work (Phase 2); budgets follow your pay cycle (Phase 3). Not yet done: the
-> PesaOtas name, blank onboarding and editing entries. Known defects:
-> [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+> **Status — v1.4.0 (Phase 4 complete).** Saved data and restores are protected
+> (Phase 1); safe-to-spend and savings with KCB M-PESA and M-Shwari work
+> (Phase 2); budgets follow your pay cycle (Phase 3); PesaOtas branding, blank
+> onboarding, editing, a category manager and mobile accessibility are in place
+> (Phase 4). Not yet done: installable app and online deployment (Phase 5).
+> Known defects: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+
+## Getting started
+
+A new PesaOtas starts completely empty — nothing is filled in for you. A short
+checklist on the Overview walks you through three steps:
+
+1. **Set your money and payday** (Settings): what you have now, when this pay
+   cycle started, and your next payday.
+2. **Add budget categories** (Budget): add your own, or tap **Add common
+   categories** for a starting list of names (each at KSh 0), then give each
+   one an allocation.
+3. **Record your first entry**: your salary, a purchase, or money you save.
+
+## Managing your entries and categories
+
+- **Edit any entry** with the ✎ button in Transactions. The same checks apply
+  as for a new entry, and every total is recalculated. You can also correct an
+  old savings entry that was recorded as an expense by changing it to **Save**.
+- **Categories** are managed in a dialog (Budget → Add category, or Edit on any
+  category): name, type, allocation and, for Savings, the account it's saved
+  to. Renaming keeps every transaction attached. A category with transactions
+  can only be deleted once you choose where those transactions go — nothing is
+  deleted.
+- **Unsaved budget changes** stay on screen until you save or discard them.
+
+## Accessibility
+
+PesaOtas aims for text of at least 12px, WCAG AA colour contrast, touch targets
+of at least 44px, labelled controls for screen readers, visible keyboard focus
+and a "Skip to main content" link. It respects your device's reduced-motion
+setting.
 
 ## How "safe to spend" works
 
@@ -113,6 +144,7 @@ src/validation.js   Amounts, dates and IDs (pure, tested)
 src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (pure, tested)
 src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
+src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
 sw.js               Service worker (offline cache)
 manifest.json       Install metadata
 tests/              node:test suite, neutral fixtures, fake browser storage
@@ -145,6 +177,15 @@ CHANGELOG.md        Every meaningful change
   `.gitignore`.
 - Restoring a backup always shows a preview first and needs your confirmation.
   The data it replaces is kept under **Data safety**.
+- **Restoring replaces everything.** A backup or safety copy is a snapshot of
+  one moment. Restoring it — including the copy made just before a new pay
+  cycle, a reset or a recovery — replaces *all* current data with that
+  snapshot. Anything you recorded after the snapshot was made (transactions,
+  savings entries, budget changes, a later pay cycle) will no longer be in the
+  app. The preview tells you how many entries on this device are not in the
+  file. PesaOtas keeps a copy of what it replaces, but **only the most recent
+  one**, so download a backup first if you might need today's data again.
+  There is no undo button.
 - If saved data is ever damaged, PesaOtas sets it aside instead of replacing
   it, and asks you what to do. Nothing is saved until you choose.
 - Safety copies use the same browser storage (about 5 MB in total), which is

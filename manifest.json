@@ -1,12 +1,17 @@
 {
-  "name": "PesaFlow — Personal Finance",
-  "short_name": "PesaFlow",
-  "description": "A simple personal budgeting assistant.",
+  "name": "PesaOtas — Personal Finance",
+  "short_name": "PesaOtas",
+  "description": "A private, local-first budgeting assistant in Kenyan shillings.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f5f8f6",
   "theme_color": "#10231f",
   "icons": [
-    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }

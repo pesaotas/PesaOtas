@@ -157,6 +157,14 @@ Rules (enforced in `src/storage.js`, covered by `tests/storage.test.js`):
 8. Restores always show a preview (contents, what is left out, what is
    corrected) and need explicit confirmation; the replaced data is kept as the
    pre-restore copy.
+9. *Clarified 2026-11-05 (Phase 3 approval):* a restore replaces **all**
+   current data with the snapshot. Restoring the copy made before a new pay
+   cycle (or a reset, recovery or earlier restore) removes everything recorded
+   after that copy — transactions, savings entries, budget and cycle changes.
+   Only the most recent replaced copy is kept (`pesaotas.pre-restore` is a
+   single slot), so the user should download a backup first. The preview counts
+   the entries on the device that the file does not contain. No undo feature is
+   provided (by decision).
 
 ## D-10 A withdrawal re-opens the linked savings allocation — decided 2026-11-05 (Phase 3 approval), implemented v1.3.0
 
@@ -248,6 +256,51 @@ destination held on its date, nor use money that later withdrawals depend on.
 Within one day, money in is counted before money out. Deleting a transfer or
 lowering a starting balance is refused if it would leave any day below zero.
 Restored data that breaks the order is kept, with a warning.
+
+## D-13 PesaOtas user experience rules — approved 2026-11-05 (Phase 4), implemented v1.4.0
+
+**Name.** Everything users see says PesaOtas. "PesaFlow" remains only where it
+is history: the `pesaflow.personal.v1` storage key (never touched, D-09), the
+migration notice ("your PesaFlow data has moved"), "older PesaFlow backup" in
+the restore preview, and the Data safety copies of the original data.
+
+**Blank onboarding.** A user with no PesaOtas and no PesaFlow data starts
+empty: no categories, transactions, balances or payday, and nothing is written
+until they act. A setup checklist (`meta.onboarding: "active"`) guides three
+steps and disappears when they are done or hidden. "Add common categories"
+adds names only, each at KSh 0. Data without the field (all existing users)
+never shows the checklist. "Erase and start empty" replaces the old reset; it
+keeps a Data safety copy first.
+
+**Editing entries.** New and edited entries go through one set of rules
+(`src/entries.js` `validateEntry`): an edit keeps the entry's ID and original
+order; withdrawal limits are worked out as if the original entry weren't
+there; a change is refused if it would leave a savings destination below zero
+on any day; moving an entry before the current cycle, or a transfer above
+spending cash, asks for confirmation. There is no edit history (KI-29).
+
+**Categories.** Managed in a dialog (no `prompt()`): name (unique, up to 40
+characters), type from the fixed list, allocation, and — for Savings — one
+linked destination. Rename keeps the ID, so transactions stay attached.
+Changing a linked Savings category to another type removes the link, and the
+dialog says so. Deleting shows how the category is used; one with transactions
+can't be deleted until the user chooses where they go (another category or
+"Other / uncategorised"). Its allocation is released, and the confirmation
+states any change to safe to spend. No transaction is ever deleted.
+
+**Reserved IDs (KI-21).** `other` (uncategorised) and the income-source IDs can
+never be category IDs. New IDs are generated as `cat-…`. Data or a backup with
+a category using a reserved ID is refused rather than guessed.
+
+**Budget drafts (KI-12).** Unsaved allocation and link changes are kept in
+memory until saved or discarded, survive any re-render, are visibly flagged,
+and leaving the page warns.
+
+**Accessibility targets.** Text at least 12px (16px in form fields on phones),
+WCAG AA contrast (4.5:1), touch targets at least 44px, every control named for
+screen readers, `aria-current` on the active screen, decorative icons hidden,
+visible keyboard focus, a skip link, focus moved to the screen heading on
+navigation, the toast above the bottom navigation, reduced motion respected.
 
 ## D-08 Phase gating — approved 2026-11-05
 
