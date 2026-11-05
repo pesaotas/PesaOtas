@@ -1,0 +1,12 @@
+{
+  "name": "pesaotas",
+  "version": "1.0.1",
+  "private": true,
+  "description": "PesaOtas — local-first personal budgeting assistant (KSh). No runtime or development dependencies.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

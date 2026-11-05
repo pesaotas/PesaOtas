@@ -1,62 +1,97 @@
-# PesaFlow v1.0
+# PesaOtas
 
-A free, local-first personal budgeting web app.
+A free, local-first personal budgeting assistant for everyday budgeting in
+Kenya. It answers one question: **how much can I safely spend right now
+without compromising my other commitments?**
 
-## Included in the starter budget
+> **Status — v1.0.1 (Phase 0 complete).** PesaOtas is being developed from the
+> PesaFlow v1.0 prototype in small, tested phases. The interface still shows the
+> PesaFlow name and demonstration data; both change in later phases. Known
+> defects are listed in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). Do not
+> rely on the safe-spending figures or on restoring backups from other sources
+> until Phases 1–2 are complete.
 
-- Opening balance: KSh 25,000
-- Next payday: 1 December 2026
-- Food: KSh 5,000
-- Work transport: KSh 3,300
-- Graduation extras: KSh 1,500
-- Shoes: KSh 3,500
-- Entertainment / dates: KSh 2,000
-- Emergency savings: KSh 4,000
-- December jacket fund: KSh 2,000
-- Miscellaneous: KSh 1,000
-- Wi-Fi: KSh 1,500
-- Electricity: KSh 1,000
+## Run it
 
-Total allocations: KSh 24,800. Unallocated: KSh 200.
-
-Rent is excluded because it was already paid. The KSh 10,000 gown and return-transport payment is already reflected in the KSh 25,000 opening balance; do not enter it again.
-
-## Run locally on Windows
-
-### Option 1: easiest
-1. Extract the ZIP file.
-2. Open the `PesaFlow_v1` folder.
+### Option 1: open the file (simplest)
+1. Extract the ZIP.
+2. Open the project folder.
 3. Double-click `index.html`.
 
-The core budgeting features work when opened directly. Some install/offline PWA features require a local web server.
+Everything works this way except offline/install features, which need a web
+server.
 
-### Option 2: run using Python
-Open Command Prompt in this folder and run:
+### Option 2: run a local web server (Windows)
+Open Command Prompt in the project folder and run:
 
 ```bat
 py -m http.server 8000
 ```
 
-Then open:
+Then open `http://localhost:8000`. Press `Ctrl + C` to stop. If `py` is not
+recognised, use `python -m http.server 8000`.
 
-`http://localhost:8000`
+## Development
 
-To stop the server, return to Command Prompt and press `Ctrl + C`.
+### Requirements
+- Any modern browser.
+- [Node.js](https://nodejs.org/) 20 or newer, **only** for running tests.
+  There are no packages to install.
 
-If `py` is not recognised, try:
+### Run the tests
+From the project folder:
 
 ```bat
-python -m http.server 8000
+npm test
 ```
+
+or, without npm:
+
+```bat
+node --test
+```
+
+You should see `fail 0`. The `todo` entries are known defects that are
+documented, not yet fixed (see the testing policy in
+[docs/DECISIONS.md](docs/DECISIONS.md), D-06).
+
+### Project structure
+
+```
+index.html          App markup
+styles.css          Styles (mobile breakpoints at 1100, 800 and 390px)
+app.js              UI: rendering, forms, storage, backup/restore
+src/finance.js      Pure financial calculations (tested; no DOM/storage)
+sw.js               Service worker (offline cache)
+manifest.json       Install metadata
+tests/              node:test suite and neutral fixtures
+docs/DECISIONS.md   Approved product and architecture decisions
+docs/KNOWN_ISSUES.md Known defects and the phase that fixes each
+docs/ROADMAP.md     Phase plan
+CHANGELOG.md        Every meaningful change
+```
+
+### Rules for contributors
+- All money logic goes in `src/` as pure functions, with tests.
+- Whole Kenyan shillings only; display as **KSh**.
+- Plain `<script>` tags only — no build step, frameworks or paid services.
+- When a file is added to the app, add it to `APP_FILES` in `sw.js` and bump
+  `CACHE_NAME`.
+- Record every meaningful change in `CHANGELOG.md`.
 
 ## Privacy and backup
 
-- Financial data is stored in this browser's LocalStorage.
-- No bank, M-Pesa or cloud account is connected.
-- Use Settings & backup → Download backup regularly.
-- Restore a JSON backup from the same screen.
-- Anyone with access to your unlocked browser profile may be able to access this app and its local data.
+- Financial data is stored only in this browser's LocalStorage on this device.
+  Clearing browser data, using private browsing, or switching browsers or
+  devices means it is not there.
+- No bank, M-Pesa or other account is connected, and no credentials, PINs or
+  passwords are ever requested.
+- Use **Settings & backup → Download backup** regularly and keep the file
+  somewhere private. Backup files are excluded from the repository by
+  `.gitignore`.
+- Anyone with access to your unlocked browser profile can open the app and its
+  data.
 
-## Notes
+## Disclaimer
 
-This is a first working prototype, not financial advice or a bank application. Review the budget categories and payday in the app before relying on the calculations. No transaction is imported automatically.
+PesaOtas is a budgeting aid, not financial advice or a banking application.

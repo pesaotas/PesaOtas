@@ -1,0 +1,9 @@
+# Personal financial data must never be committed.
+pesaflow-backup-*.json
+pesaotas-backup-*.json
+*backup*.json
+
+# Tooling / OS
+node_modules/
+.DS_Store
+Thumbs.db

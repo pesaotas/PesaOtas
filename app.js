@@ -69,27 +69,13 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
   }
+  // Financial calculations live in src/finance.js (pure, tested). These thin
+  // wrappers supply the current state and clock.
   function totals() {
-    const expenses = state.transactions.filter(t => t.type === "expense");
-    const income = state.transactions.filter(t => t.type === "income");
-    const spent = expenses.reduce((sum,t) => sum + t.amount, 0);
-    const earned = income.reduce((sum,t) => sum + t.amount, 0);
-    const cash = state.openingBalance + earned - spent;
-    const spentByCategory = {};
-    expenses.forEach(t => spentByCategory[t.categoryId] = (spentByCategory[t.categoryId] || 0) + t.amount);
-    const allocatedRemaining = state.categories.reduce((sum,c) => sum + Math.max(0, c.budget - (spentByCategory[c.id] || 0)), 0);
-    const planned = state.categories.reduce((sum,c) => sum + c.budget, 0);
-    const unallocated = cash - allocatedRemaining;
-    const overCount = state.categories.filter(c => (spentByCategory[c.id] || 0) > c.budget).length;
-    const flexible = state.categories.filter(c => c.kind === "Flexible")
-      .reduce((sum,c) => sum + Math.max(0,c.budget - (spentByCategory[c.id] || 0)),0);
-    return {spent,earned,cash,spentByCategory,allocatedRemaining,planned,unallocated,overCount,flexible};
+    return PesaFinance.computeTotals(state);
   }
   function daysToPayday() {
-    const now = new Date();
-    now.setHours(0,0,0,0);
-    const payday = new Date(`${state.payday}T00:00:00`);
-    return Math.max(0, Math.ceil((payday-now)/86400000));
+    return PesaFinance.daysToPayday(state.payday, new Date());
   }
   function categoryName(id) {
     return state.categories.find(c => c.id === id)?.name || "Other";
