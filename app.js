@@ -360,36 +360,158 @@
       ? "You have unsaved changes. They'll stay here until you save or discard them."
       : "Changes are saved on this device.";
   }
+  // ---------------------------------------------------------------------------
+  // Insights (v1.6 Phase 2, D-18): read-only figures from src/insights.js.
+  // ---------------------------------------------------------------------------
+  let insightPeriod = (() => {
+    const saved = store ? PesaStorage.readDeviceInfo(store).insightsPeriod : null;
+    return PesaInsights.PERIODS[saved] ? saved : PesaInsights.DEFAULT_PERIOD;
+  })();
+  document.getElementById("insight-period").addEventListener("change", e => {
+    if (!e.target.matches('input[name="insight-period"]')) return;
+    insightPeriod = e.target.value;
+    if (store) PesaStorage.updateDeviceInfo(store, { insightsPeriod: insightPeriod }); // a per-device preference, not financial data
+    renderInsights();
+  });
+  const pctText = (x) => `${Math.round(x * 100)}%`;
+  /** "▲ 12% more than the previous 30 days (KSh 8,880)" — words carry the meaning, not colour. */
+  function compareLine(ch, range, opts = {}) {
+    if (range.id === "all" || range.coverage.empty) return "";
+    const prevLabel = PesaInsights.PERIODS[range.id].previous;
+    if (!ch) return `<p class="kpi-compare muted-compare">No comparison yet: that needs records going back to ${escapeHTML(formatDate(range.previous.start))}.</p>`;
+    let text, arrow = "";
+    if (opts.signed) {
+      text = ch.diff === 0 ? `Same as ${prevLabel} (${money(ch.previous)})`
+        : `${money(Math.abs(ch.diff))} ${ch.diff > 0 ? "higher" : "lower"} than ${prevLabel} (${money(ch.previous)})`;
+      arrow = ch.diff > 0 ? "▲" : ch.diff < 0 ? "▼" : "";
+    } else if (ch.previous === 0) {
+      text = ch.diff === 0 ? `None in ${prevLabel} either` : `None in ${prevLabel}`;
+    } else if (ch.diff === 0) {
+      text = `Same as ${prevLabel} (${money(ch.previous)})`;
+    } else if (!ch.pct) {
+      // Under 1%: give the amount instead of "0% less".
+      text = `${money(Math.abs(ch.diff))} ${ch.diff > 0 ? "more" : "less"} than ${prevLabel} (${money(ch.previous)})`;
+      arrow = ch.diff > 0 ? "▲" : "▼";
+    } else {
+      text = `${Math.abs(ch.pct)}% ${ch.diff > 0 ? "more" : "less"} than ${prevLabel} (${money(ch.previous)})`;
+      arrow = ch.diff > 0 ? "▲" : "▼";
+    }
+    return `<p class="kpi-compare">${arrow ? `<span aria-hidden="true">${arrow}</span> ` : ""}${escapeHTML(text)}</p>`;
+  }
+  function kpiCard(id, label, figure, explain, compare) {
+    return `<article class="card kpi-card" aria-labelledby="kpi-${id}"><h3 class="kpi-label" id="kpi-${id}">${escapeHTML(label)}</h3>` +
+      `<p class="kpi-figure" id="kpi-${id}-figure">${figure}</p><p class="kpi-explain">${explain}</p>${compare}</article>`;
+  }
   function renderInsights() {
-    const t = totals();
-    document.getElementById("insight-expenses").textContent = money(t.spent);
-    document.getElementById("insight-income").textContent = money(t.earned);
-    document.getElementById("insight-count").textContent = state.transactions.length;
-    // Spending only: savings moves never appear as spending (KI-08).
-    const rows = state.categories.filter(c => !(c.destinationId && isSavingsCategory(c)))
-      .map(c => ({ name: c.name, spent: t.spentByCategory[c.id] || 0, budget: c.budget }));
-    if (t.uncategorisedSpent > 0) rows.push({ name: "Other / uncategorised", spent: t.uncategorisedSpent, budget: null }); // KI-11
-    rows.sort((a,b) => b.spent - a.spent);
-    document.getElementById("insight-categories").innerHTML = rows.map(c => {
-      const noBudget = c.budget === null;
-      const pct = noBudget ? 100 : c.budget ? Math.min(100,c.spent/c.budget*100) : (c.spent?100:0);
-      const over = noBudget || c.spent > c.budget;
-      return `<div class="insight-line"><strong>${escapeHTML(c.name)}</strong><div class="progress-track"><div class="progress-fill ${over?"over":""}" style="width:${pct}%"></div></div><span class="tiny-muted">${money(c.spent)} / ${noBudget ? "no budget" : money(c.budget)}</span></div>`;
-    }).join("");
-    let message = "Record a few transactions and PesaOtas will start identifying spending patterns.";
-    if (state.transactions.length) {
-      const top = rows[0];
-      message = top && top.spent > 0
-        ? `${top.name} is currently your highest recorded spending category at ${money(top.spent)}. Keep recording purchases so you can spot patterns early.`
-        : "No spending recorded yet.";
-      if (t.overCount) message += ` You have ${t.overCount} category/categories above their planned budget.`;
-      else if (top && top.spent > 0) message += " None of your recorded categories are over budget. Keep it up.";
-      if (t.uncategorisedSpent > 0) message += ` ${money(t.uncategorisedSpent)} of spending has no budget category, so it comes out of your unallocated money.`;
-      if (t.transferredToSavings || t.withdrawnFromSavings) {
-        message += ` You moved ${money(t.transferredToSavings)} into savings${t.withdrawnFromSavings ? ` and took ${money(t.withdrawnFromSavings)} back out` : ""}; savings moves are not counted as spending or income.`;
+    const today = todayISO();
+    document.querySelectorAll('input[name="insight-period"]').forEach(r => { r.checked = r.value === insightPeriod; });
+    const sum = PesaInsights.summary(state, insightPeriod, today);
+    const range = sum.range;
+    const noRecords = state.transactions.length === 0;
+    document.getElementById("insight-empty").classList.toggle("hidden", !noRecords);
+    document.getElementById("insight-body").classList.toggle("hidden", noRecords);
+    const cov = range.coverage;
+    let coverage = "";
+    if (!noRecords) {
+      if (cov.empty) coverage = "No entries are dated today or earlier yet.";
+      else if (cov.partial) coverage = `Your records start on ${formatDate(cov.recordsStart)}, so this covers ${cov.coveredDays} of the ${range.days} days. Averages use those ${cov.coveredDays} days.`;
+      else coverage = `${range.id === "all" ? "All your records" : range.label}: ${formatDate(range.start)} – ${formatDate(range.end)} (${range.days} ${range.days === 1 ? "day" : "days"}).`;
+      if (sum.futureEntries) coverage += ` ${sum.futureEntries} ${sum.futureEntries === 1 ? "entry is" : "entries are"} dated after today and not included yet.`;
+    }
+    document.getElementById("insight-coverage").textContent = coverage;
+    if (noRecords) { renderCycleHistory(); return; }
+
+    const days = sum.averageDaily.days;
+    const ive = sum.incomeVsExpenses, net = sum.netCash, leaks = sum.leaks, top = sum.largestCategory;
+    const prevLabel = range.id === "all" ? "" : PesaInsights.PERIODS[range.id].previous;
+    const cards = [
+      kpiCard("expenses", "Total expenses", escapeHTML(money(sum.expenses.amount)),
+        `${sum.expenses.count} ${sum.expenses.count === 1 ? "expense" : "expenses"} recorded. Savings transfers aren't spending, so they're not included.`,
+        compareLine(sum.expenses.change, range)),
+      kpiCard("daily", "Average daily spending", `${escapeHTML(money(sum.averageDaily.amount))}<small> a day</small>`,
+        days ? `Total expenses divided by ${days} ${days === 1 ? "day" : "days"}${cov.partial ? " of records" : ""}.` : "No days with records in this period.",
+        compareLine(sum.averageDaily.change, range)),
+      kpiCard("largest", "Largest spending category", top ? escapeHTML(top.name) : "None yet",
+        top ? `${escapeHTML(money(top.amount))}, ${pctText(top.share)} of your spending in this period.` : "No spending recorded in this period.",
+        top ? compareLine(top.change, range) : ""),
+      kpiCard("income", "Income vs expenses", ive.spentShare === null ? (ive.expenses ? "No income" : "Nothing yet") : `${pctText(ive.spentShare)}<small> of income spent</small>`,
+        `${escapeHTML(money(ive.income))} came in and ${escapeHTML(money(ive.expenses))} was spent` +
+          (ive.difference < 0 ? `: spending was ${escapeHTML(money(-ive.difference))} more than income.` : ive.income ? `, leaving ${escapeHTML(money(ive.difference))}.` : "."),
+        range.id === "all" ? "" : !sum.previousTotals ? compareLine(null, range)
+          : `<p class="kpi-compare">${ive.previousSpentShare === null ? `No income recorded in ${escapeHTML(prevLabel)}` : `In ${escapeHTML(prevLabel)}: ${pctText(ive.previousSpentShare)} of income spent`}</p>`),
+      kpiCard("net", "Net cash movement", `${net.amount > 0 ? "+" : ""}${escapeHTML(money(net.amount))}`,
+        `How much your spending cash ${net.amount >= 0 ? "grew" : "fell"}: income ${escapeHTML(money(net.income))} − spending ${escapeHTML(money(net.expenses))} − moved to savings ${escapeHTML(money(net.transfers))} + taken from savings ${escapeHTML(money(net.withdrawals))}.`,
+        compareLine(net.change, range, { signed: true })),
+      kpiCard("leaks", "Potential spending leaks", escapeHTML(money(leaks.total)),
+        leaks.count ? `${leaks.count} ${leaks.count === 1 ? "purchase" : "purchases"} of ${escapeHTML(money(leaks.threshold))} or less, or without a category: ${pctText(leaks.share)} of your spending. Worth a look, but not necessarily wasteful.`
+          : `No purchases of ${escapeHTML(money(leaks.threshold))} or less and nothing uncategorised in this period.`,
+        compareLine(leaks.change, range))
+    ];
+    document.getElementById("insight-kpis").innerHTML = cards.join("");
+
+    // Where your money went
+    const rows = sum.breakdown.rows.filter(r => r.amount > 0);
+    document.getElementById("insight-breakdown").innerHTML = rows.length
+      ? `<ol class="spend-rows">${rows.map(r => {
+          const ch = r.change;
+          const chText = !ch ? "" : ch.previous === 0 ? `none in ${prevLabel}` : ch.diff === 0 ? `same as ${prevLabel}`
+            : `${ch.pct ? `${Math.abs(ch.pct)}%` : money(Math.abs(ch.diff))} ${ch.diff > 0 ? "more" : "less"} than ${prevLabel}`;
+          return `<li class="spend-row"><div class="spend-top"><strong>${escapeHTML(r.name)}</strong><span>${escapeHTML(money(r.amount))} · ${pctText(r.share)}</span></div>` +
+            `<div class="progress-track" aria-hidden="true"><div class="progress-fill" style="width:${Math.max(1, Math.round(r.share * 100))}%"></div></div>` +
+            `<small class="tiny-muted">${r.count} ${r.count === 1 ? "entry" : "entries"}${chText ? ` · ${escapeHTML(chText)}` : ""}</small></li>`;
+        }).join("")}</ol>`
+      : `<p class="empty-state">No spending recorded in this period.</p>`;
+
+    // History: weeks for 30 days, months otherwise
+    const unit = PesaInsights.historyUnit(range.id);
+    const buckets = PesaInsights.series(state, range, unit);
+    document.getElementById("insight-history-title").textContent = unit === "week" ? "Week by week" : "Month by month";
+    // Why a row is partial: records start part-way through it, the period starts part-way through it, or it isn't over yet.
+    const partialNote = (b) => {
+      if (!b.partial) return "";
+      if (b.coveredDays === 0) return "no records yet";
+      if (b.coveredDays < b.days) return `records start ${formatDate(cov.recordsStart)}`;
+      if (b.start === range.start && b.end === range.end) return "";
+      if (b.start === range.start) return unit === "week" ? "" : `from ${formatDate(b.start)}`; // week labels already show the dates
+      return "so far";
+    };
+    // On phones each row becomes a small card (CSS); the explicit roles keep it a table for screen readers.
+    const cols = ["Money in", "Spending", "To savings (net)", "Cash change"];
+    document.getElementById("insight-history").innerHTML =
+      `<table class="history-table" role="table"><caption class="sr-only">${unit === "week" ? "Week by week" : "Month by month"}: money in, spending, savings and change in cash</caption>` +
+      `<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">${unit === "week" ? "Week" : "Month"}</th>${cols.map(c => `<th scope="col" role="columnheader">${c}</th>`).join("")}</tr></thead><tbody role="rowgroup">` +
+      buckets.map(b => {
+        const note = partialNote(b);
+        const vals = [money(b.income), money(b.expenses), money(b.transfers - b.withdrawals), `${b.net > 0 ? "+" : ""}${money(b.net)}`];
+        return `<tr role="row"><th scope="row" role="rowheader">${escapeHTML(b.label)}${note ? `<small>(${escapeHTML(note)})</small>` : ""}</th>` +
+          vals.map((v, i) => `<td role="cell" data-label="${cols[i]}">${escapeHTML(v)}</td>`).join("") + `</tr>`;
+      }).join("") + `</tbody></table>`;
+
+    // Patterns
+    const pat = PesaInsights.patterns(state, range.id, today);
+    const parts = [];
+    if (range.id !== "all") {
+      if (!pat.comparable) parts.push(`<p>Changes by category appear once your records go back to ${escapeHTML(formatDate(range.previous.start))}, so the whole of ${escapeHTML(prevLabel)} can be compared.</p>`);
+      else if (!pat.increases.length && !pat.decreases.length) parts.push(`<p>No category changed compared with ${escapeHTML(prevLabel)}.</p>`);
+      else {
+        const line = (r) => `<li><strong>${escapeHTML(r.name)}</strong>: ${escapeHTML(money(r.amount))} (${r.change.previous === 0 ? `none in ${escapeHTML(prevLabel)}` : `${escapeHTML(money(Math.abs(r.change.diff)))} ${r.change.diff > 0 ? "more" : "less"} than ${escapeHTML(money(r.change.previous))}`})</li>`;
+        if (pat.increases.length) parts.push(`<h4>Spending more than ${escapeHTML(prevLabel)}</h4><ul>${pat.increases.map(line).join("")}</ul>`);
+        if (pat.decreases.length) parts.push(`<h4>Spending less than ${escapeHTML(prevLabel)}</h4><ul>${pat.decreases.map(line).join("")}</ul>`);
       }
     }
-    document.getElementById("insight-message").textContent = message;
+    if (!pat.available) {
+      parts.push(pat.reason === "period"
+        ? `<p>Month patterns compare whole months. Choose <strong>Last 6 months</strong> or <strong>All time</strong> to see them.</p>`
+        : `<p>Month patterns need at least ${PesaInsights.SETTINGS.minCompleteMonths} complete months of records in this period. There ${pat.completeMonths === 1 ? "is" : "are"} ${pat.completeMonths} so far.</p>`);
+    } else {
+      parts.push(pat.highMonths.length
+        ? `<h4>Months with unusually high spending</h4><ul>${pat.highMonths.map(m => `<li><strong>${escapeHTML(m.label)}</strong>: ${escapeHTML(money(m.expenses))}, ${m.abovePct}% above a typical month (${escapeHTML(money(Math.round(m.median)))})</li>`).join("")}</ul>`
+        : `<p>No month stands out: none of the ${pat.completeMonths} complete months was more than ${Math.round((PesaInsights.SETTINGS.highMonthFactor - 1) * 100)}% above a typical month.</p>`);
+      parts.push(pat.everyMonth.length
+        ? `<h4>Spent on every month</h4><ul>${pat.everyMonth.map(c => `<li><strong>${escapeHTML(c.name)}</strong>: about ${escapeHTML(money(c.monthlyAverage))} a month</li>`).join("")}</ul>`
+        : `<p>No category had spending in every one of the ${pat.completeMonths} complete months.</p>`);
+    }
+    document.getElementById("insight-patterns").innerHTML = parts.join("");
     renderCycleHistory();
   }
 

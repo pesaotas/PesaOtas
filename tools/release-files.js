@@ -22,6 +22,7 @@ const PRECACHE_FILES = Object.freeze([
   "src/data-model.js",
   "src/storage.js",
   "src/entries.js",
+  "src/insights.js",
   "icons/icon-192.png",
   "icons/icon-512.png",
   "icons/maskable-192.png",

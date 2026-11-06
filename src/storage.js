@@ -572,7 +572,7 @@
   // Device notes and space used (Storage protection card). Not financial data,
   // not part of backups.
   // ---------------------------------------------------------------------------
-  const DEVICE_FIELDS = { lastBackupAt: "string", persistAskedAt: "string", persistGranted: "boolean" };
+  const DEVICE_FIELDS = { lastBackupAt: "string", persistAskedAt: "string", persistGranted: "boolean", insightsPeriod: "string" };
 
   function readDeviceInfo(storage) {
     try {

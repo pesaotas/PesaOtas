@@ -464,9 +464,66 @@ that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
   undo: change back (lossless) or restore that copy.
 - Backups carry the currency; restoring a backup in another currency says so
   in the preview and brings that currency back.
-- Small-purchase investigation thresholds per currency (for Expense Detective,
-  Phase 4): KES 500, UGX 15,000, TZS 10,000, NGN 3,000, ZAR 100, USD/GBP/EUR 5.
+- Small-purchase investigation thresholds per currency (used by Insights'
+  potential spending leaks, D-18, and by Expense Detective, Phase 4): KES 500, UGX 15,000, TZS 10,000, NGN 3,000, ZAR 100, USD/GBP/EUR 5.
   They are prompts to look, never judgements.
+
+## D-18 Insights foundation — approved 2026-11-06 (v1.6 Phase 2), implemented v1.6.0 Phase 2
+
+Insights is read-only analysis of recorded transactions (`src/insights.js`).
+It never changes data, never saves anything to the budget, and sends nothing
+anywhere. Calculations of balances and safe-to-spend (`src/finance.js`) are
+unchanged; Insights only adds up recorded entries.
+
+- **Periods**: Last 30 days (default), Last 6 months, All time. Every period
+  ends today and includes today. Last 30 days = today and the 29 days before;
+  Last 6 months = the day after the same date six months ago, to today; All
+  time = from the first record. Entries dated after today are left out and
+  counted ("1 entry dated after today isn't included").
+- **What counts**: only *expense* entries are spending and only *income*
+  entries are income. A savings transfer is never spending and a withdrawal is
+  never income (D-04). **Net cash movement** = income − expenses − moved to
+  savings + taken from savings, which equals the change in spending cash over
+  the period (tested against `computeTotals`).
+- **Fair comparisons only**: each figure is compared with the previous period of
+  exactly the same length (the previous 30 days; the 6 months before), and only
+  when the records cover **all** of that previous period. Otherwise the card
+  says there is no comparison yet and from which date records would be needed.
+  All time has no comparison. A change under 1% is given as an amount, not
+  "0%"; a change from zero is given as an amount, never as a percentage.
+- **Partial coverage**: when records start part-way through a period, the
+  screen says how many days are covered, and the average daily spending is
+  divided by the days with records, not the length of the period.
+- **KPI cards** (each with a label, the figure, a plain explanation and, where
+  fair, a comparison): total expenses; average daily spending; largest spending
+  category (with its share); income vs expenses (share of income spent, or "no
+  income recorded"); net cash movement; potential spending leaks.
+- **Potential spending leaks** = expenses at or below the currency's
+  small-purchase threshold (D-17: KES 500, UGX 15,000, TZS 10,000, NGN 3,000,
+  ZAR 100, USD/GBP/EUR 5) plus expenses with no current category. An entry that
+  is both is counted once. They are described as "worth a look", never as
+  waste: everyday fares and small essentials are included by design.
+- **Categories**: spending per category with its share; entries whose category
+  no longer exists are grouped as "Other / uncategorised". Category changes are
+  listed only when the comparison is fair.
+- **History table**: weeks (Monday–Sunday) for Last 30 days, calendar months
+  otherwise; weeks or months only partly inside the period, or only partly
+  covered by records, are marked as partial.
+- **Patterns** (Last 6 months and All time only), from **complete** calendar
+  months fully covered by records, and only with at least **3** of them:
+  months above **125%** of the median complete month ("unusually high", with
+  the evidence), categories with spending in **every** complete month (with a
+  monthly average), and up to **3** biggest category increases and decreases
+  when the comparison is fair. With less data the screen says how many complete
+  months are needed and how many there are. Thresholds live in
+  `PesaInsights.SETTINGS`.
+- **Period preference**: the chosen period is a device preference
+  (`pesaotas.device` → `insightsPeriod`), not budget data: it isn't in backups,
+  doesn't mark the budget as changed and is never shared between devices.
+- The previous Insights screen (all-time totals, a transaction count, category
+  spending against plan, and a fixed tip) is replaced. Spending against each
+  category's plan remains on the Budget screen; previous pay cycles remain on
+  Insights.
 
 ## D-08 Phase gating — approved 2026-11-05
 

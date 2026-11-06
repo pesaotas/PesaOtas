@@ -3,13 +3,41 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0-dev] — Unreleased — v1.6 Phase 1: currency foundation and storage-format safeguard
+## [1.6.0-dev] — Unreleased — v1.6 Phases 1–2: currency foundation, storage-format safeguard, Insights foundation
 
 Work in progress on branch `v1.6-dev`; not published. `main` and the live
 v1.5.0 are unchanged (stable tag `v1.5.0-baseline`, commit `4d8f130`).
 Calculations are unchanged (`src/finance.js` untouched).
 
-### Added
+### Phase 2 — Insights foundation (D-18)
+- **Added — new Insights screen** (`src/insights.js`, read-only):
+  - Period choice: Last 30 days (default), Last 6 months, All time. Remembered
+    on this device only (`pesaotas.device`), never in the budget data.
+  - Six cards, each with a label, figure, explanation and (where fair) a
+    comparison with the previous period of the same length: total expenses,
+    average daily spending, largest spending category, income vs expenses, net
+    cash movement, potential spending leaks.
+  - Where your money went (spending by category with shares), a weekly or
+    monthly history table (cards on phones), and patterns (unusually high
+    months, categories every month, biggest category changes) once there are at
+    least 3 complete months.
+  - Clear empty, partial and not-enough-data states: how many days are covered,
+    from when records are needed for a comparison, and how many complete months
+    are needed for patterns. Future-dated entries are left out and counted.
+  - Amounts and the small-purchase threshold follow the budget's currency.
+- **Changed**: the old Insights screen (all-time totals, a transaction count,
+  category spending against plan, and a fixed tip) is replaced. Spending against
+  plan remains on the Budget screen; *Previous pay cycles* remains on Insights.
+- **Not changed**: balances, safe-to-spend and every other calculation
+  (`src/finance.js` untouched); the data format (`src/data-model.js` untouched);
+  `src/storage.js` only lists the new device preference.
+- Tests: `insights.test.js` (33) with the fictional fixture
+  `tests/helpers/insights-data.js`. **345 tests, 345 pass.** Mutation check: 18 of
+  18 deliberate faults in the Insights calculations are caught.
+- Known issues KI-37 (date format inconsistency, Phase 5) and KI-38 (leaks
+  include routine small spending, by design).
+
+### Phase 1 — Added
 - **Currencies** (D-17): KES (default), UGX, TZS, NGN, ZAR, USD, GBP, EUR
   (`src/currency.js`). Chosen during setup or in Settings → Currency. Every
   amount, label, message, preview and backup uses the budget's currency. Whole
@@ -41,7 +69,7 @@ Calculations are unchanged (`src/finance.js` untouched).
   fictional fixture `tests/helpers/v15-data.js`. **312 tests, 312 pass.**
   Mutation check: 15 of 15 deliberate faults in the new safeguards are caught.
 
-### Changed
+### Phase 1 — Changed
 - Amount error text no longer mentions shillings: "must be a whole amount (no
   decimals)".
 - Warnings show amounts with a non-breaking space, like every other amount.

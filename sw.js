@@ -28,11 +28,11 @@
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
 const VERSION = "1.6.0-dev";
-const BUILD = "084e73e50cee";
+const BUILD = "439cfb59a479";
 const PRECACHE = [
-  ["index.html", "b8545f2617546752e672aa4eb2ef32ba2c2d1e50cf53411d39aea7eba5e345bf"],
-  ["styles.css", "d6e09673beef225c943c7640598796bd89d79de51048e1b07ab1333564760979"],
-  ["app.js", "d223882b86a4d0cbe4e15034b4be387ffdd05606e1c55a85dfb47b409796af2b"],
+  ["index.html", "bfce585f8a23f99c0b07a189054af6003637f206ce9725a83b78d6701ba359c4"],
+  ["styles.css", "72e160faef44931430127303e10312118147aa925215ab760c94d81b0c9a0726"],
+  ["app.js", "8560d6f7dcdfe732c89e78cf4d7c0645a2712e01e185020af66b1f54fd5d4c0c"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
   ["icon.svg", "b0ee30f9b7cb64ec62958e425fefe2cc0955b52a4aa7c8e8c7db13847f8ade9e"],
   ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
@@ -40,8 +40,9 @@ const PRECACHE = [
   ["src/validation.js", "e55d0acd852216ae0c37f7fa7d6d409d03eadfac86f64a0ee94e02d374ae4d68"],
   ["src/finance.js", "8224f61b97cd7324f444f5b8623f7a86b5bd082a4a05cef2c245ab36275bd60a"],
   ["src/data-model.js", "9b7814e420b2eeae3e8940d84272b44585a85bccd1d4e6c961f066ea15bbc83c"],
-  ["src/storage.js", "3189084d788bde594532b2d6426352710d2815b3f26ae0af297b1aab1e918130"],
+  ["src/storage.js", "58bfa9358a75f755468e7f9465e1010c36e58aa244c344b7b3edb95770d8283a"],
   ["src/entries.js", "3ee42bb6bbda68e3d52aae439fd4b325e76104ce4d7cc0b35516a445a4c9adf7"],
+  ["src/insights.js", "9d6e853eb8ae46ec449e3432383c477df01d08a1aa2e64bf2835f797b360c0e2"],
   ["icons/icon-192.png", "8108201013d2b840110e15cf673aebf8d8442539ee411d5c2e9617f410e4bd5c"],
   ["icons/icon-512.png", "bc3188217d1dabe481bab6051cf5f89c237f0ecb0753a62f6cfa50593ece3611"],
   ["icons/maskable-192.png", "14bb41445fa81172f3380fe46bc3804cded7f7a61dd7351d85df7b18a0944f48"],

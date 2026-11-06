@@ -69,6 +69,27 @@ overwrite newer data.
   deleted.
 - **Unsaved budget changes** stay on screen until you save or discard them.
 
+## Insights
+
+**Insights** shows where your money went, for the **last 30 days**, the **last 6
+months** or **all time** (your choice is remembered on this device):
+
+- **Total expenses**, **average daily spending**, your **largest spending
+  category**, **income vs expenses**, **net cash movement** (how much your
+  spending cash went up or down) and **potential spending leaks** (small
+  purchases and uncategorised spending worth a look).
+- Each figure is compared with the previous period of the same length, but only
+  when your records cover all of it. Otherwise it tells you when a comparison
+  will be possible. It never guesses.
+- Money moved to savings is not spending, and money taken out of savings is not
+  income.
+- Spending by category, a week-by-week or month-by-month history, and patterns
+  such as unusually expensive months once you have three complete months of
+  records.
+
+Insights only reads your records. It never changes them and nothing leaves your
+device.
+
 ## Install it, use it offline, and updates
 
 Open PesaOtas from its web address (see [Publishing](#option-3-publish-it-on-github-pages)),
@@ -224,6 +245,7 @@ src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (
 src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
 src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
+src/insights.js     Insights: periods, totals, comparisons, patterns (pure, read-only, tested)
 sw.js               Service worker: offline copy and safe updates (D-14)
 manifest.json       Install metadata
 icons/              App icons (PNG; sources and how to regenerate in icons/src)

@@ -241,19 +241,36 @@
       </section>
 
       <section id="view-insights" class="view">
-        <div class="section-intro"><div><h2>Expense Detective</h2><p class="muted">Understand your habits without the complicated spreadsheets.</p></div></div>
-        <div class="stat-grid insight-stats">
-          <article class="card stat-card"><span aria-hidden="true" class="stat-icon coral">↘</span><span class="stat-label">Total expenses</span><strong id="insight-expenses">0</strong><small>Recorded spending</small></article>
-          <article class="card stat-card"><span aria-hidden="true" class="stat-icon green">＋</span><span class="stat-label">Total income</span><strong id="insight-income">0</strong><small>Recorded income</small></article>
-          <article class="card stat-card"><span aria-hidden="true" class="stat-icon purple">◎</span><span class="stat-label">Transactions</span><strong id="insight-count">0</strong><small>Entries recorded</small></article>
+        <div class="section-intro insights-intro">
+          <div><h2>Insights</h2><p class="muted">Where your money goes, how it changes, and what deserves a closer look.</p></div>
+          <fieldset class="period-switch" id="insight-period">
+            <legend class="sr-only">Period to analyse</legend>
+            <label><input type="radio" name="insight-period" value="30d"><span>Last 30 days</span></label>
+            <label><input type="radio" name="insight-period" value="6m"><span>Last 6 months</span></label>
+            <label><input type="radio" name="insight-period" value="all"><span>All time</span></label>
+          </fieldset>
         </div>
-        <article class="card panel-card">
-          <div class="panel-heading"><div><h3>Where your money is going</h3><p class="muted">Recorded expenses compared with each category's plan.</p></div></div>
-          <div id="insight-categories" class="insight-category-list"></div>
+        <p id="insight-coverage" class="insight-coverage" aria-live="polite"></p>
+        <article id="insight-empty" class="card panel-card insight-empty hidden">
+          <h3>No records yet</h3>
+          <p class="muted">Record a few transactions and Insights will show where your money goes, how your spending changes over time, and what deserves a closer look.</p>
+          <button class="button button-primary" type="button" data-view-link="transactions">Add a transaction</button>
         </article>
-        <article class="card panel-card insight-tip">
-          <span class="tip-sparkle" aria-hidden="true">✦</span><div><h3>Your first financial insight</h3><p id="insight-message">Record a few transactions and PesaOtas will start identifying spending patterns.</p></div>
-        </article>
+        <div id="insight-body">
+          <div class="kpi-grid" id="insight-kpis"></div>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Where your money went</h3><p class="muted" id="insight-breakdown-note">Spending by category in this period. Savings transfers aren't spending, so they're not included.</p></div></div>
+            <div id="insight-breakdown" class="breakdown-list"></div>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3 id="insight-history-title">Month by month</h3><p class="muted">Money in and out over this period. Savings moves are shown separately and are never counted as income or spending.</p></div></div>
+            <div id="insight-history" class="table-wrap"></div>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Patterns</h3><p class="muted">Facts from your records, shown only when there's enough data to support them.</p></div></div>
+            <div id="insight-patterns" class="patterns"></div>
+          </article>
+        </div>
         <article class="card panel-card" id="cycle-history-card">
           <div class="panel-heading"><div><h3>Previous pay cycles</h3><p class="muted">Worked out from your transactions, so they stay accurate if you correct an old entry.</p></div></div>
           <div id="cycle-history" class="cycle-history"></div>
@@ -482,6 +499,7 @@
   <script src="src/validation.js"></script>
   <script src="src/finance.js"></script>
   <script src="src/data-model.js"></script>
+  <script src="src/insights.js"></script>
   <script src="src/storage.js"></script>
   <script src="src/entries.js"></script>
   <script src="app.js"></script>
