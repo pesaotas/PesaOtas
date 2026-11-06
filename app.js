@@ -363,6 +363,7 @@
   // ---------------------------------------------------------------------------
   // Insights (v1.6 Phase 2, D-18): read-only figures from src/insights.js.
   // ---------------------------------------------------------------------------
+  const calendarDays = (n) => `${n} calendar ${n === 1 ? "day" : "days"}`;
   let insightPeriod = PesaInsights.resolvePeriod(store ? PesaStorage.readDeviceInfo(store).insightsPeriod : null);
   document.getElementById("insight-period").addEventListener("change", e => {
     if (!e.target.matches('input[name="insight-period"]')) return;
@@ -411,14 +412,18 @@
     let coverage = "";
     if (!noRecords) {
       if (cov.empty) coverage = "No entries are dated today or earlier yet.";
-      else if (cov.partial) coverage = `Your records start on ${formatDate(cov.recordsStart)}, so this covers ${cov.coveredDays} of the ${range.days} days. Averages use those ${cov.coveredDays} days.`;
-      else coverage = `${range.id === "all" ? "All your records" : range.label}: ${formatDate(range.start)} – ${formatDate(range.end)} (${range.days} ${range.days === 1 ? "day" : "days"}).`;
+      else if (cov.partial) coverage = `Your records start on ${formatDate(cov.recordsStart)}, so this period's figures cover ${formatDate(cov.coveredStart)} – ${formatDate(range.end)}: ${calendarDays(cov.coveredDays)} of its ${range.days}. Averages use these ${calendarDays(cov.coveredDays)}.`;
+      else coverage = `${range.id === "all" ? "All your records" : range.label}: ${formatDate(range.start)} – ${formatDate(range.end)} (${calendarDays(range.days)}).`;
       if (sum.futureEntries) coverage += ` ${sum.futureEntries} ${sum.futureEntries === 1 ? "entry is" : "entries are"} dated after today and not included yet.`;
     }
     document.getElementById("insight-coverage").textContent = coverage;
     if (noRecords) { renderCycleHistory(); return; }
 
     const days = sum.averageDaily.days;
+    // D-18: calendar days of covered history, not the number of dates with entries.
+    const dailyExplain = days
+      ? `Total expenses divided by ${calendarDays(days)}${cov.partial ? ` (${formatDate(sum.averageDaily.from)} – ${formatDate(sum.averageDaily.to)})` : ""}. Days without entries count as no recorded spending.`
+      : "No recorded history in this period yet, so there is no daily average.";
     const ive = sum.incomeVsExpenses, net = sum.netCash, leaks = sum.leaks, top = sum.largestCategory;
     const prevLabel = range.id === "all" ? "" : PesaInsights.PERIODS[range.id].previous;
     const cards = [
@@ -426,7 +431,7 @@
         `${sum.expenses.count} ${sum.expenses.count === 1 ? "expense" : "expenses"} recorded. Savings transfers aren't spending, so they're not included.`,
         compareLine(sum.expenses.change, range)),
       kpiCard("daily", "Average daily spending", `${escapeHTML(money(sum.averageDaily.amount))}<small> a day</small>`,
-        days ? `Total expenses divided by ${days} ${days === 1 ? "day" : "days"}${cov.partial ? " of records" : ""}.` : "No days with records in this period.",
+        dailyExplain,
         compareLine(sum.averageDaily.change, range)),
       kpiCard("largest", "Largest spending category", top ? escapeHTML(top.name) : "None yet",
         top ? `${escapeHTML(money(top.amount))}, ${pctText(top.share)} of your spending in this period.` : "No spending recorded in this period.",

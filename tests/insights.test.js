@@ -91,12 +91,142 @@ describe("fair comparisons", () => {
   it("averages per day over the same number of days in both periods", () => {
     const s = budget([t("expense", 3000, "2026-09-08"), t("expense", 600, "2026-10-08")]);
     const sum = I.summary(s, "30d", TODAY);
-    assert.deepEqual(sum.averageDaily, { amount: 20, days: 30, change: { previous: 100, diff: -80, pct: -80 } });
+    assert.deepEqual(sum.averageDaily, { amount: 20, days: 30, from: "2026-10-08", to: TODAY, previousDays: 30, change: { previous: 100, diff: -80, pct: -80 } });
+  });
+});
+
+describe("average daily spending: calendar days of covered history (D-18)", () => {
+  const PERIOD_IDS = ["30d", "6m", "all"];
+  const distinctDates = (s, range) => new Set(s.transactions.filter(x => x.date >= range.start && x.date <= range.end).map(x => x.date)).size;
+
+  it("review example: KSh 1,000 on 31 Oct and KSh 1,000 on 6 Nov is KSh 286 a day over 7 calendar days, in every period", () => {
+    const s = budget([t("expense", 1000, "2026-10-31"), t("expense", 1000, "2026-11-06")]);
+    for (const p of PERIOD_IDS) {
+      const a = I.summary(s, p, TODAY).averageDaily;
+      assert.equal(a.days, 7, p);
+      assert.equal(a.amount, 286, p);                 // 2,000 ÷ 7 = 285.7, not 2,000 ÷ 2 dates = 1,000
+      assert.equal(a.from, "2026-10-31", p);
+      assert.equal(a.to, TODAY, p);
+      assert.notEqual(a.days, distinctDates(s, I.summary(s, p, TODAY).range), "never the number of dates with entries");
+    }
+  });
+
+  it("two dates several days apart: every calendar day between them counts", () => {
+    const s = budget([t("expense", 1800, "2026-10-20"), t("expense", 1800, "2026-11-06")]);
+    const a = I.summary(s, "30d", TODAY).averageDaily;
+    assert.deepEqual([a.days, a.amount], [18, 200]);  // 20 Oct – 6 Nov inclusive
+  });
+
+  it("several entries on one date count as one calendar day", () => {
+    const s = budget([t("expense", 100, TODAY), t("expense", 200, TODAY), t("expense", 300, TODAY)]);
+    for (const p of PERIOD_IDS) assert.deepEqual([I.summary(s, p, TODAY).averageDaily.days, I.summary(s, p, TODAY).averageDaily.amount], [1, 600], p);
+    const s2 = budget([t("expense", 200, "2026-11-01"), t("expense", 200, "2026-11-01"), t("expense", 200, "2026-11-01")]);
+    assert.deepEqual([I.summary(s2, "30d", TODAY).averageDaily.days, I.summary(s2, "30d", TODAY).averageDaily.amount], [6, 100]); // 1–6 Nov
+  });
+
+  it("records on consecutive dates", () => {
+    const s = budget([t("expense", 100, "2026-11-05"), t("expense", 300, TODAY)]);
+    for (const p of PERIOD_IDS) assert.deepEqual([I.summary(s, p, TODAY).averageDaily.days, I.summary(s, p, TODAY).averageDaily.amount], [2, 200], p);
+  });
+
+  it("records starting part-way through Last 6 months use the days from the first record", () => {
+    const s = budget([t("expense", 5300, "2026-09-15"), t("expense", 5300, "2026-10-15")]);
+    const sum = I.summary(s, "6m", TODAY);
+    assert.equal(sum.range.coverage.partial, true);
+    assert.deepEqual([sum.averageDaily.days, sum.averageDaily.amount, sum.averageDaily.from], [53, 200, "2026-09-15"]); // 16 + 31 + 6
+    assert.equal(sum.averageDaily.change, null, "no comparison without the whole previous period");
+  });
+
+  it("records before a period start: the whole period counts, from its first day", () => {
+    const s = budget([t("expense", 999, "2026-01-01"), t("expense", 3000, "2026-10-20")]);
+    const a = I.summary(s, "30d", TODAY).averageDaily;
+    assert.deepEqual([a.days, a.amount, a.from], [30, 100, "2026-10-08"]);
+  });
+
+  it("future-dated entries add nothing to the spending or to the days", () => {
+    const s = budget([t("expense", 600, "2026-11-01"), t("expense", 50000, "2026-11-20"), t("expense", 9000, "2027-01-05")]);
+    for (const p of PERIOD_IDS) {
+      const sum = I.summary(s, p, TODAY);
+      assert.deepEqual([sum.averageDaily.days, sum.averageDaily.amount, sum.averageDaily.to], [6, 100, TODAY], p);
+      assert.equal(sum.futureEntries, 2);
+    }
+    // Only future entries: no covered history, no daily average, nothing divided by zero.
+    const onlyFuture = budget([t("expense", 500, "2026-11-07")]);
+    for (const p of PERIOD_IDS) {
+      const a = I.summary(onlyFuture, p, TODAY).averageDaily;
+      assert.deepEqual([a.days, a.amount, a.from], [0, 0, null], p);
+    }
+  });
+
+  it("no records: zero days and no average, without dividing by zero", () => {
+    for (const p of PERIOD_IDS) {
+      const a = I.summary(budget([]), p, TODAY).averageDaily;
+      assert.deepEqual([a.days, a.amount, a.from, a.change], [0, 0, null, null], p);
+      assert.ok(Number.isFinite(a.amount));
+    }
+  });
+
+  it("days with only income or savings entries, or with no spending at all, count as zero-spending days", () => {
+    const s = budget([t("income", 60000, "2026-11-01"), t("savings_transfer", 3000, "2026-11-02"), t("expense", 600, TODAY)]);
+    const a = I.summary(s, "30d", TODAY).averageDaily;
+    assert.deepEqual([a.days, a.amount, a.from], [6, 100, "2026-11-01"]); // history starts with the first entry of any type
+    const noSpending = budget([t("income", 60000, "2026-11-01")]);
+    assert.deepEqual([I.summary(noSpending, "30d", TODAY).averageDaily.days, I.summary(noSpending, "30d", TODAY).averageDaily.amount], [6, 0]);
+  });
+
+  it("the average depends on spending, not on how often it was recorded", () => {
+    const daily = budget(Array.from({ length: 28 }, (_, i) => t("expense", 1000, F.addDays("2026-10-10", i))));
+    const weekly = budget(["2026-10-10", "2026-10-17", "2026-10-24", "2026-10-31"].map(d => t("expense", 7000, d)).concat([t("income", 1, "2026-11-06")]));
+    const a = I.summary(daily, "30d", TODAY).averageDaily, b = I.summary(weekly, "30d", TODAY).averageDaily;
+    assert.equal(a.days, 28); assert.equal(b.days, 28);
+    assert.equal(a.amount, b.amount);
+  });
+
+  it("all three periods on a full history: the period's calendar days, matching the history table", () => {
+    const h = insightsState();
+    const expected = { "30d": 30, "6m": 184, all: 432 };
+    for (const p of PERIOD_IDS) {
+      const sum = I.summary(h, p, TODAY);
+      assert.equal(sum.averageDaily.days, expected[p], p);
+      assert.equal(sum.averageDaily.days, sum.range.coverage.coveredDays, p);
+      assert.equal(sum.averageDaily.amount, Math.round(sum.expenses.amount / expected[p]), p);
+      const buckets = I.series(h, sum.range, I.historyUnit(p));
+      assert.equal(buckets.reduce((x, b) => x + b.coveredDays, 0), sum.averageDaily.days, `${p}: the table covers the same days`);
+    }
+  });
+
+  it("the previous period's average follows the same rule", () => {
+    const h = insightsState();
+    for (const [p, days] of [["30d", 30], ["6m", 184]]) {
+      const sum = I.summary(h, p, TODAY);
+      const r = sum.range;
+      assert.equal(sum.averageDaily.previousDays, I.coveredDaysBetween(r.coverage.recordsStart, r.previous.start, r.previous.end), p);
+      assert.equal(sum.averageDaily.previousDays, days, p);
+      assert.equal(sum.averageDaily.change.previous, Math.round(I.totalsBetween(h, r.previous.start, r.previous.end).expenses / days), p);
+    }
+    assert.equal(I.summary(h, "all", TODAY).averageDaily.previousDays, null);
+  });
+
+  it("the denominator is the same in every currency", () => {
+    for (const cur of ["KES", "UGX", "USD", "EUR"]) {
+      const sum = I.summary(insightsState({ currency: cur, from: "2026-10-31" }), "30d", TODAY);
+      assert.equal(sum.averageDaily.days, 7, cur);
+      assert.equal(sum.averageDaily.amount, Math.round(sum.expenses.amount / 7), cur);
+    }
+  });
+
+  it("coveredDaysBetween: the rule itself", () => {
+    assert.equal(I.coveredDaysBetween(null, "2026-10-08", TODAY), 0);
+    assert.equal(I.coveredDaysBetween("2026-11-07", "2026-10-08", TODAY), 0);
+    assert.equal(I.coveredDaysBetween(TODAY, "2026-10-08", TODAY), 1);
+    assert.equal(I.coveredDaysBetween("2026-10-31", "2026-10-08", TODAY), 7);
+    assert.equal(I.coveredDaysBetween("2025-01-01", "2026-10-08", TODAY), 30);
+    assert.equal(I.coveredDaysBetween("2026-02-27", "2026-02-27", "2026-03-01"), 3); // across a month end (2026 isn't a leap year)
   });
 });
 
 describe("coverage", () => {
-  it("when records start part-way through, averages use only the days with records, and say so", () => {
+  it("when records start part-way through, averages use the calendar days from the first record, and say so", () => {
     const s = budget([t("expense", 700, "2026-10-31"), t("expense", 0 + 700, "2026-11-06")]);
     const sum = I.summary(s, "30d", TODAY);
     assert.deepEqual(sum.range.coverage, { recordsStart: "2026-10-31", coveredStart: "2026-10-31", coveredDays: 7, partial: true, empty: false });

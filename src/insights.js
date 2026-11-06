@@ -12,8 +12,12 @@
  *  - Comparisons are always with a previous period of exactly the same number
  *    of days, and only when the records cover ALL of that previous period.
  *    Otherwise there is no comparison — never a guess.
- *  - When records start part-way through the period, averages use only the
- *    days that have records, and the result says so (`coverage`).
+ *  - Average daily spending is divided by CALENDAR days of covered history:
+ *    from the later of the period's start and the first recorded entry,
+ *    through the period's end, inclusive (`coveredDaysBetween`). Days without
+ *    entries in that span count as days with no recorded spending; the number
+ *    of dates that happen to have entries is never used. The same rule applies
+ *    to the current and the previous period. `coverage` says which days these are.
  *  - Patterns need enough complete months; with less data they are not shown.
  *
  * Browser: `window.PesaInsights`. Node: `require("./src/insights.js")`.
@@ -54,6 +58,17 @@
   const minISO = (a, b) => (a < b ? a : b);
   const dayCount = (from, to) => F.daysBetween(from, to) + 1; // inclusive
 
+  /**
+   * The denominator for averages (D-18): calendar days from the later of `start`
+   * and `first` (the first recorded entry) through `end`, inclusive. 0 when there
+   * are no records yet or they start after `end`. Days without entries count.
+   */
+  function coveredDaysBetween(first, start, end) {
+    if (!first) return 0;
+    const from = maxISO(start, first);
+    return from <= end ? dayCount(from, end) : 0;
+  }
+
   /** Earliest date of any entry on or before today (null if none): when records start. */
   function recordsStart(state, today) {
     let first = null;
@@ -76,7 +91,7 @@
     const days = dayCount(start, today);
     const previous = id === "all" ? null : { start: F.addDays(start, -days), end: F.addDays(start, -1), days };
     const coveredStart = first ? maxISO(start, first) : null;
-    const coveredDays = coveredStart && coveredStart <= today ? dayCount(coveredStart, today) : 0;
+    const coveredDays = coveredDaysBetween(first, start, today);
     return {
       id, label: PERIODS[id].label, start, end: today, days,
       previous,
@@ -172,8 +187,12 @@
     const range = periodRange(state, periodId, today);
     const cur = totalsBetween(state, range.start, range.end);
     const prev = range.comparable ? totalsBetween(state, range.previous.start, range.previous.end) : null;
-    const days = range.coverage.coveredDays;
+    // Same denominator rule for both periods (D-18). A comparison exists only when
+    // records cover the whole previous period, so there it is that period's length.
+    const days = coveredDaysBetween(range.coverage.recordsStart, range.start, range.end);
     const avgDaily = days > 0 ? Math.round(cur.expenses / days) : 0;
+    const prevDays = prev ? coveredDaysBetween(range.coverage.recordsStart, range.previous.start, range.previous.end) : 0;
+    const prevAvgDaily = prevDays > 0 ? Math.round(prev.expenses / prevDays) : null;
     const breakdown = categoryBreakdown(state, range);
     const top = breakdown.rows.find(r => r.amount > 0) || null;
     const leaks = leakSummary(state, range.start, range.end);
@@ -182,7 +201,11 @@
     return {
       range, totals: cur, previousTotals: prev, futureEntries: future,
       expenses: { amount: cur.expenses, count: cur.counts.expense, change: prev ? change(cur.expenses, prev.expenses) : null },
-      averageDaily: { amount: avgDaily, days, change: prev ? change(avgDaily, Math.round(prev.expenses / range.previous.days)) : null },
+      averageDaily: {
+        amount: avgDaily, days, from: days > 0 ? range.coverage.coveredStart : null, to: range.end,
+        previousDays: prev ? prevDays : null,
+        change: prevAvgDaily !== null ? change(avgDaily, prevAvgDaily) : null
+      },
       largestCategory: top ? {
         key: top.key, name: top.name, amount: top.amount, share: top.share,
         change: prev ? change(top.amount, (prev.byCategory.get(top.key) || { amount: 0 }).amount) : null
@@ -211,12 +234,11 @@
   function series(state, range, unit) {
     const out = [];
     let cursor = unit === "week" ? weekStart(range.start) : unit === "month" ? `${range.start.slice(0, 7)}-01` : range.start;
-    const covered = range.coverage.coveredStart;
     while (cursor <= range.end) {
       const natEnd = unit === "day" ? cursor : unit === "week" ? F.addDays(cursor, 6) : lastDayOfMonth(cursor);
       const start = maxISO(cursor, range.start), end = minISO(natEnd, range.end);
       const t = totalsBetween(state, start, end);
-      const coveredDays = covered && covered <= end ? dayCount(maxISO(start, covered), end) : 0;
+      const coveredDays = coveredDaysBetween(range.coverage.recordsStart, start, end);
       const days = dayCount(start, end);
       const label = unit === "month" ? monthLabel(cursor.slice(0, 7))
         : unit === "week" ? (start === end ? shortDate(start) : `${shortDate(start)} – ${shortDate(end)}`) : shortDate(start);
@@ -268,6 +290,6 @@
 
   return Object.freeze({
     PERIODS, DEFAULT_PERIOD, resolvePeriod, SETTINGS, UNCATEGORISED, UNCATEGORISED_NAME,
-    recordsStart, periodRange, totalsBetween, leakSummary, categoryBreakdown, summary, series, historyUnit, patterns
+    recordsStart, coveredDaysBetween, periodRange, totalsBetween, leakSummary, categoryBreakdown, summary, series, historyUnit, patterns
   });
 });

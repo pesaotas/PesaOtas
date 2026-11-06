@@ -31,12 +31,19 @@ Calculations are unchanged (`src/finance.js` untouched).
 - **Not changed**: balances, safe-to-spend and every other calculation
   (`src/finance.js` untouched); the data format (`src/data-model.js` untouched);
   `src/storage.js` only lists the new device preference.
-- Tests: `insights.test.js` (33) with the fictional fixture
-  `tests/helpers/insights-data.js`, and `insights-preference.test.js` (12) for the
-  period preference (saved, restored, default, invalid values, never in the
-  budget data, backups or safety copies). **357 tests, 357 pass.** Mutation
-  check: 18 of 18 deliberate faults in the Insights calculations and 5 of 5 in
-  the preference handling are caught.
+- Tests: `insights.test.js` (47, including 14 for the average's denominator)
+  with the fictional fixture `tests/helpers/insights-data.js`, and
+  `insights-preference.test.js` (12) for the period preference (saved, restored, default, invalid values, never in the
+  budget data, backups or safety copies). **371 tests, 371 pass.** Mutation
+  check: 18 of 18 deliberate faults in the Insights calculations, 6 of 6 in the
+  average's denominator and 5 of 5 in the preference handling are caught.
+- Clarified during review (D-18 wording approved): average daily spending is
+  divided by calendar days of covered history (from the later of the period's
+  start and the first record, through today), never by the number of dates with
+  entries; the previous period uses the same rule (`coveredDaysBetween`). The
+  screen now says "calendar days", shows the dates used, and explains that days
+  without entries count as no recorded spending. The figures themselves are
+  unchanged.
 - Fixed during review: a saved period such as `"toString"` (an inherited name)
   was not rejected; every unsupported value now falls back to Last 30 days
   (`PesaInsights.resolvePeriod`).

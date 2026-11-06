@@ -78,6 +78,9 @@ months** or **all time** (your choice is remembered on this device):
   category**, **income vs expenses**, **net cash movement** (how much your
   spending cash went up or down) and **potential spending leaks** (small
   purchases and uncategorised spending worth a look).
+- Average daily spending is per calendar day, counted from the start of the
+  period or your first record, whichever is later. Days without entries count as
+  days with no spending, so the average is only as complete as your records.
 - Each figure is compared with the previous period of the same length, but only
   when your records cover all of it. Otherwise it tells you when a comparison
   will be possible. It never guesses.

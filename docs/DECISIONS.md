@@ -491,9 +491,27 @@ unchanged; Insights only adds up recorded entries.
   says there is no comparison yet and from which date records would be needed.
   All time has no comparison. A change under 1% is given as an amount, not
   "0%"; a change from zero is given as an amount, never as a percentage.
-- **Partial coverage**: when records start part-way through a period, the
-  screen says how many days are covered, and the average daily spending is
-  divided by the days with records, not the length of the period.
+- **Average daily spending and partial coverage** (wording approved 2026-11-06
+  in the Phase 2 review): Where records begin part-way through a selected
+  period, average daily spending is calculated using the calendar days from the
+  later of the selected period's start date and the first recorded transaction
+  date, through today inclusive. Days without recorded transactions within this
+  coverage are treated as days with no recorded spending. The interface must
+  explain the coverage period and number of days used.
+  - When records cover the whole period, this is the period's full number of
+    calendar days. The number of distinct dates that have entries is never used.
+  - The first recorded transaction of any type (income, expense, savings
+    transfer or withdrawal) starts the covered history; entries dated after
+    today are ignored. With no covered history there is no daily average.
+  - The previous period's average follows the same rule, ending on the previous
+    period's last day. A comparison exists only when records cover that whole
+    previous period, so there it is the previous period's full length.
+  - Implemented once, in `PesaInsights.coveredDaysBetween`, which also gives
+    the covered days of each row of the history table.
+  - **Assumption:** PesaOtas treats the period from the first recorded
+    transaction onward as covered history. It cannot independently determine
+    whether missing entries represent days with no spending or transactions
+    that were never recorded.
 - **KPI cards** (each with a label, the figure, a plain explanation and, where
   fair, a comparison): total expenses; average daily spending; largest spending
   category (with its share); income vs expenses (share of income spent, or "no
