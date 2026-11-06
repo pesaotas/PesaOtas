@@ -9,7 +9,13 @@
 const D = require("../../src/data-model.js");
 const F = require("../../src/finance.js");
 
-function insightsState({ currency = "KES", from = "2025-09-01", to = "2026-11-06" } = {}) {
+/**
+ * @param {{currency?:string, from?:string, to?:string, extraCategories?:number}} [opts]
+ *   extraCategories: add that many small fictional categories (spending on the
+ *   15th of each month), for testing how the category chart groups them.
+ *   0 (the default) leaves the history exactly as before.
+ */
+function insightsState({ currency = "KES", from = "2025-09-01", to = "2026-11-06", extraCategories = 0 } = {}) {
   const tx = [];
   let n = 0;
   const add = (type, amount, date, extra) => tx.push({ id: `h${++n}`, type, amount, date, note: "", createdAt: n, ...extra });
@@ -26,6 +32,7 @@ function insightsState({ currency = "KES", from = "2025-09-01", to = "2026-11-06
     if (dow >= 1 && dow <= 5) add("expense", 150, d, { categoryId: "transport", note: "Fictional fare" });
     if (dow === 3) add("expense", 120, d, { categoryId: "other", note: "" });
     if (m === 12 && day === 20) add("expense", 12000, d, { categoryId: "fun", note: "Fictional holiday trip" });
+    if (day === 15) for (let k = 1; k <= extraCategories; k++) add("expense", 10 * k, d, { categoryId: `extra-${k}`, note: `Fictional extra ${k}` });
   }
   if ("2026-03-15" >= from && "2026-03-15" <= to) add("savings_withdrawal", 5000, "2026-03-15", { destinationId: "m-shwari" });
   const input = {
@@ -36,7 +43,8 @@ function insightsState({ currency = "KES", from = "2025-09-01", to = "2026-11-06
       { id: "food", name: "Groceries", budget: 17000, kind: "Essential" },
       { id: "transport", name: "Transport", budget: 3500, kind: "Essential" },
       { id: "fun", name: "Fun", budget: 2000, kind: "Flexible" },
-      { id: "emergency", name: "Emergency fund", budget: 3000, kind: "Savings", destinationId: "m-shwari" }
+      { id: "emergency", name: "Emergency fund", budget: 3000, kind: "Savings", destinationId: "m-shwari" },
+      ...Array.from({ length: extraCategories }, (_, i) => ({ id: `extra-${i + 1}`, name: `Extra ${i + 1}`, budget: 500, kind: "Flexible" }))
     ],
     transactions: tx,
     savingsDestinations: [

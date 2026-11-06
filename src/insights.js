@@ -288,8 +288,135 @@
     return { ...base, available: true, completeMonths: months.length, highMonths, everyMonth };
   }
 
+  // ---------------------------------------------------------------------------
+  // Chart data (v1.6 Phase 3, D-19). Read-only, like everything above: these only
+  // regroup the tested figures from `series` and `categoryBreakdown`. No
+  // amounts are worked out anywhere else.
+  // ---------------------------------------------------------------------------
+  const TREND_UNITS = Object.freeze({ "30d": "day", "6m": "week", all: "month" });
+  /** Spending-trend grouping: days for 30 days, Monday–Sunday weeks for 6 months, months for all time. */
+  const trendUnit = (periodId) => TREND_UNITS[resolvePeriod(periodId)];
+  const GROUP_KEY = "__other-categories";
+  /** Categories shown separately before the rest are grouped (more than six → five plus a group). */
+  const SEGMENT_LIMIT = 6;
+
+  /** "8–31 Oct" or "29 Jun – 5 Jul" (no year). */
+  function rangeLabel(start, end) {
+    if (start === end) return shortDate(start);
+    const [, m1, d1] = start.split("-").map(Number);
+    const [, m2, d2] = end.split("-").map(Number);
+    return m1 === m2 ? `${d1}–${d2} ${MONTHS[m2 - 1]}` : `${shortDate(start)} – ${shortDate(end)}`;
+  }
+
+  /**
+   * Two separate ideas, never mixed (D-19):
+   *  - `clipped`: the bar is shorter than its whole day/week/month because the
+   *    selected period starts or ends inside it (`soFar` when it ends today).
+   *  - `state`: how much of the bar your records cover —
+   *      "no-history"     no covered days (before your first record)
+   *      "partly-covered" your records begin inside this bar
+   *      "no-spending"    covered, but no spending recorded
+   *      "spending"       covered, with spending
+   */
+  function chartBuckets(state, range, unit, today) {
+    return series(state, range, unit).map(b => {
+      const natStart = unit === "day" ? b.start : unit === "week" ? weekStart(b.start) : `${b.start.slice(0, 7)}-01`;
+      const natEnd = unit === "day" ? b.start : unit === "week" ? F.addDays(natStart, 6) : lastDayOfMonth(b.start);
+      const clipped = b.start !== natStart || b.end !== natEnd;
+      const st = b.coveredDays === 0 ? "no-history" : b.coveredDays < b.days ? "partly-covered" : b.expenses === 0 ? "no-spending" : "spending";
+      const year = b.start.slice(0, 4);
+      return {
+        start: b.start, end: b.end, days: b.days, coveredDays: b.coveredDays,
+        coveredStart: b.coveredDays > 0 ? F.addDays(b.end, 1 - b.coveredDays) : null,
+        clipped, soFar: clipped && b.end === today && b.end !== natEnd, state: st,
+        label: unit === "day" ? `${shortDate(b.start)} ${year}`
+          : unit === "week" ? `${rangeLabel(b.start, b.end)} ${b.end.slice(0, 4)}`
+          : clipped ? `${rangeLabel(b.start, b.end)} ${year}` : monthLabel(b.start.slice(0, 7)),
+        tick: unit === "month" ? MONTHS[Number(b.start.slice(5, 7)) - 1] : shortDate(b.start),
+        year,
+        income: b.income, expenses: b.expenses, transfers: b.transfers, withdrawals: b.withdrawals
+      };
+    });
+  }
+
+  /**
+   * Spending trend for a period: one bar per day (30 days), week (6 months) or
+   * month (all time). The bars add up to the period's total expenses.
+   */
+  function spendingTrend(state, periodId, today) {
+    const range = periodRange(state, periodId, today);
+    const unit = trendUnit(range.id);
+    const buckets = chartBuckets(state, range, unit, today);
+    return {
+      range, unit, buckets,
+      total: buckets.reduce((a, b) => a + b.expenses, 0),
+      max: buckets.reduce((a, b) => Math.max(a, b.expenses), 0),
+      hasHistory: !range.coverage.empty
+    };
+  }
+
+  /**
+   * Income and expenses by calendar month, each month cut to the period's dates
+   * (Last 30 days: the two months it overlaps, e.g. 8–31 Oct and 1–6 Nov).
+   * Savings transfers and withdrawals are neither (D-04, D-18).
+   */
+  function incomeExpenseMonths(state, periodId, today) {
+    const range = periodRange(state, periodId, today);
+    const months = chartBuckets(state, range, "month", today).map(m => ({ ...m, difference: m.income - m.expenses }));
+    return {
+      range, months,
+      income: months.reduce((a, m) => a + m.income, 0),
+      expenses: months.reduce((a, m) => a + m.expenses, 0),
+      max: months.reduce((a, m) => Math.max(a, m.income, m.expenses), 0),
+      hasHistory: !range.coverage.empty
+    };
+  }
+
+  /**
+   * Spending by category for the donut (D-19): up to six categories are shown
+   * separately; with more than six, the five largest are shown and the rest
+   * are grouped as "Other categories (N)" (N ≥ 2). "Other / uncategorised" is an
+   * ordinary category here. Largest first; ties alphabetical (as categoryBreakdown).
+   */
+  function categorySegments(state, periodId, today) {
+    const range = periodRange(state, periodId, today);
+    const b = categoryBreakdown(state, range);
+    const rows = b.rows.filter(r => r.amount > 0);
+    const seg = (r) => ({ key: r.key, name: r.name, amount: r.amount, count: r.count, share: b.total > 0 ? r.amount / b.total : 0, group: false, members: [{ key: r.key, name: r.name, amount: r.amount, count: r.count, share: b.total > 0 ? r.amount / b.total : 0 }] });
+    let segments = rows.map(seg);
+    if (rows.length > SEGMENT_LIMIT) {
+      const rest = rows.slice(SEGMENT_LIMIT - 1);
+      const amount = rest.reduce((a, r) => a + r.amount, 0);
+      segments = rows.slice(0, SEGMENT_LIMIT - 1).map(seg).concat([{
+        key: GROUP_KEY, name: `Other categories (${rest.length})`, amount,
+        count: rest.reduce((a, r) => a + r.count, 0), share: b.total > 0 ? amount / b.total : 0, group: true,
+        members: rest.map(r => seg(r).members[0])
+      }]);
+    }
+    return { range, total: b.total, segments, grouped: rows.length > SEGMENT_LIMIT };
+  }
+
+  /**
+   * The entries behind a bar or a category (read-only), newest first — the same
+   * order as the Transactions screen. Only entries dated today or earlier.
+   * @param {{start:string, end:string, types?:string[], categoryKeys?:string[]}} sel
+   * @returns {{entries:object[], count:number, total:number}}
+   */
+  function entriesFor(state, sel, today) {
+    const cat = categoryLookup(state);
+    const end = minISO(sel.end, today);
+    const types = sel.types ? new Set(sel.types) : null;
+    const keys = sel.categoryKeys ? new Set(sel.categoryKeys) : null;
+    const entries = state.transactions.filter(t => t.date >= sel.start && t.date <= end
+      && (!types || types.has(t.type))
+      && (!keys || (t.type === "expense" && keys.has(cat(t.categoryId).key))));
+    entries.sort((a, b) => String(b.date).localeCompare(String(a.date)) || (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+    return { entries, count: entries.length, total: entries.reduce((a, t) => a + t.amount, 0) };
+  }
+
   return Object.freeze({
     PERIODS, DEFAULT_PERIOD, resolvePeriod, SETTINGS, UNCATEGORISED, UNCATEGORISED_NAME,
-    recordsStart, coveredDaysBetween, periodRange, totalsBetween, leakSummary, categoryBreakdown, summary, series, historyUnit, patterns
+    recordsStart, coveredDaysBetween, periodRange, totalsBetween, leakSummary, categoryBreakdown, summary, series, historyUnit, patterns,
+    trendUnit, GROUP_KEY, SEGMENT_LIMIT, spendingTrend, incomeExpenseMonths, categorySegments, entriesFor
   });
 });
