@@ -51,8 +51,15 @@ history.
   "Download a v1.5.0-compatible backup").
   - It contains every amount, transaction, category, savings account and pay
     cycle.
-  - It leaves out only what v1.6 alone records: alert review marks and the
-    record of currency changes.
+  - It leaves out only information that v1.6 alone records, none of it
+    financial:
+    - the record of currency changes (`meta.currencyHistory`);
+    - the note of when the budget was upgraded to the v1.6 format
+      (`meta.upgradedFrom`).
+
+    When Expense Detective arrives (v1.6 Phase 4), alert review marks
+    (`meta.alertReviews`) will be left out too, and added to this list. When
+    you download the file, the app lists exactly what was left out.
   - It is available only for budgets in Kenyan shillings (KES), because v1.5.0
     shows every amount as KSh. A budget in another currency must first be
     changed back to KES (Settings → Currency; nothing is converted) or use the

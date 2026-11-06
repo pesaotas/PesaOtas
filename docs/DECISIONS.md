@@ -391,6 +391,27 @@ that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
 - **Format v3** adds `currency` (D-17), `meta.currencyHistory` and
   `meta.upgradedFrom`. Format v2 (v1.1–v1.5 data and backups) and PesaFlow v1
   are still read and converted. Newer formats are refused.
+- **Deferred to Phase 4: `meta.alertReviews`** (the reviewed/dismissed marks
+  for Expense Detective alerts, approved in Phase 0 decision 6). It is **not**
+  part of the format yet: Phase 1 doesn't read, validate or keep it, and today
+  any `meta` field the format doesn't know is dropped when data is checked. No
+  data contains it yet, so nothing can be lost now. Before any code writes alert
+  marks, Phase 4 must:
+  1. add `meta.alertReviews` to the v3 rules in `src/data-model.js`, keeping
+     every valid entry and reporting (never silently dropping) any unreadable
+     one;
+  2. add it to the v1.5.0-compatible backup's `omitted` list ("alert review
+     marks"), because v1.5.0 can't hold it;
+  3. prove with automated tests that the marks survive, unchanged: saving and
+     reloading; backup and restore; restoring any safety copy; a currency
+     change and its "Before currency change" copy; the stale-tab check; both
+     choices of the "two versions" decision (keeping the v1.6 data keeps its
+     marks; choosing older-version data starts with none, and the v1.6 data
+     with its marks is kept in Data safety); and the v2 → v3 upgrade (v2 data
+     has no marks, so it starts with none).
+  Phase 4 alerts must not be introduced until these pass. Because v1.6.0 is
+  released only after Phase 6, no published v3 data will lack this support; the
+  field is an addition within format v3, so no new format version is needed.
 - **New key.** v3 data lives under `pesaotas.data.v3`; the old key
   `pesaotas.data.v2` keeps a "moved" marker (version 3). *Changed during Phase 1
   from the Phase 0 plan, which kept the data under the old key:* testing showed
@@ -415,9 +436,14 @@ that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
   tab last read or wrote; if not, nothing is written and the tab stops saving
   until it is reloaded. Tabs are also told at once when another tab changes the
   data.
-- **Going back to v1.5.0** uses a *v1.5.0-compatible backup* (format v2, KES only;
-  leaves out alert review marks and the currency history) or the pre-upgrade
-  copy. Procedure: [ROLLBACK.md](ROLLBACK.md). The stable release is tag
+- **Going back to v1.5.0** uses a *v1.5.0-compatible backup* (format v2, KES only)
+  or the pre-upgrade copy. The backup keeps every financial record and the
+  `meta` fields v1.5.0 understands (`onboarding`, `createdAt`, `migratedFrom`).
+  It leaves out exactly the v1.6-only metadata: `meta.currencyHistory` (the
+  record of currency changes) and `meta.upgradedFrom` (when the budget was
+  upgraded to format v3); `meta.alertReviews` will be added to this list in
+  Phase 4. `toV15Backup()` reports what it left out, and the app lists it when
+  the file is downloaded. Procedure: [ROLLBACK.md](ROLLBACK.md). The stable release is tag
   `v1.5.0-baseline` (commit `4d8f130`).
 
 ## D-17 Currency — approved 2026-11-06 (v1.6 Phase 0), implemented v1.6.0 Phase 1

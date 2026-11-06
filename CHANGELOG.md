@@ -27,7 +27,12 @@ Calculations are unchanged (`src/finance.js` untouched).
   shows both and you choose; the other is kept.
 - **Stale-tab protection**: saves are refused if another tab changed the data;
   the tab says so and stops saving until reloaded.
-- **v1.5.0-compatible backup** (Settings → Backup), KES budgets only.
+- **v1.5.0-compatible backup** (Settings → Backup), KES budgets only. Keeps
+  every financial record; leaves out the v1.6-only metadata
+  `meta.currencyHistory` and `meta.upgradedFrom` (listed when downloaded).
+  Alert review marks (`meta.alertReviews`) are **not** part of format v3 yet:
+  their support is deferred to Phase 4 and must be in place and tested before
+  alerts are introduced (DECISIONS D-16).
 - Data safety: new copy types (before upgrading, two versions, before currency
   change) and a **Restore…** button on every copy (preview first).
 - `docs/ROLLBACK.md`; DECISIONS D-16, D-17.
