@@ -1538,6 +1538,8 @@
   // What a restore or recovery leaves out: financial items and alert review records are counted separately (D-20).
   const leaveOutCount = (r) => r.rejected.length + (r.reviewIssues || []).length;
   const leaveOutPhrase = (r) => {
+    // Unchanged wording when only financial items are left out (as before v1.6 Phase 4).
+    if (!(r.reviewIssues || []).length) return String(r.rejected.length);
     const parts = [];
     if (r.rejected.length) parts.push(`${r.rejected.length} ${r.rejected.length === 1 ? "item" : "items"}`);
     const n = (r.reviewIssues || []).length;
@@ -1643,7 +1645,8 @@
   document.getElementById("restore-confirm").addEventListener("click", () => {
     if (!pendingRestore) return;
     const report = pendingRestore;
-    if (applyReplacement(report.state, leaveOutCount(report) ? `Backup restored (${leaveOutPhrase(report)} left out).` : "Backup restored.")) {
+    const leftMsg = !(report.reviewIssues || []).length ? `${report.rejected.length} item(s)` : leaveOutPhrase(report);
+    if (applyReplacement(report.state, leaveOutCount(report) ? `Backup restored (${leftMsg} left out).` : "Backup restored.")) {
       pendingRestore = null;
       closeDialog(document.getElementById("restore-dialog"));
       closeDialog(document.getElementById("recovery-dialog"));
@@ -1773,7 +1776,9 @@
   document.getElementById("recovery-recover").addEventListener("click", () => {
     if (!recovery || !recovery.report.ok) return;
     const r = recovery.report;
-    const left = leaveOutCount(r) ? ` ${leaveOutPhrase(r)} listed as left out won't be included.` : "";
+    const left = !leaveOutCount(r) ? "" : !(r.reviewIssues || []).length
+      ? ` ${r.rejected.length} item(s) listed under "Will be left out" won't be included.`
+      : ` ${leaveOutPhrase(r)} listed as left out won't be included.`;
     if (!confirm(`Use the recovered data?${left} The damaged original stays in Data safety.`)) return;
     if (applyReplacement(r.state, "Recovered data saved.")) closeDialog(document.getElementById("recovery-dialog"));
   });
