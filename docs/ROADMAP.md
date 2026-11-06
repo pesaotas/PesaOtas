@@ -20,7 +20,7 @@ Each phase is small, tested and approved before the next begins (see
 | 0 | Audit and upgrade plan | **Approved** |
 | 1 | Currency foundation and storage-format safeguard (D-16, D-17) | **Approved** |
 | 2 | Insights foundation: periods, aggregations, KPI cards, empty states (D-18) | **Approved** (commit `e388317`) |
-| 3 | Charts: spending trend, income vs expenses, category donut, read-only drill-through | **Planned** (plan approved; not yet implemented) |
+| 3 | Charts: spending trend, income vs expenses, category donut, read-only drill-through (D-19) | **Implemented, awaiting review** (tag `v1.6.0-phase3-dev`) |
 | 4 | Expense Detective: unusual bills, small and uncategorised spending, spending pace, alert review. **First** add and test `meta.alertReviews` in format v3 (D-16) | Not started |
 | 5 | Logo (approved recolour) and app-wide UI/UX refinement | Not started |
 | 6 | Final QA and v1.6.0 release candidate | Not started |
