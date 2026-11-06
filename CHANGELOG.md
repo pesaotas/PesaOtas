@@ -131,6 +131,8 @@ Calculations are unchanged (`src/finance.js` untouched).
 - **v1.5.0-compatible backup** (Settings → Backup), KES budgets only. Keeps
   every financial record; leaves out the v1.6-only metadata
   `meta.currencyHistory` and `meta.upgradedFrom` (listed when downloaded).
+  *Since Phase 4 it also leaves out `meta.alertReviews` (see Phase 4 above and
+  KI-36), so it omits exactly these three fields.*
   Alert review marks (`meta.alertReviews`) are **not** part of format v3 yet:
   their support is deferred to Phase 4 and must be in place and tested before
   alerts are introduced (DECISIONS D-16).
