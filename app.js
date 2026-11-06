@@ -833,6 +833,12 @@
   const DETECTIVE_ICONS = { "unusual-bill": "◆", "large-expense": "▲", "small-purchases": "∑", "uncategorised": "?", "spending-pace": "◷" };
   const FILTER_LABELS = { toReview: "To review", reviewed: "Reviewed", dismissed: "Dismissed" };
   const PACE_STATUS = { ahead: "Ahead of pace", "on-pace": "On pace", over: "Over allocation", "nothing-spent": "Nothing spent yet" };
+  // "On pace" is only said when it's true: too early in the cycle, or ahead by less than the alert amount, is said as such.
+  const paceLabel = (x, p) => x.status !== "on-pace" ? PACE_STATUS[x.status]
+    : p.tooEarly ? "Too early to judge"
+    : x.gapPoints >= PesaDetective.SETTINGS.pace.minGapPct ? "Ahead, small amount so far" : PACE_STATUS[x.status];
+  // Element IDs from a hash of the alert ID: always valid and never shared by two alerts.
+  const detId = (prefix, a) => `${prefix}-${PesaDetective.fnv1a64(a.id)}`;
 
   function detectiveEntries(a) {
     const byId = new Map(state.transactions.map(t => [t.id, t]));
@@ -848,7 +854,7 @@
       ? `<button class="button button-secondary chart-more" type="button" data-detective-more="${escapeHTML(a.id)}">Show ${Math.min(DETECTIVE_PAGE, list.length - shown.length)} more</button>` : "";
     const head = `${plural(list.length, "entry", "entries")} · total ${money(total)}${list.length > shown.length ? ` · showing the newest ${shown.length}` : ""}`;
     if (list.length === 1 && !editable) return `<div class="activity-list detective-entries">${rows}</div>`;
-    const sid = `det-ent-${a.id.replace(/[^A-Za-z0-9-]/g, "-")}`;
+    const sid = detId("det-ent", a);
     return `<details class="detective-more-details" data-entries-for="${escapeHTML(a.id)}" aria-labelledby="${sid}"${detectiveOpen.has(a.id) ? " open" : ""}><summary id="${sid}">Show the ${plural(list.length, "entry", "entries")}${editable ? " (with Edit)" : ""}</summary>` +
       `<p class="chart-entries-head">${escapeHTML(head)}</p><div class="activity-list detective-entries">${rows}</div>${more}</details>`;
   }
@@ -868,7 +874,7 @@
       if (a.count) extra.push(`Average small purchase: ${money(a.average)}.`);
       if (a.previous) extra.push(`The ${F_days(a.previous)} before: ${plural(a.previous.count, "purchase", "purchases")}, ${money(a.previous.total)}.`);
     }
-    const wid = `det-why-${a.id.replace(/[^A-Za-z0-9-]/g, "-")}`;
+    const wid = detId("det-why", a);
     const why = `<details class="detective-why" aria-labelledby="${wid}"><summary id="${wid}">Why ${a.kind === "alert" ? "was this flagged" : "is this shown"}?</summary><ul>${a.why.map(w => `<li>${escapeHTML(w)}</li>`).join("")}</ul>` +
       (history.length ? `<p class="chart-entries-head">Earlier entries used</p><div class="activity-list">${history.map(t => transactionMarkup(t, false)).join("")}</div>` : "") + `</details>`;
     let actions = "";
@@ -880,9 +886,9 @@
         : [btn("reviewed", "Mark as reviewed"), btn("dismissed", "Dismiss")];
       actions = a.reviewable ? `<div class="detective-actions">${set.join("")}</div>` : `<p class="detective-note">${escapeHTML(a.notReviewableReason || "")}</p>`;
     }
-    return `<article class="detective-card detective-${escapeHTML(a.kind)}" tabindex="-1" data-alert-id="${escapeHTML(a.id)}" aria-labelledby="det-${escapeHTML(a.id.replace(/[^A-Za-z0-9-]/g, "-"))}">` +
+    return `<article class="detective-card detective-${escapeHTML(a.kind)}" tabindex="-1" data-alert-id="${escapeHTML(a.id)}" aria-labelledby="${detId("det", a)}">` +
       `<p class="detective-tag"><span aria-hidden="true">${DETECTIVE_ICONS[a.rule] || "•"}</span> ${escapeHTML(a.label)}</p>` +
-      `<h4 id="det-${escapeHTML(a.id.replace(/[^A-Za-z0-9-]/g, "-"))}">${escapeHTML(a.title)}</h4>` +
+      `<h4 id="${detId("det", a)}">${escapeHTML(a.title)}</h4>` +
       `<p class="detective-figure">${escapeHTML(a.figure)}</p>` +
       `<p class="detective-text">${escapeHTML(a.text)}</p>` +
       extra.map(x => `<p class="detective-note">${escapeHTML(x)}</p>`).join("") +
@@ -925,7 +931,7 @@
         (p.rows.length ? `<div class="table-wrap"><table class="history-table detective-pace-table" role="table"><caption class="sr-only">Spending pace by category</caption>` +
           `<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Category</th>${cols.map(c => `<th scope="col" role="columnheader">${c}</th>`).join("")}</tr></thead><tbody role="rowgroup">` +
           p.rows.map(x => `<tr role="row"><th scope="row" role="rowheader">${escapeHTML(x.name)}<small>${escapeHTML(`${money(x.spent)} of ${money(x.budget)}`)}</small></th>` +
-            `<td role="cell" data-label="${cols[0]}">${x.usedPct}%</td><td role="cell" data-label="${cols[1]}">${x.timePct}%</td><td role="cell" data-label="${cols[2]}">${escapeHTML(PACE_STATUS[x.status])}</td></tr>`).join("") +
+            `<td role="cell" data-label="${cols[0]}">${x.usedPct}%</td><td role="cell" data-label="${cols[1]}">${x.timePct}%</td><td role="cell" data-label="${cols[2]}">${escapeHTML(paceLabel(x, p))}</td></tr>`).join("") +
           `</tbody></table></div>` : `<p class="muted">No Essential, Flexible, Personal, Event or Other categories with an allocation.</p>`) +
         (p.overall ? `<p class="detective-note">${escapeHTML(`Overall: ${money(p.overall.spent)} of ${money(p.overall.budget)} (${p.overall.usedPct}%) used, with ${p.overall.timePct}% of the pay cycle gone. Bills and Savings categories aren't included.`)}</p>` : "") +
         (p.rows.some(x => x.status === "over") ? `<p class="detective-note">“Over allocation” is shown for information; the Overview already warns about it.</p>` : "") +
@@ -993,12 +999,15 @@
       `<ul class="issue-plain">${issues.slice(0, 40).map(x => `<li>${escapeHTML(x.text)}</li>`).join("")}${issues.length > 40 ? `<li>…and ${issues.length - 40} more</li>` : ""}</ul>` +
       (boot.copyVerified
         ? `<p class="muted">A copy of your data exactly as it was is kept in Settings → Data safety. Continuing saves your budget with the ${plural(boot.state.meta.alertReviews ? boot.state.meta.alertReviews.length : 0, "record", "records")} that can be read; it doesn't change or delete that copy. The affected alerts will show as new.</p>`
-        : `<p class="replace-note"><strong>PesaOtas couldn't save a safety copy of your data, so you can't continue yet.</strong> Free up browser storage, then try again — or download the original data.</p>`) +
+        : reviewCopyListDamaged()
+          ? `<p class="replace-note"><strong>PesaOtas can't save a safety copy here, because the list that holds these copies on this device is itself damaged</strong> (it's left untouched). Download the original data and keep the file. You can then use Settings → Restore from backup with that file: its preview lists the records that will be left out, and nothing changes until you confirm.</p>`
+          : `<p class="replace-note"><strong>PesaOtas couldn't save a safety copy of your data, so you can't continue yet.</strong> Free up browser storage, then try again — or download the original data.</p>`) +
       `<p class="muted">Until you decide, PesaOtas shows your budget but saves nothing.</p>`;
     document.getElementById("reviews-continue").classList.toggle("hidden", !boot.copyVerified);
     document.getElementById("reviews-retry").classList.toggle("hidden", !!boot.copyVerified);
     openDialog(document.getElementById("reviews-dialog"));
   }
+  const reviewCopyListDamaged = () => !!store && PesaStorage.recoveryInventory(store).damagedLists.includes(PesaStorage.KEYS.reviewRecords);
   const reviewsError = (msg) => { const el = document.getElementById("reviews-error"); el.textContent = msg; el.classList.toggle("hidden", !msg); };
   document.getElementById("reviews-continue").addEventListener("click", () => {
     if (!boot.copyVerified || saveBlock !== "reviews") return;
@@ -1025,7 +1034,9 @@
   });
   document.getElementById("reviews-retry").addEventListener("click", () => {
     boot.copyVerified = PesaStorage.keepReviewRecordsCopy(store, new Date(), boot.raw);
-    reviewsError(boot.copyVerified ? "" : "The safety copy still couldn't be saved. Free up browser storage, or download the original data.");
+    reviewsError(boot.copyVerified ? "" : reviewCopyListDamaged()
+      ? "The safety copy still couldn't be saved, because the list for these copies is damaged. Download the original data instead."
+      : "The safety copy still couldn't be saved. Free up browser storage, or download the original data.");
     openReviewRecordsDialog();
     renderNotice(); renderDataSafety();
   });
@@ -1483,6 +1494,10 @@
     downloadText(PesaData.serializeBackup(state), `pesaotas-backup-${todayISO()}.json`);
     if (store) PesaStorage.updateDeviceInfo(store, { lastBackupAt: new Date().toISOString() });
     renderStorageProtection();
+    if (saveBlock === "reviews" && boot.report && boot.report.reviewIssues) {
+      const n = boot.report.reviewIssues.length;
+      return showToast(`Backup downloaded, without the ${plural(n, "alert review record", "alert review records")} that couldn't be read. To keep ${n === 1 ? "it" : "them"}, also download the original data.`);
+    }
     showToast("Backup downloaded.");
   });
   document.getElementById("import-file").addEventListener("change",async e=>{
@@ -1618,9 +1633,10 @@
       const missingNote = missing.length
         ? ` <strong>${missing.length} ${missing.length === 1 ? "entry" : "entries"} on this device ${missing.length === 1 ? "is" : "are"} not in this file and will no longer be in the app</strong> (the latest dated ${escapeHTML(formatDate(latest))}).`
         : "";
+      const currentReviews = (state.meta && Array.isArray(state.meta.alertReviews)) ? state.meta.alertReviews.length : 0;
       const replaces = recovery
         ? `<strong>Your damaged data stays safe</strong> in Settings → Data safety.`
-        : `<strong>This replaces everything on this device now:</strong> ${state.transactions.length} transactions, cash ${escapeHTML(money(current.cash))}.${missingNote} A copy of what's replaced is kept in Settings → Data safety, but only the most recent one — download a backup first if you might need it.`;
+        : `<strong>This replaces everything on this device now:</strong> ${state.transactions.length} transactions, cash ${escapeHTML(money(current.cash))}${currentReviews ? `, ${plural(currentReviews, "alert review record", "alert review records")}` : ""}.${missingNote} A copy of what's replaced is kept in Settings → Data safety, but only the most recent one — download a backup first if you might need it.`;
       title.textContent = "Check this backup before restoring";
       content.innerHTML =
         `<p class="muted">${report.format === "pesaflow-v1" ? "This is an older PesaFlow backup. It will be converted for PesaOtas."

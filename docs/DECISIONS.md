@@ -615,6 +615,11 @@ external service or new dependency. Nothing in the charts saves anything.
 Deterministic, explainable, local-only rules (`src/detective.js`, pure and
 read-only). No AI or machine learning, no network, no new dependency. Nothing
 is categorised, edited, deleted, reviewed or dismissed automatically.
+*Final-gate clarifications (2026-11-06, no decision changed):* alert-ID
+encoding for unusual IDs, the exact format limits, and the duplicate-record
+note are spelled out below; the pace table says "Too early to judge" or
+"Ahead, small amount so far" instead of "On pace" when those are the facts (an
+alert still needs every condition below).
 
 **Windows** (inclusive; entries dated after today are never used):
 - *S* — this pay cycle to today (cycle start on or before today), otherwise this
@@ -665,17 +670,29 @@ amounts from D-17):
 `reviewed`, `dismissed`; "Move back to To review" removes the record (the user's
 action). IDs: `unusual-bill:<txId>`, `large-expense:<txId>`,
 `small-purchases:<S start>`, `uncategorised:<S start>`,
-`spending-pace:<cycle start>:<categoryId>`. `basis`: small purchases
+`spending-pace:<cycle start>:<categoryId>`. An entry or category ID made only
+of letters, digits and `: _ . -` (at most 120 characters) is used as it is; any
+other ID (spaces, `&`, `/`, accents — all allowed for entries and categories)
+is written as `_h` + its 64-bit hash, so every alert can be reviewed. Alert IDs
+are never parsed back. `basis`: small purchases
 `{count, total, frame}`, uncategorised `{entryHashes}` (≤ 2,000; above that the
 alert can't be reviewed, with a message), pace `{gapPoints, frame}`.
 - **Forward compatibility:** records are kept exactly — unknown rules, statuses
   and fields (plain JSON, ≤ 4 levels, ≤ 64 KB per record), in order. A status
   this version doesn't know shows the alert under To review, unchanged until the
   user acts. Updating a status keeps every existing field.
+- **Format limits checked** (records outside them are unreadable, not
+  changed): `id` = a rule name, `:`, then 1–200 of `A–Z a–z 0–9 : _ . -`;
+  `rule` = 2–40 of lower-case letters, digits and `-`, starting with a letter;
+  `status` = 2–24 of lower-case letters and `-`; `actedAt` = an ISO date-time
+  (with `T`) of at most 40 characters; `fingerprint` = 8–64 lower-case hex
+  characters; `basis` as above; uncategorised `entryHashes` ≤ 2,000.
 - **Validation:** unreadable records are reported in `reviewIssues`, never in
   the financial `rejected` list, and make the data "not clean" so they can't be
   saved away silently. An exact duplicate is removed with a note; a conflicting
-  one is an issue. Older formats ignore the field with a visible note.
+  one is an issue. Removing an exact duplicate loses nothing (the remaining copy
+  is identical); the note is shown in restore and recovery previews, while an
+  ordinary load drops the identical copy without a message. Older formats ignore the field with a visible note.
 - **Separate decision flow (Option A; additive `storage.js` change):** when the
   only problem is review records, `load()` returns `review-records-invalid` after
   copying the exact original to `pesaotas.preserved.review-records` and

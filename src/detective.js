@@ -76,6 +76,15 @@
     for (let i = 0; i < bytes.length; i++) { h ^= BigInt(bytes[i]); h = (h * FNV_PRIME) & MASK64; }
     return h.toString(16).padStart(16, "0");
   }
+  /**
+   * An entry or category ID as it appears inside an alert ID. IDs made only of
+   * letters, digits and ": _ . -" are used unchanged (so existing review
+   * records keep matching). Any other ID (spaces, "&", "/", accents… all
+   * allowed for entries and categories) becomes "_h" + its 64-bit hash, which
+   * always fits the review-record ID format. Alert IDs are never parsed back.
+   */
+  const ID_PLAIN = /^[A-Za-z0-9:_.-]{1,120}$/;
+  const idPart = (id) => (ID_PLAIN.test(id) ? id : `_h${fnv1a64(String(id))}`);
   const US = "\u001f", RS = "\u001e";
   /** One transaction's evidence: ID, amount, date and category reference (never the note). */
   const evidence = (t) => [t.id, t.amount, t.date, t.categoryId || ""].join(US);
@@ -143,7 +152,7 @@
         const typical = Math.round(m2 / 2);
         const pct = Math.round((2 * t.amount * 100) / m2) - 100;
         alerts.push({
-          id: `${RULES.bill}:${t.id}`, rule: RULES.bill, kind: "alert",
+          id: `${RULES.bill}:${idPart(t.id)}`, rule: RULES.bill, kind: "alert",
           label: "Unusual bill", subject: s.category.name, date: t.date, amount: t.amount,
           title: `Unusual bill: ${s.category.name}`,
           figure: ctx.money(t.amount),
@@ -196,7 +205,7 @@
         const typical = Math.round(m2 / 2);
         const times = Math.floor((2 * t.amount * 10) / m2) / 10;
         alerts.push({
-          id: `${RULES.large}:${t.id}`, rule: RULES.large, kind: "alert",
+          id: `${RULES.large}:${idPart(t.id)}`, rule: RULES.large, kind: "alert",
           label: "Unusually large expense", subject: g.category.name, date: t.date, amount: t.amount,
           title: `Unusually large expense: ${g.category.name}`,
           figure: ctx.money(t.amount),
@@ -339,7 +348,7 @@
         const entries = ctx.expenses.filter(t => t.categoryId === c.id && t.date >= start).sort(byOrder);
         const frame = fnv1a64([RULES.pace, start, payday, c.id, c.budget, JSON.stringify(st), ctx.threshold].join(RS));
         alerts.push({
-          id: `${RULES.pace}:${start}:${c.id}`, rule: RULES.pace, kind: "alert",
+          id: `${RULES.pace}:${start}:${idPart(c.id)}`, rule: RULES.pace, kind: "alert",
           label: "Ahead of pace", subject: c.name, title: `Ahead of pace: ${c.name}`,
           figure: `${usedPct}%`,
           text: `${c.name}: ${usedPct}% of its allocation used (${ctx.money(spent)} of ${ctx.money(c.budget)}) with ${timePct}% of the pay cycle gone (${e} of ${L} days).`,
@@ -462,6 +471,6 @@
 
   return Object.freeze({
     SETTINGS, RULES, KNOWN_STATUSES,
-    normaliseNote, median2, fnv1a64, windows, run, reviewStateOf, materiallyChanged, applyReview, clearReview
+    normaliseNote, median2, fnv1a64, idPart, windows, run, reviewStateOf, materiallyChanged, applyReview, clearReview
   });
 });

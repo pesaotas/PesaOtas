@@ -399,6 +399,36 @@ describe("review records", () => {
     assert.deepEqual(fp(renamed), fp(budget(entries, P)));
   });
 
+  it("REGRESSION: entries and categories whose IDs contain spaces, '&', '/' or accents can be reviewed, and the records pass the format check", () => {
+    const odd = ["bill 10/12 & co", "café ñ", "taxi / airport"];
+    const cats = [...CATEGORIES, { id: "food & drink", name: "Food & drink", budget: 17000, kind: "Essential" }];
+    const P = { cycleStart: "2026-12-01", payday: "2026-12-30", categories: cats };
+    const hist = ["2026-10-05", "2026-10-15", "2026-10-25", "2026-11-05", "2026-11-15"].map(d => ex(150, d, "transport"));
+    const s = budget([
+      ...bills([2000, 2000, 2000], EARLIER), ex(2700, "2026-12-02", "power", { note: "KPLC token", id: odd[0] }),
+      ...hist, ex(3000, "2026-12-03", "transport", { id: odd[2] }),
+      ex(9000, "2026-12-02", "food & drink", { id: odd[1] })
+    ], P);
+    const all = X.run(s, "2026-12-06").alerts;
+    assert.ok(all.some(a => a.id === "spending-pace:2026-12-01:transport"), "a plain category ID is used as it is");
+    const found = all.filter(a => a.id.includes(":_h"));
+    assert.deepEqual(found.map(a => a.rule).sort(), ["large-expense", "spending-pace", "unusual-bill"]);
+    let next = s;
+    for (const a of found) {
+      assert.match(a.id, /^[a-z-]+:(\d{4}-\d{2}-\d{2}:)?_h[0-9a-f]{16}$/, a.id);
+      next = X.applyReview(next, a, "reviewed", NOW);
+    }
+    const r = D.normalizeState(JSON.parse(JSON.stringify(next)));
+    assert.ok(D.isClean(r), JSON.stringify(r.reviewIssues));
+    assert.equal(r.state.meta.alertReviews.length, 3);
+    for (const a of X.run(r.state, "2026-12-06").alerts.filter(x => found.some(f => f.id === x.id))) assert.equal(a.review.state, "reviewed", a.id);
+    // Distinct IDs give distinct alert IDs; IDs that already worked are unchanged.
+    assert.notEqual(X.idPart("a b"), X.idPart("a  b"));
+    assert.equal(X.idPart("taxi"), "taxi");
+    assert.equal(X.idPart("t-1_x.y:z"), "t-1_x.y:z");
+    assert.equal(X.idPart("a b"), X.idPart("a b"), "deterministic");
+  });
+
   it("records not matching a current alert are kept and counted", () => {
     const { s } = setup();
     const st = { ...s, meta: { alertReviews: [{ id: "unusual-bill:gone", rule: "unusual-bill", status: "reviewed", actedAt: "2026-01-01T00:00:00.000Z", fingerprint: "0011223344556677" }] } };

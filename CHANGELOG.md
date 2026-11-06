@@ -37,11 +37,21 @@ Calculations are unchanged (`src/finance.js` untouched).
 - Tests: `alert-reviews-format.test.js` (36), `alert-reviews-persistence.test.js`
   (22, the D-16 gate), `detective.test.js` (39, including the unknown-fields
   regression test); one existing assertion updated for the new summary field.
-  **516 tests, 516 pass.** Planted faults caught: 8 of 8 (format), 6 of 6
-  (persistence), 21 of 21 (rules). Phase 4 browser suite: 74 checks at the site
+  **517 tests, 517 pass** (after the final-gate fixes). Planted faults caught: 8 of 8 (format), 6 of 6
+  (persistence), 21 of 21 (rules). Phase 4 browser suite: 84 checks (74 before the final-gate fixes) at the site
   root and at `/PesaOtas/`, including the real v1.5.0.
-- Known issues KI-40 (earlier development builds would drop review records) and
-  KI-41 (pace vs Budget screen with future-dated entries).
+- Known issues KI-40 (earlier development builds would drop review records),
+  KI-41 (pace vs Budget screen with future-dated entries) and KI-42 (pace
+  reappearance rounding).
+- **Final-gate fixes** (independent review; no D-20 decision changed):
+  alerts for entries or categories whose IDs contain spaces, `&`, `/` or
+  accents can now be reviewed (such IDs are hashed inside the alert ID; IDs
+  that already worked are unchanged); the review-records dialog says what to do
+  when the safety list itself is damaged; a backup downloaded while that
+  decision is pending says it leaves the unreadable records out; restore
+  previews count the review records they replace; the pace table no longer says
+  "On pace" when it's too early or the amount is small; card element IDs can't
+  clash. One more regression test (`detective.test.js`, 40).
 
 ### Phase 3 — Insights charts (D-19)
 - **Added — three charts in Insights**, following the selected period:
