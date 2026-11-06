@@ -28,29 +28,29 @@
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
 const VERSION = "1.6.0-dev";
-const BUILD = "36dd9d3ded86";
+const BUILD = "cbd0c3b53569";
 const PRECACHE = [
-  ["index.html", "3cb20d19b83847e27c2720a52ea61919975fb083f791140634db6b55fb4ec74a"],
-  ["styles.css", "51af4103777748940cc5d56877836c44324e2f6e33835ae2a80bbb7ece63b6cf"],
-  ["app.js", "e677bace77f01ca82fa6ff62daecfafb95234bd38b24c015187edd0b5a7a0624"],
+  ["index.html", "25bbd2144381aba37b4a91d05d18bddb0647e92c8fd2ca03cfbaf032b06c8411"],
+  ["styles.css", "7438a6cd6c029d70219844b2772f1262b519028193ed0f94990b1323bf939d05"],
+  ["app.js", "04c871be7b186fffbfb19f819d1823fc0763fceccef9ff8f4bf517aa4799bc11"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
-  ["icon.svg", "b0ee30f9b7cb64ec62958e425fefe2cc0955b52a4aa7c8e8c7db13847f8ade9e"],
+  ["icon.svg", "0726c31579cacbe79fbf8e5d98e54c2f6d7719f05c0fc9961cbf620f3a011058"],
   ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
   ["src/currency.js", "06476d6bb85e254a513b2f7a461da8259a8a74a6fa923476c0766c477538090d"],
   ["src/validation.js", "e55d0acd852216ae0c37f7fa7d6d409d03eadfac86f64a0ee94e02d374ae4d68"],
   ["src/finance.js", "8224f61b97cd7324f444f5b8623f7a86b5bd082a4a05cef2c245ab36275bd60a"],
-  ["src/data-model.js", "e526e71516f85577682c28e1cd017cae3df7df20677b8402871cf3d49683da30"],
+  ["src/data-model.js", "5088363c7517410d8cbaa3a1d3c59c99a6198b5a723a9f7f4fb5af091cf19476"],
   ["src/storage.js", "742a621ac845a7ab9669868b42fc93b9de26a5c168ec8e834856eab4ae81af88"],
   ["src/entries.js", "3ee42bb6bbda68e3d52aae439fd4b325e76104ce4d7cc0b35516a445a4c9adf7"],
   ["src/insights.js", "e44f10c4be8f96abd5bae34d71fd622a8b4db4308ddc442574f460423c4584d3"],
   ["src/charts.js", "50871b455b65e4513b994e66bff953a5f1b53bd4b8b7f9ae2fa5b1bf168f6283"],
   ["src/detective.js", "e4f5452db3b33a68b20e67ec68f295865eb36c824e64b1a0303cb5ac73257927"],
-  ["icons/icon-192.png", "8108201013d2b840110e15cf673aebf8d8442539ee411d5c2e9617f410e4bd5c"],
-  ["icons/icon-512.png", "bc3188217d1dabe481bab6051cf5f89c237f0ecb0753a62f6cfa50593ece3611"],
-  ["icons/maskable-192.png", "14bb41445fa81172f3380fe46bc3804cded7f7a61dd7351d85df7b18a0944f48"],
-  ["icons/maskable-512.png", "019aff6cf98d49cfc0084f33295247dd9ff932056a022bfbbbe2ae45d73b0d3d"],
-  ["icons/apple-touch-icon.png", "7eccbdd1f592207b20dc7ebfde092ff5c76cef4a697c002423c29a0d8246aa68"],
-  ["icons/favicon-32.png", "d5a8b3f7a666c29af79b61903a3876f43ff2d1f5ab097da05ddf655ac6a8d0ca"]
+  ["icons/icon-192.png", "6c9c4934fa047ad0b8f273ee659705b54e2bd126c88ed31a94606d8336ad5787"],
+  ["icons/icon-512.png", "170f49f41c62bf269657893412eb1696b84dea68bbb10c9671cb129db496609d"],
+  ["icons/maskable-192.png", "56fb867347f6298709a5c0aa62bb2bf082897d964afb4c1d590f1d76be0fcebb"],
+  ["icons/maskable-512.png", "2f29848b79a3c4ab98e75aa1e4915f875a01ed5eff32408cc32e9311033510b3"],
+  ["icons/apple-touch-icon.png", "327db4490d8713c31cd8606655fd40ac8eb0725606167f84302c5b1578e47435"],
+  ["icons/favicon-32.png", "29b75f01950a6cda5d3a0a05ee0d2515a00429b8bbff66702ad3bfb13c8aacbc"]
 ];
 // RELEASE:END
 

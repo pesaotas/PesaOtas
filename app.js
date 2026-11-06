@@ -10,10 +10,19 @@
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   };
+  // Dates are written one way everywhere, whatever the browser (KI-37): "6 Nov 2026",
+  // "6 November 2026", "Friday, 6 November 2026". Short months are fixed ("Sep", never "Sept"),
+  // matching the Insights tables and Expense Detective.
+  const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const dateParts = (iso) => { const [y, m, d] = iso.split("-").map(Number); return { y, m, d, wd: new Date(Date.UTC(y, m - 1, d)).getUTCDay() }; };
   const formatDate = (iso) => {
     if (!iso) return "";
-    return new Date(`${iso}T12:00:00`).toLocaleDateString("en-KE", {day:"numeric",month:"short",year:"numeric"});
+    const { y, m, d } = dateParts(iso);
+    return `${d} ${MONTHS_SHORT[m - 1]} ${y}`;
   };
+  const formatDayDate = (iso) => { const { y, m, d, wd } = dateParts(iso); return `${WEEKDAYS[wd]}, ${d} ${MONTHS_LONG[m - 1]} ${y}`; };
   const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, c => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
   }[c]));
@@ -81,8 +90,8 @@
   lastSaved = clone(state);
 
   const BLOCKED_MESSAGES = {
-    recovery: "Not saved — choose a recovery option first.",
-    storage: "Not saved — this browser isn't storing PesaOtas data.",
+    recovery: "Not saved. Choose a recovery option first.",
+    storage: "Not saved: this browser isn't storing PesaOtas data.",
     migration: "Not saved: your PesaFlow data hasn't finished moving yet. See the message at the top.",
     upgrade: "Not saved: the upgrade to the v1.6 format hasn't finished yet. See the message at the top.",
     conflict: "Not saved: choose which version of your budget to keep first.",
@@ -110,8 +119,8 @@
       return false;
     }
     showToast(result.reason === "invalid"
-      ? "Not saved — that change failed a data check."
-      : "Could not save. Browser storage may be full — download a backup from Settings.");
+      ? "Not saved: that change failed a data check."
+      : "Could not save. Browser storage may be full, so download a backup from Settings.");
     return false;
   }
 
@@ -263,8 +272,8 @@
       bar.style.width = `${Math.max(4, Math.min(100, info.elapsedDays / info.lengthDays * 100))}%`;
       note.textContent = `Day ${day} of ${info.lengthDays} in this pay cycle.`;
     } else {
-      bar.style.width = "4%";
-      note.textContent = state.payday ? "Set when this pay cycle started (Settings) to see your progress." : "Set your payday in Settings.";
+      bar.style.width = "0%";
+      note.textContent = state.payday ? "Set when this pay cycle started (Settings) to see your progress." : "Your progress through the pay cycle will show here.";
     }
   }
   function renderRolloverBanner(info) {
@@ -273,7 +282,7 @@
     if (!info.rolloverDue) return;
     const when = info.today === info.payday ? "Today is payday." : `Payday was on ${formatDate(info.payday)}.`;
     document.getElementById("rollover-banner-text").textContent =
-      `${when} Your budget is still counting the old pay cycle. Start the new cycle when you're ready — you'll see a summary first, and nothing changes until you confirm.`;
+      `${when} Your budget is still counting the old pay cycle. Start the new cycle when you're ready. You'll see a summary first, and nothing changes until you confirm.`;
   }
 
   function renderOverview() {
@@ -285,12 +294,12 @@
     document.getElementById("cash-balance").textContent = money(t.cash);
     document.getElementById("reserved-total").textContent = money(t.allocatedRemaining);
     document.getElementById("unallocated-total").textContent = money(t.unallocated);
-    document.getElementById("days-to-payday").innerHTML = state.payday ? `${days} <small>days</small>` : `— <small>no payday set</small>`;
-    document.getElementById("payday-date").textContent = state.payday ? new Date(`${state.payday}T12:00:00`).toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"}) : "Set your payday in settings";
+    document.getElementById("days-to-payday").innerHTML = state.payday ? `${days} <small>days</small>` : `<span class="payday-unset">Not set</span>`;
+    document.getElementById("payday-date").textContent = state.payday ? formatDayDate(state.payday) : "Add your next payday in Settings";
     document.getElementById("income-total").textContent = money(t.earned);
     document.getElementById("expense-total").textContent = money(t.spent);
     document.getElementById("safe-to-spend").textContent = money(t.safeToSpend);
-    document.getElementById("daily-guide").textContent = guide === null ? "—" : money(guide);
+    document.getElementById("daily-guide").textContent = guide === null ? "Not available" : money(guide);
     document.getElementById("daily-guide-note").textContent = info.rolloverDue ? "Start your new pay cycle" : guide === null ? "Set a payday to see this" : "Safe to spend ÷ days to payday";
     renderSafeBreakdown(t, days, guide, info.rolloverDue);
     renderSavingsOverview(t);
@@ -308,21 +317,33 @@
       alert.textContent = `Your plan is over-allocated by ${money(Math.abs(t.unallocated))}. Reduce some allocations or record additional income before spending more.`;
     } else if (t.overCount > 0) {
       alert.classList.remove("hidden");
-      alert.textContent = `${t.overCount} budget category/categories are over their planned amount. Review your budget before making more purchases.`;
+      alert.textContent = `${t.overCount === 1 ? "1 budget category is over its" : `${t.overCount} budget categories are over their`} planned amount. Review your budget before making more purchases.`;
     } else {
       alert.classList.add("hidden");
     }
   }
+  // The history shows the newest entries first, a page at a time, so long histories stay quick
+  // to read and render. Display only: nothing is filtered out of any total.
+  const TX_PAGE = 50;
+  let txShown = TX_PAGE, txFilterShown = "all";
   function renderTransactions() {
     const filter = document.getElementById("transaction-filter").value;
+    if (filter !== txFilterShown) { txShown = TX_PAGE; txFilterShown = filter; }
     const items = [...state.transactions]
       .filter(t => filter === "all"
         || (filter === "savings" ? isSavingsType(t.type)
           : filter === "cycle" ? !state.cycleStart || t.date >= state.cycleStart
           : t.type === filter))
       .sort(newestFirst);
-    document.getElementById("transaction-count").textContent = `${items.length} ${items.length===1?"entry":"entries"}`;
-    document.getElementById("all-transactions").innerHTML = items.length ? items.map(t=>transactionMarkup(t,true)).join("") : `<div class="empty-state">Nothing here yet.<br>Your recorded transactions will appear here.</div>`;
+    const shown = items.slice(0, txShown);
+    const total = `${items.length} ${items.length===1?"entry":"entries"}`;
+    document.getElementById("transaction-count").textContent = shown.length < items.length ? `Newest ${shown.length} of ${total}` : total;
+    document.getElementById("all-transactions").innerHTML = items.length ? shown.map(t=>transactionMarkup(t,true)).join("") : `<div class="empty-state">Nothing here yet.<br>Your recorded transactions will appear here.</div>`;
+    const more = document.getElementById("transactions-more");
+    const next = Math.min(TX_PAGE, items.length - shown.length);
+    more.classList.toggle("hidden", next <= 0);
+    more.textContent = `Show ${next} more`;
+    more.setAttribute("aria-label", `Show ${next} more entries (${items.length - shown.length} not shown yet)`);
   }
   // Unsaved budget edits survive any re-render (fixes KI-12). Keyed by category ID.
   let budgetDraft = {};
@@ -572,12 +593,14 @@
       `<div class="activity-list chart-entries">${shown.map(t => transactionMarkup(t, false)).join("")}</div>` +
       (found.count > shown.length ? `<button class="button button-secondary chart-more" type="button" data-chart-more="${key}">Show ${Math.min(CHART_PAGE, found.count - shown.length)} more</button>` : "");
   }
+  let swatchSeq = 0; // each hatch pattern gets its own ID (several legends can be on the page at once)
   function swatch(kind, color) {
+    const hatchId = `sw-hatch-${++swatchSeq}`;
     const fill = { spending: PesaCharts.COLORS.spending, income: PesaCharts.COLORS.income }[kind] || color;
     const shapes = {
       "partly-covered": `<rect x="1" y="1" width="14" height="12" rx="2" fill="${PesaCharts.COLORS.spendingTint}" stroke="${PesaCharts.COLORS.spending}" stroke-dasharray="3 2"/>`,
       "no-spending": `<rect x="1" y="10" width="14" height="3" rx="1" fill="${PesaCharts.COLORS.axisText}"/>`,
-      "no-history": `<defs><pattern id="sw-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="${PesaCharts.COLORS.hatch}" stroke-width="2"/></pattern></defs><rect x="1" y="1" width="14" height="12" fill="url(#sw-hatch)" stroke="${PesaCharts.COLORS.hatch}"/>`
+      "no-history": `<defs><pattern id="${hatchId}" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="${PesaCharts.COLORS.hatch}" stroke-width="2"/></pattern></defs><rect x="1" y="1" width="14" height="12" fill="url(#${hatchId})" stroke="${PesaCharts.COLORS.hatch}"/>`
     };
     return `<svg class="chart-swatch" width="16" height="14" aria-hidden="true" focusable="false">${shapes[kind] || `<rect x="1" y="1" width="14" height="12" rx="2" fill="${fill}"/>`}</svg>`;
   }
@@ -1001,7 +1024,7 @@
         ? `<p class="muted">A copy of your data exactly as it was is kept in Settings → Data safety. Continuing saves your budget with the ${plural(boot.state.meta.alertReviews ? boot.state.meta.alertReviews.length : 0, "record", "records")} that can be read; it doesn't change or delete that copy. The affected alerts will show as new.</p>`
         : reviewCopyListDamaged()
           ? `<p class="replace-note"><strong>PesaOtas can't save a safety copy here, because the list that holds these copies on this device is itself damaged</strong> (it's left untouched). Download the original data and keep the file. You can then use Settings → Restore from backup with that file: its preview lists the records that will be left out, and nothing changes until you confirm.</p>`
-          : `<p class="replace-note"><strong>PesaOtas couldn't save a safety copy of your data, so you can't continue yet.</strong> Free up browser storage, then try again — or download the original data.</p>`) +
+          : `<p class="replace-note"><strong>PesaOtas couldn't save a safety copy of your data, so you can't continue yet.</strong> Free up browser storage, then try again, or download the original data.</p>`) +
       `<p class="muted">Until you decide, PesaOtas shows your budget but saves nothing.</p>`;
     document.getElementById("reviews-continue").classList.toggle("hidden", !boot.copyVerified);
     document.getElementById("reviews-retry").classList.toggle("hidden", !!boot.copyVerified);
@@ -1293,7 +1316,7 @@
     document.getElementById("cycle-start-input").value = state.cycleStart || "";
     const t = totals();
     document.getElementById("savings-balance-fields").innerHTML = activeDestinations().map(d => `
-      <label class="field-label" for="dest-open-${escapeHTML(d.id)}">${escapeHTML(d.name)} — starting balance (${escapeHTML(cur().symbol)})</label>
+      <label class="field-label" for="dest-open-${escapeHTML(d.id)}">${escapeHTML(d.name)}: starting balance (${escapeHTML(cur().symbol)})</label>
       <input class="input dest-opening" id="dest-open-${escapeHTML(d.id)}" data-dest-id="${escapeHTML(d.id)}" type="number" min="0" step="1" value="${d.openingBalance}">
       <small class="tiny-muted">Balance now: ${money(t.destinationBalances[d.id] || 0)}</small>`).join("");
   }
@@ -1383,6 +1406,15 @@
     showToast(done);
   });
   document.getElementById("transaction-filter").addEventListener("change",renderTransactions);
+  document.getElementById("transactions-more").addEventListener("click", () => {
+    const before = document.querySelectorAll("#all-transactions .activity-row").length;
+    txShown += TX_PAGE;
+    renderTransactions();
+    // Keep the keyboard in place: focus the first newly shown entry's Edit button.
+    const rows = document.querySelectorAll("#all-transactions .activity-row");
+    const target = rows[before] && rows[before].querySelector("button");
+    if (target) target.focus();
+  });
   document.getElementById("all-transactions").addEventListener("click", e => {
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) return startEdit(editBtn.dataset.edit);
@@ -1530,7 +1562,7 @@
     const result = PesaStorage.save(store, newState, { expectedRaw: storedRaw });
     if (!result.ok) {
       if (result.reason === "changed-elsewhere") { markStale("tab"); showToast(BLOCKED_MESSAGES.stale); return false; }
-      showToast(result.reason === "invalid" ? "Not saved — the data failed a final check." : "Could not save. Browser storage may be full.");
+      showToast(result.reason === "invalid" ? "Not saved: the data failed a final check." : "Could not save. Browser storage may be full.");
       return false;
     }
     state = result.state; lastSaved = clone(state); storedRaw = result.raw; canSave = true; recovery = null; saveBlock = null;
@@ -1543,12 +1575,16 @@
   // ---------------------------------------------------------------------------
   // Shared preview markup
   // ---------------------------------------------------------------------------
-  const formatLongDate = (iso) => iso
-    ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-KE",{day:"numeric",month:"long",year:"numeric"})
-    : "Not set";
+  const formatLongDate = (iso) => {
+    if (!iso) return "Not set";
+    const { y, m, d } = dateParts(iso);
+    return `${d} ${MONTHS_LONG[m - 1]} ${y}`;
+  };
+  // A moment (for example when a safety copy was made), in this device's local time: "6 Nov 2026, 10:05".
   const formatWhen = (iso) => {
     const d = iso ? new Date(iso) : null;
-    return d && !isNaN(d) ? d.toLocaleString("en-KE",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "unknown date";
+    if (!d || isNaN(d)) return "unknown date";
+    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   };
   // What a restore or recovery leaves out: financial items and alert review records are counted separately (D-20).
   const leaveOutCount = (r) => r.rejected.length + (r.reviewIssues || []).length;
@@ -1636,7 +1672,7 @@
       const currentReviews = (state.meta && Array.isArray(state.meta.alertReviews)) ? state.meta.alertReviews.length : 0;
       const replaces = recovery
         ? `<strong>Your damaged data stays safe</strong> in Settings → Data safety.`
-        : `<strong>This replaces everything on this device now:</strong> ${state.transactions.length} transactions, cash ${escapeHTML(money(current.cash))}${currentReviews ? `, ${plural(currentReviews, "alert review record", "alert review records")}` : ""}.${missingNote} A copy of what's replaced is kept in Settings → Data safety, but only the most recent one — download a backup first if you might need it.`;
+        : `<strong>This replaces everything on this device now:</strong> ${state.transactions.length} transactions, cash ${escapeHTML(money(current.cash))}${currentReviews ? `, ${plural(currentReviews, "alert review record", "alert review records")}` : ""}.${missingNote} A copy of what's replaced is kept in Settings → Data safety, but only the most recent one, so download a backup first if you might need it.`;
       title.textContent = "Check this backup before restoring";
       content.innerHTML =
         `<p class="muted">${report.format === "pesaflow-v1" ? "This is an older PesaFlow backup. It will be converted for PesaOtas."
@@ -1761,7 +1797,7 @@
     let html = `<p>PesaOtas found ${source} on this device but can't use it safely as it is. <strong>Nothing has been deleted.</strong></p>`;
     html += recovery.quarantined
       ? `<p class="muted">A copy has been set aside safely on this device. You can download it any time from Settings → Data safety.</p>`
-      : `<p class="replace-note"><strong>PesaOtas couldn't make a safety copy.</strong> Download the damaged data first — the other options unlock after that.</p>`;
+      : `<p class="replace-note"><strong>PesaOtas couldn't make a safety copy.</strong> Download the damaged data first. The other options unlock after that.</p>`;
     if (r.ok) {
       html += `<p><strong>Recoverable:</strong> ${r.state.transactions.length} transactions and ${r.state.categories.length} budget categories pass every check.</p>` + issueSections(r);
     } else {
@@ -1945,7 +1981,7 @@
       ? `<p class="replace-note">Safety copies can't be deleted right now, because your current data isn't saved and checked${recovery ? " (choose a recovery option first)" : ""}. They may be all that's left.</p>` : "";
     el.innerHTML = inv.items.length
       ? rows + damaged + locked + `<p class="tiny-muted"><strong>Restore…</strong> checks a copy and shows a preview first; nothing is replaced until you confirm. A downloaded copy can also be restored with “Restore from backup”.</p>
-          <p class="tiny-muted"><strong>Restoring replaces everything.</strong> Each copy is a snapshot of one moment. Restoring one — for example the copy made before a new pay cycle — replaces all current data, so anything recorded after that copy was made will no longer be in the app. Only the most recent replaced copy is kept here, so download a backup first.</p>
+          <p class="tiny-muted"><strong>Restoring replaces everything.</strong> Each copy is a snapshot of one moment. Restoring one (for example, the copy made before a new pay cycle) replaces all current data, so anything recorded after that copy was made will no longer be in the app. Only the most recent replaced copy is kept here, so download a backup first.</p>
           <p class="tiny-muted"><strong>Deleting a copy</strong> only frees space; it never changes your current data. PesaOtas asks you to confirm each one, and asks you to download a copy first if it's the only one on this device.</p>`
       : damaged + `<p class="muted">No safety copies yet. They appear here automatically when PesaOtas moves, restores, recovers or resets your data.</p>`;
   }
@@ -2013,7 +2049,7 @@
         "Deleting it doesn't change your current data."
       ];
       default: return [
-        "This is how your data looked just before it was last replaced as a whole — by a restore, a recovery, a reset or a new pay cycle.",
+        "This is how your data looked just before it was last replaced as a whole by a restore, a recovery, a reset or a new pay cycle.",
         same ? "It's identical to your current data, so nothing is lost by deleting it."
              : "Apart from a backup file you downloaded yourself, it's your only way back to that point.",
         "Deleting it doesn't change your current data. The next restore, recovery, reset or new pay cycle keeps a new copy here."
@@ -2064,12 +2100,12 @@
     const result = PesaStorage.deleteRecoveryItem(store, p.kind, p.index, p.raw, { acknowledgedOnlyCopy: p.onlyCopy && p.downloaded });
     if (!result.ok) {
       err.textContent = ({
-        "changed": "This copy changed after you opened this (perhaps in another tab). Nothing was deleted — please look again.",
+        "changed": "This copy changed after you opened this (perhaps in another tab). Nothing was deleted. Please look again.",
         "missing": "This copy is no longer on this device. Nothing was deleted.",
         "only-copy": "This is now the only copy on this device. Download it first. Nothing was deleted.",
         "current-not-safe": "Your current data isn't saved and checked, so safety copies are being kept. Nothing was deleted.",
         "damaged-list": "This safety list is damaged, so it's being left untouched. Nothing was deleted."
-      })[result.reason] || "Couldn't delete — browser storage didn't respond. Nothing else was changed.";
+      })[result.reason] || "Couldn't delete: browser storage didn't respond. Nothing else was changed.";
       err.classList.remove("hidden");
       renderDataSafety();
       return;
@@ -2116,15 +2152,15 @@
     const info = store ? PesaStorage.readDeviceInfo(store) : {};
     const usage = store ? PesaStorage.storageUsage(store) : { total: 0 };
     const protection = {
-      granted: "Protected — the browser won't clear it to free up space",
-      "not-granted": "Not protected yet — the browser may clear it if the device runs low on space",
+      granted: "Protected: the browser won't clear it to free up space",
+      "not-granted": "Not protected yet: the browser may clear it if the device runs low on space",
       unsupported: "This browser doesn't offer storage protection",
       unknown: "Checking…"
     }[persistStatus];
     const offline = !location.protocol.startsWith("http")
       ? "Not available when PesaOtas is opened as a file"
       : appCopy ? `Ready (version ${appCopy.version})`
-      : ("serviceWorker" in navigator) ? "Not ready yet — open PesaOtas online once more" : "Not supported by this browser";
+      : ("serviceWorker" in navigator) ? "Not ready yet. Open PesaOtas online once more" : "Not supported by this browser";
     const rows = [
       ["Protection", protection],
       ["Last backup downloaded", info.lastBackupAt ? formatWhen(info.lastBackupAt) : "Not yet on this device"],
@@ -2137,7 +2173,7 @@
   document.getElementById("persist-button").addEventListener("click", () => requestPersistence(true));
 
   const now = new Date();
-  document.getElementById("today-label").textContent = now.toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).toUpperCase();
+  document.getElementById("today-label").textContent = formatDayDate(todayISO()).toUpperCase();
   // ---------------------------------------------------------------------------
   // Currency (v1.6, D-17): one currency per budget, never converted.
   // ---------------------------------------------------------------------------
@@ -2365,7 +2401,7 @@
       } else {
         text.textContent = blocked
           ? "A new version of PesaOtas is ready. Save or discard your unsaved changes (and close any open window) first, then update."
-          : "A new version of PesaOtas is ready. Updating only replaces the app's files — your data stays exactly as it is.";
+          : "A new version of PesaOtas is ready. Updating only replaces the app's files. Your data stays exactly as it is.";
         nowBtn.textContent = "Update now";
       }
       nowBtn.disabled = blocked;

@@ -3,11 +3,45 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0-dev] — Unreleased — v1.6 Phases 1–4: currency foundation, storage-format safeguard, Insights foundation, Insights charts, Expense Detective
+## [1.6.0-dev] — Unreleased — v1.6 Phases 1–5: currency foundation, storage-format safeguard, Insights foundation, Insights charts, Expense Detective, logo and interface refinement
 
 Work in progress on branch `v1.6-dev`; not published. `main` and the live
 v1.5.0 are unchanged (stable tag `v1.5.0-baseline`, commit `4d8f130`).
 Calculations are unchanged (`src/finance.js` untouched).
+
+### Phase 5 — Logo and interface refinement (D-21)
+- **Logo**: the owner's mark (traced, geometry unchanged) in the approved
+  recolour, Option 2 (brand green `#147D62`, white arrow line, forest
+  `#102C25`), for the app icon, favicon, installable-app icons (normal,
+  maskable, Apple touch), the desktop sidebar and the phone header. The
+  decorative "PO" circle is gone. No redesign.
+- **Dates (KI-37 fixed)**: the app writes every date itself, whatever the
+  browser ("6 Nov 2026", "Friday, 6 November 2026"; "Sep", never "Sept").
+- **Long dashes**: rewritten in about 30 messages as full stops, colons,
+  commas or brackets; kept in the page title and installed app name. Empty
+  values say "Not set" or "Not available" instead of a dash.
+- **Interface**: section headings no longer repeat the page title; "Saved" is
+  written next to the dot on phones; correct singular/plural for over-budget
+  categories; the empty payday card no longer shows a long bar or repeats
+  itself; spacing fixes on Overview, Settings, Expense Detective and the setup
+  checklist; the savings starting-balance form is no longer page-wide.
+- **Transaction history**: newest 50 entries, then "Show 50 more". Display
+  only; every total still uses every entry.
+- **Fixed while auditing**: a 17px sideways scroll on the empty Overview at
+  320px; the chart legend's hatch pattern ID appeared more than once.
+- **KI-39 investigated, not changed**: category donut colours follow slice
+  rank, so a category can change colour between periods. Changing that would
+  change D-19, so a proposal is recorded for the owner (D-21, KNOWN_ISSUES).
+- **Not changed**: calculations, storage format, migration, backup and
+  restore behaviour, Expense Detective rules, currency handling. In `src/`, only
+  four messages in `data-model.js` were reworded (long dashes).
+- Tests: `ui-text-and-logo.test.js` (7: no browser date formatting, no long
+  dashes outside comments, logo colours and identical geometry in every file).
+  **524 tests, 524 pass.** Planted faults caught: 4 of 4. Browser: every
+  screen audited (rich and empty data) at 320, 375, 390, 768, 1280 and 1600px
+  (516 checks); all earlier browser suites pass at the site root and
+  `/PesaOtas/`. One earlier check was updated: it expected "—" as the daily
+  guide's empty value, now "Not available".
 
 ### Phase 4 — Expense Detective (D-20)
 - **Added — Expense Detective in Insights**, for this pay cycle (or this month

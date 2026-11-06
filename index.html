@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#10231f">
-  <meta name="description" content="PesaOtas — a private, local-first budgeting assistant in Kenyan shillings.">
+  <meta name="description" content="PesaOtas: a private, local-first budgeting assistant in Kenyan shillings.">
   <title>PesaOtas — Personal Finance</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -20,7 +20,7 @@
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="#" aria-label="PesaOtas home">
-        <span class="brand-mark" aria-hidden="true">P</span>
+        <img class="brand-mark" src="icon.svg" alt="" width="40" height="40">
         <span><strong>PesaOtas</strong><small>Money, made clearer.</small></span>
       </a>
       <nav class="side-nav" aria-label="Main navigation">
@@ -45,8 +45,8 @@
           <h1 id="page-title" tabindex="-1">Your money at a glance</h1>
         </div>
         <div class="topbar-actions">
-          <span class="local-pill"><span class="status-dot" aria-hidden="true"></span><span class="pill-text"> Saved on this device</span></span>
-          <span class="avatar" aria-hidden="true">PO</span>
+          <span class="local-pill"><span class="status-dot" aria-hidden="true"></span><span class="pill-short" aria-hidden="true">Saved</span><span class="pill-text"> Saved on this device</span></span>
+          <img class="topbar-logo" src="icon.svg" alt="" width="36" height="36">
         </div>
       </header>
 
@@ -74,7 +74,7 @@
 
         <article id="onboarding" class="card panel-card onboarding hidden" aria-labelledby="onboarding-title">
           <div class="panel-heading">
-            <div><h3 id="onboarding-title">Welcome to PesaOtas — let's set up your budget</h3>
+            <div><h3 id="onboarding-title">Welcome to PesaOtas. Let's set up your budget</h3>
             <p class="muted">Everything starts empty. Nothing is filled in for you, and your data stays on this device.</p></div>
             <button class="text-button" type="button" id="onboarding-hide">Hide</button>
           </div>
@@ -107,9 +107,9 @@
           </article>
           <article class="card payday-card">
             <div class="card-topline"><span class="card-label">Next payday</span><span class="calendar-icon" aria-hidden="true">▦</span></div>
-            <div class="payday-number" id="days-to-payday">— <small>no payday set</small></div>
-            <p class="hero-caption" id="payday-date">Set your payday in Settings</p>
-            <div class="payday-line"><span id="payday-progress" style="width:10%"></span></div>
+            <div class="payday-number" id="days-to-payday"><span class="payday-unset">Not set</span></div>
+            <p class="hero-caption" id="payday-date">Add your next payday in Settings</p>
+            <div class="payday-line"><span id="payday-progress" style="width:0%"></span></div>
             <p class="tiny-muted" id="cycle-progress-note">Plan your spending to make your money last.</p>
           </article>
         </div>
@@ -174,7 +174,7 @@
 
       <section id="view-transactions" class="view">
         <div class="section-intro">
-          <div><h2>Transactions</h2><p class="muted">Record money coming in and going out. Your totals update automatically.</p></div>
+          <div><h2>Money in and out</h2><p class="muted">Record money coming in and going out. Your totals update automatically.</p></div>
         </div>
         <div class="content-grid transaction-layout">
           <article class="card panel-card">
@@ -215,13 +215,14 @@
               <span class="tiny-muted" id="transaction-count">0 entries</span>
             </div>
             <div id="all-transactions" class="activity-list"></div>
+            <button class="button button-secondary list-more hidden" type="button" id="transactions-more"></button>
           </article>
         </div>
       </section>
 
       <section id="view-budget" class="view">
         <div class="section-intro">
-          <div><h2>Your budget plan</h2><p class="muted">Give every shilling a job. Change allocations whenever your plans change.</p></div>
+          <div><h2>Allocations</h2><p class="muted">Give every shilling a job. Change allocations whenever your plans change.</p></div>
           <button class="button button-secondary" type="button" id="add-category-button"><span aria-hidden="true">＋</span> Add category</button>
         </div>
         <article class="card panel-card budget-summary-card">
@@ -242,7 +243,7 @@
 
       <section id="view-insights" class="view">
         <div class="section-intro insights-intro">
-          <div><h2>Insights</h2><p class="muted">Where your money goes, how it changes, and what deserves a closer look.</p></div>
+          <div><h2>How your money moved</h2><p class="muted">Where your money goes, how it changes, and what deserves a closer look.</p></div>
           <fieldset class="period-switch" id="insight-period">
             <legend class="sr-only">Period to analyse</legend>
             <label><input type="radio" name="insight-period" value="30d"><span>Last 30 days</span></label>
@@ -349,7 +350,7 @@
       </section>
 
       <section id="view-settings" class="view">
-        <div class="section-intro"><div><h2>Settings & backup</h2><p class="muted">Manage your starting position and keep a copy of your data.</p></div></div>
+        <div class="section-intro"><div><h2>Your setup and data</h2><p class="muted">Manage your starting position and keep a copy of your data.</p></div></div>
         <div class="content-grid">
           <article class="card panel-card">
             <div class="panel-heading"><div><h3>Budget settings</h3><p class="muted">Your starting balance and your pay cycle.</p></div></div>
@@ -409,7 +410,7 @@
               <li>you clear this browser's history, cookies or site data, or uninstall the browser or the installed app;</li>
               <li>you use a private or incognito window (its data is deleted when you close it);</li>
               <li>the phone or computer is lost, reset or replaced;</li>
-              <li>on iPhone, iPad or Mac, you open PesaOtas in Safari rather than from the Home Screen and don't use it for 7 days of Safari use — Safari may delete its data. Added to the Home Screen, PesaOtas is treated as its own app.</li>
+              <li>on iPhone, iPad or Mac, you open PesaOtas in Safari rather than from the Home Screen and don't use it for 7 days of Safari use: Safari may delete its data. Added to the Home Screen, PesaOtas is treated as its own app.</li>
             </ul>
             <p>A downloaded backup file is the only copy that survives all of these.</p>
           </div>

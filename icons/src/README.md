@@ -1,7 +1,9 @@
 # Icon sources
 
-The PNG icons in `icons/` are generated from these SVGs and from `../icon.svg`
-(the original logo). To regenerate them (needs `rsvg-convert`, from librsvg):
+The PNG icons in `icons/` are generated from these SVGs and from `../icon.svg`.
+All three show the owner's PesaOtas mark (traced from the supplied design, its
+geometry unchanged) in the approved recolour, Option 2: brand green `#147D62`
+with a white arrow line on forest `#102C25` (v1.6 Phase 5, D-21). To regenerate them (needs `rsvg-convert`, from librsvg):
 
 ```sh
 rsvg-convert -w 192 -h 192 icon.svg           -o icons/icon-192.png

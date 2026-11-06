@@ -731,6 +731,50 @@ is blocked, are announced, and move focus to the next card. No Overview shortcut
 
 **Performance:** 20,000 fictional entries — about 108 ms for every rule (Node).
 
+## D-21 Logo and interface refinement — v1.6 Phase 5 (implemented, awaiting review)
+
+Presentation only. No calculation, storage format, migration, backup or
+restore behaviour, Expense Detective rule or currency handling changed.
+
+- **Logo: approved recolour, Option 2** (confirmed by the owner 2026-11-06,
+  from the Phase 0 options sheet): the owner's mark, traced from the supplied
+  design with its geometry unchanged, in brand green `#147D62` with a white
+  arrow line on forest `#102C25`. Used for the app icon (`icon.svg`), favicon,
+  installable-app icons (normal, maskable with the mark inside the 40% safe
+  circle, and Apple touch), the desktop sidebar and the phone header. No
+  redesign: only colours, position and size. The decorative "PO" circle, which
+  looked like a profile button but wasn't one, is replaced by the logo on phones.
+- **Dates (KI-37):** written by the app, never by the browser: "6 Nov 2026",
+  "6 November 2026", "Friday, 6 November 2026", and safety-copy times as
+  "6 Nov 2026, 10:05" in the device's local time. Short months are fixed
+  ("Sep", never "Sept"), matching Insights and Expense Detective.
+- **Long dashes:** not used as joiners in messages; rewritten case by case as a
+  full stop, colon, comma or brackets. Kept where they are the right mark: the
+  page title and installed app name ("PesaOtas — Personal Finance"). En dashes
+  in date ranges ("1 – 6 Nov") are kept. Placeholders are words ("Not set",
+  "Not available"), which screen readers read sensibly.
+- **Consistency:** section headings no longer repeat the page title; the
+  saved-on-device pill says "Saved" on phones; singular and plural wording for
+  over-budget categories; a blank payday card says "Not set" instead of a long
+  dash and no longer repeats itself; spacing fixes (over-budget warning, the
+  safe-to-spend explainer, Settings cards, Expense Detective disclosures,
+  setup checklist alignment).
+- **Transaction history** shows the newest 50 entries, then "Show 50 more"
+  (focus moves to the first newly shown entry). Display only: totals,
+  filters and every other screen still use every entry.
+- **KI-39 (category donut colours): investigated, not changed.** Substantiated
+  in a narrow case: colours follow slice rank, so a category can change colour
+  between periods (in the test data "Other / uncategorised" is pink in Last 30
+  days and green in All time). Names, amounts and the table always identify
+  slices. Fixing it would change D-19's approved colour rule, so it is left for
+  the owner's decision. *Proposal:* keep "Other / uncategorised" and the grouped
+  "Other categories" slice in a fixed neutral grey, and give named categories
+  colours by their rank over all time, so a category keeps its colour when the
+  period changes (still at most six colours on screen).
+- **Fixed while auditing:** a 17px sideways scroll on the blank Overview at
+  320px (the currency list in the setup checklist), and the chart legend's
+  hatch pattern ID appearing more than once on the page.
+
 ## D-08 Phase gating — approved 2026-11-05
 
 Each phase ends with a report (files changed, tests run, results, outstanding

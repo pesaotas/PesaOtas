@@ -56,6 +56,18 @@ These checks are part of the browser test suites that are run for each phase
 | No sideways scrolling, text at least 12px, contrast, names, 44px targets | In-page audit at 320, 375, 390, 768, 1280 and 1600px, with every disclosure open | Pass |
 | The unreadable-review-records dialog is a named dialog with its choices as buttons | Accessibility tree | Pass |
 
+### Whole app after the interface refinement (v1.6 Phase 5, DECISIONS D-21)
+
+| Check | How | Result |
+|---|---|---|
+| Every screen (Overview, Transactions, Budget, Insights, Settings), with a full budget and an empty one: text at least 12px, AA contrast, every control named, 44px targets, no sideways scrolling | In-page audit at 320, 375, 390, 768, 1280 and 1600px with every disclosure open | Pass (found and fixed a 17px sideways scroll on the empty Overview at 320px) |
+| Element IDs are unique on every screen | DOM check | Pass (the chart legend's hatch pattern ID was repeated; fixed) |
+| Navigating moves focus to the screen heading; Tab then lands on a control with a visible focus ring | Browser check on every screen and width | Pass |
+| No section heading repeats the page title | DOM check | Pass |
+| The logo is decorative (empty alt text) next to the written name; exactly one is shown (sidebar on desktop, header on phones) | DOM check | Pass |
+| "Show 50 more" in the transaction history names how many are left and moves focus to the first newly shown entry | Browser check | Pass |
+| Placeholders are words ("Not set", "Not available"), not a long dash a screen reader would read as "em dash" | Text review | Done |
+
 ## What has not been tested
 
 - **Real screen readers.** No testing with TalkBack (Android), VoiceOver (iPhone,

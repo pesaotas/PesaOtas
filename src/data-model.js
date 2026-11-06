@@ -252,13 +252,13 @@
     let payday = "";
     if (isBlank(input.payday)) payday = "";
     else if (V.isValidISODate(input.payday)) payday = input.payday;
-    else r.rejected.push(`Payday ${show(input.payday)} is not a valid date and will be cleared — set it again in Settings.`);
+    else r.rejected.push(`Payday ${show(input.payday)} is not a valid date and will be cleared. Set it again in Settings.`);
 
     // --- Pay cycle (Phase 3, additive) ---------------------------------------
     let cycleStart = "";
     if (!isBlank(input.cycleStart)) {
       if (V.isValidISODate(input.cycleStart)) cycleStart = input.cycleStart;
-      else r.rejected.push(`The pay cycle start ${show(input.cycleStart)} is not a valid date and will be cleared — set it again in Settings.`);
+      else r.rejected.push(`The pay cycle start ${show(input.cycleStart)} is not a valid date and will be cleared. Set it again in Settings.`);
     }
     if (cycleStart && payday && cycleStart >= payday) {
       r.warnings.push(`This pay cycle starts on ${cycleStart}, which is on or after payday (${payday}). Check the dates in Settings.`);
@@ -380,7 +380,7 @@
     } else {
       input.transactions.forEach((t, i) => {
         const label = rowLabel(i, t);
-        const reject = (why) => r.rejected.push(`${label} ${why} — it will be left out.`);
+        const reject = (why) => r.rejected.push(`${label} ${why}, so it will be left out.`);
         if (!isObject(t)) return reject("is not a valid entry");
 
         const isSavings = SAVINGS_TYPES.has(t.type);
@@ -462,7 +462,7 @@
         if (count > 1) {
           const [type, amount, , date, note] = JSON.parse(key);
           const word = type === "income" ? "income" : type === "expense" ? "expense" : "savings";
-          r.warnings.push(`${count} ${word} entries look identical (${date}, ${ksh(amount)}${note ? `, "${note.slice(0, 30)}"` : ""}). All are kept — check they aren't duplicates.`);
+          r.warnings.push(`${count} ${word} entries look identical (${date}, ${ksh(amount)}${note ? `, "${note.slice(0, 30)}"` : ""}). All are kept. Check they aren't duplicates.`);
         }
       }
     }
