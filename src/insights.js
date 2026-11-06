@@ -34,6 +34,8 @@
     all: Object.freeze({ id: "all", label: "All time", previous: null })
   });
   const DEFAULT_PERIOD = "30d";
+  /** A supported period ID, or the default for anything else (including inherited names such as "toString"). */
+  const resolvePeriod = (id) => (typeof id === "string" && Object.prototype.hasOwnProperty.call(PERIODS, id) ? id : DEFAULT_PERIOD);
 
   /** Thresholds used by the pattern checks, in one place (D-18). */
   const SETTINGS = Object.freeze({
@@ -65,7 +67,7 @@
    * @param {string} today  YYYY-MM-DD
    */
   function periodRange(state, periodId, today) {
-    const id = PERIODS[periodId] ? periodId : DEFAULT_PERIOD;
+    const id = resolvePeriod(periodId);
     const first = recordsStart(state, today);
     let start;
     if (id === "30d") start = F.addDays(today, -29);
@@ -265,7 +267,7 @@
   }
 
   return Object.freeze({
-    PERIODS, DEFAULT_PERIOD, SETTINGS, UNCATEGORISED, UNCATEGORISED_NAME,
+    PERIODS, DEFAULT_PERIOD, resolvePeriod, SETTINGS, UNCATEGORISED, UNCATEGORISED_NAME,
     recordsStart, periodRange, totalsBetween, leakSummary, categoryBreakdown, summary, series, historyUnit, patterns
   });
 });

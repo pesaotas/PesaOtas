@@ -32,8 +32,14 @@ Calculations are unchanged (`src/finance.js` untouched).
   (`src/finance.js` untouched); the data format (`src/data-model.js` untouched);
   `src/storage.js` only lists the new device preference.
 - Tests: `insights.test.js` (33) with the fictional fixture
-  `tests/helpers/insights-data.js`. **345 tests, 345 pass.** Mutation check: 18 of
-  18 deliberate faults in the Insights calculations are caught.
+  `tests/helpers/insights-data.js`, and `insights-preference.test.js` (12) for the
+  period preference (saved, restored, default, invalid values, never in the
+  budget data, backups or safety copies). **357 tests, 357 pass.** Mutation
+  check: 18 of 18 deliberate faults in the Insights calculations and 5 of 5 in
+  the preference handling are caught.
+- Fixed during review: a saved period such as `"toString"` (an inherited name)
+  was not rejected; every unsupported value now falls back to Last 30 days
+  (`PesaInsights.resolvePeriod`).
 - Known issues KI-37 (date format inconsistency, Phase 5) and KI-38 (leaks
   include routine small spending, by design).
 

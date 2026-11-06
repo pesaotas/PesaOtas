@@ -363,13 +363,10 @@
   // ---------------------------------------------------------------------------
   // Insights (v1.6 Phase 2, D-18): read-only figures from src/insights.js.
   // ---------------------------------------------------------------------------
-  let insightPeriod = (() => {
-    const saved = store ? PesaStorage.readDeviceInfo(store).insightsPeriod : null;
-    return PesaInsights.PERIODS[saved] ? saved : PesaInsights.DEFAULT_PERIOD;
-  })();
+  let insightPeriod = PesaInsights.resolvePeriod(store ? PesaStorage.readDeviceInfo(store).insightsPeriod : null);
   document.getElementById("insight-period").addEventListener("change", e => {
     if (!e.target.matches('input[name="insight-period"]')) return;
-    insightPeriod = e.target.value;
+    insightPeriod = PesaInsights.resolvePeriod(e.target.value);
     if (store) PesaStorage.updateDeviceInfo(store, { insightsPeriod: insightPeriod }); // a per-device preference, not financial data
     renderInsights();
   });
