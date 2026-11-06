@@ -25,6 +25,25 @@ after the phone checks in `docs/DEPLOYMENT.md` section 8 (D-22).
   ACCESSIBILITY, DECISIONS D-22, ROADMAP.
 - **No defects found that block the release**, so no app code changed apart
   from the version.
+- **QA of the candidate** (build `3d498859c804`, built from a clean export of
+  the commit, byte-identical to the working build): 534 unit tests pass (0
+  skipped in the repository; 2 that need a git checkout skip in a bare
+  export); release and build checks pass. Browser, at the site root and
+  `/PesaOtas/`: 1,730 checks, 0 failures, including:
+  - calculation parity with the real v1.5.0: 500 random fictional budgets
+    give identical totals, safe to spend, daily guide and pay-cycle figures,
+    and 20 show identical figures on Overview and Budget (both checks shown to
+    catch a planted one-shilling error);
+  - the upgrade from the real v1.5.0 through its own update prompt, the
+    rollback round trip, and the "two versions" choice;
+  - every dialog and every screen passing the accessibility audit;
+  - only the app's own files requested, and no console errors;
+  - 20,000 entries: Expense Detective 103 ms, a full Insights redraw 313 to
+    369 ms (Chrome).
+- Two browser suites expected the old version text `1.6.0-dev`; they now read
+  the version under test. No check's logic changed.
+- Still required before publishing: the owner's phone checks
+  (`docs/DEPLOYMENT.md` section 8).
 
 ### Phase 5 — Logo and interface refinement (D-21)
 - **Logo**: the owner's mark (traced, geometry unchanged) in the approved

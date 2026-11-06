@@ -145,6 +145,9 @@ revert the revert. When people open v1.6:
   - restoring the v1.5.0-compatible backup in v1.5.0, with every balance,
     transaction, savings account, category and pay cycle identical;
   - the "two versions" choice on returning.
+- Rerun on the v1.6.0 release candidate (`v1.6.0-rc.1`, 7 Nov 2026): the same
+  checks pass, with v1.5.0 served from `v1.5.0-baseline` and its own update
+  prompt moving it to v1.6.0.
 - Not tested: the GitHub steps themselves (the environment tag rule and running
   the workflow from a tag), because I have no access to your GitHub account.
   They are standard GitHub features; if a run fails, nothing is published and
