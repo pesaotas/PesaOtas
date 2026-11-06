@@ -619,6 +619,9 @@
         (m.grouped ? ` The ${c.items.at(-1).members.length} smallest categories are grouped as ${c.items.at(-1).name}.` : "");
     }
     chartEl(key, "summary").textContent = summary;
+    const stepWord = key === "cats" ? "category" : UNIT_WORD[unit];
+    chartEl(key, "prev").setAttribute("aria-label", `Previous ${stepWord}`);
+    chartEl(key, "next").setAttribute("aria-label", `Next ${stepWord}`);
     chartEl(key, "help").textContent = key === "cats"
       ? "Use the left and right arrow keys, Home and End to choose a category, or use the category buttons."
       : `Use the left and right arrow keys, Home and End to choose a ${UNIT_WORD[unit]}.`;
