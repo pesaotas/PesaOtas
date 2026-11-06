@@ -45,6 +45,7 @@
     olderVersion: "Data set aside when two versions were found",
     preCurrency: "Before currency change",
     quarantine: "Damaged data set aside",
+    reviewRecords: "Your data before unreadable alert review records were set aside",
     preRestore: "Your data before the last restore, recovery, reset or new pay cycle"
   };
   const sizeText = (chars) => chars < 1024 ? "under 1 KB" : `about ${Math.round(chars / 1024)} KB`;
@@ -68,6 +69,9 @@
       state = boot.state; canSave = false; saveBlock = "upgrade"; break;     // read-only until the upgrade completes
     case "older-version-conflict":
       state = boot.state; storedRaw = boot.raw; canSave = false; saveBlock = "conflict"; break;
+    case "review-records-invalid":
+      // D-20: the budget is fine; some alert review records can't be read. Read-only until the user decides.
+      state = boot.state; storedRaw = boot.raw; canSave = false; saveBlock = "reviews"; break;
     case "corrupt":
       state = PesaData.createBlankState(); canSave = false; recovery = boot; saveBlock = "recovery";
       storedRaw = boot.sourceKey === PesaStorage.KEYS.current ? boot.raw : null; break;
@@ -82,7 +86,8 @@
     migration: "Not saved: your PesaFlow data hasn't finished moving yet. See the message at the top.",
     upgrade: "Not saved: the upgrade to the v1.6 format hasn't finished yet. See the message at the top.",
     conflict: "Not saved: choose which version of your budget to keep first.",
-    stale: "Not saved: this tab is out of date because your data changed in another tab. Reload to continue."
+    stale: "Not saved: this tab is out of date because your data changed in another tab. Reload to continue.",
+    reviews: "Not saved: some alert review records couldn't be read. Choose what to do with them first (see the message at the top)."
   };
   function saveState() {
     if (!canSave) {
@@ -1314,14 +1319,28 @@
     const d = iso ? new Date(iso) : null;
     return d && !isNaN(d) ? d.toLocaleString("en-KE",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "unknown date";
   };
+  // What a restore or recovery leaves out: financial items and alert review records are counted separately (D-20).
+  const leaveOutCount = (r) => r.rejected.length + (r.reviewIssues || []).length;
+  const leaveOutPhrase = (r) => {
+    const parts = [];
+    if (r.rejected.length) parts.push(`${r.rejected.length} ${r.rejected.length === 1 ? "item" : "items"}`);
+    const n = (r.reviewIssues || []).length;
+    if (n) parts.push(`${n} alert review ${n === 1 ? "record" : "records"}`);
+    return parts.join(" and ");
+  };
+  const leaveOutText = (verb, r) => (leaveOutCount(r) ? `${verb}, leaving out ${leaveOutPhrase(r)}` : "");
   function issueSection(title, items, cls) {
     if (!items.length) return "";
     const shown = items.slice(0, 40).map(m => `<li>${escapeHTML(m)}</li>`).join("");
     const more = items.length > 40 ? `<li>…and ${items.length - 40} more</li>` : "";
     return `<section class="issue-group ${cls}"><h4>${escapeHTML(title)} <span>(${items.length})</span></h4><ul>${shown}${more}</ul></section>`;
   }
+  const reviewIssueTexts = (r) => (r.reviewIssues || []).map(x => x.text);
   const issueSections = (r) =>
     issueSection("Will be left out", r.rejected, "issue-rejected") +
+    ((r.reviewIssues || []).length
+      ? issueSection("Alert review records that can't be read and will be left out (your transactions and amounts are not affected)", reviewIssueTexts(r), "issue-rejected issue-reviews")
+      : "") +
     issueSection("Corrected automatically", r.fixed, "issue-fixed") +
     issueSection("Please check", r.warnings, "issue-warning") +
     issueSection("Good to know", r.notes, "issue-note");
@@ -1338,7 +1357,8 @@
       ["Dates covered", s.firstDate ? `${formatDate(s.firstDate)} – ${formatDate(s.lastDate)}` : "No transactions"],
       [view ? "Spending cash" : "Cash after restoring", money(s.cash)],
       [view ? "Savings" : "Savings after restoring", `${money(s.totalSavings)} (${s.savingsCount} savings ${s.savingsCount === 1 ? "entry" : "entries"})`],
-      ["Savings destinations", s.destinations.join(", ") || "None"]
+      ["Savings destinations", s.destinations.join(", ") || "None"],
+      ["Alert review records", `${s.alertReviewCount || 0} ${(s.alertReviewCount || 0) === 1 ? "record" : "records"} that can be read`]
     ];
     return `<dl class="summary-list">${rows.map(([k,v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}</dl>`;
   }
@@ -1393,7 +1413,7 @@
         summaryMarkup(report.summary) +
         `<p class="replace-note">${replaces}</p>` +
         issueSections(report);
-      confirmBtn.textContent = report.rejected.length ? `Restore, leaving out ${report.rejected.length}` : "Replace my data";
+      confirmBtn.textContent = leaveOutText("Restore", report) || "Replace my data";
       confirmBtn.classList.remove("hidden");
       cancelBtn.textContent = "Cancel";
     }
@@ -1407,7 +1427,7 @@
   document.getElementById("restore-confirm").addEventListener("click", () => {
     if (!pendingRestore) return;
     const report = pendingRestore;
-    if (applyReplacement(report.state, report.rejected.length ? `Backup restored (${report.rejected.length} item(s) left out).` : "Backup restored.")) {
+    if (applyReplacement(report.state, leaveOutCount(report) ? `Backup restored (${leaveOutPhrase(report)} left out).` : "Backup restored.")) {
       pendingRestore = null;
       closeDialog(document.getElementById("restore-dialog"));
       closeDialog(document.getElementById("recovery-dialog"));
@@ -1517,8 +1537,8 @@
 
     const recoverBtn = document.getElementById("recovery-recover");
     recoverBtn.classList.toggle("hidden", !r.ok);
-    if (r.ok) recoverBtn.textContent = r.rejected.length
-      ? `Recover ${r.state.transactions.length} transactions (leave out ${r.rejected.length})`
+    if (r.ok) recoverBtn.textContent = leaveOutCount(r)
+      ? `Recover ${r.state.transactions.length} transactions (leave out ${leaveOutPhrase(r)})`
       : `Recover ${r.state.transactions.length} transactions`;
     recoverBtn.disabled = locked;
     document.getElementById("recovery-blank").disabled = locked;
@@ -1537,7 +1557,7 @@
   document.getElementById("recovery-recover").addEventListener("click", () => {
     if (!recovery || !recovery.report.ok) return;
     const r = recovery.report;
-    const left = r.rejected.length ? ` ${r.rejected.length} item(s) listed under "Will be left out" won't be included.` : "";
+    const left = leaveOutCount(r) ? ` ${leaveOutPhrase(r)} listed as left out won't be included.` : "";
     if (!confirm(`Use the recovered data?${left} The damaged original stays in Data safety.`)) return;
     if (applyReplacement(r.state, "Recovered data saved.")) closeDialog(document.getElementById("recovery-dialog"));
   });
@@ -1562,7 +1582,8 @@
   // ---------------------------------------------------------------------------
   let noticeKind = {
     migrated: "migrated", "migration-failed": "migration-failed", corrupt: "recovery", unavailable: "unavailable",
-    upgraded: "upgraded", "upgrade-failed": "upgrade-failed", "older-version-conflict": "conflict"
+    upgraded: "upgraded", "upgrade-failed": "upgrade-failed", "older-version-conflict": "conflict",
+    "review-records-invalid": "reviews"
   }[boot.status] || null;
   const failReasons = {
     "preserve-failed": "it couldn't make a safety copy of the original first",
@@ -1618,6 +1639,14 @@
     } else if (kind === "unavailable") {
       text.textContent = "This browser isn't letting PesaOtas store data, so nothing you enter will be saved. Check that site data is allowed for this page, or try another browser.";
       box.classList.add("notice-warning");
+    } else if (kind === "reviews") {
+      const n = boot.report.reviewIssues.length;
+      text.textContent = `Your budget and transactions are fine. ${n} alert review ${n === 1 ? "record" : "records"} (marks saying an Expense Detective alert was reviewed or dismissed) couldn't be read. ` +
+        (boot.copyVerified ? "A copy of your data exactly as it was is kept in Settings → Data safety. " : "PesaOtas couldn't save a safety copy of your data, so it can't continue yet. ") +
+        "Nothing will be saved until you choose what to do.";
+      actions.innerHTML = `<button class="button button-primary" data-notice="reviews">Review options</button>` +
+        `<button class="button button-secondary" data-notice="download-original">↓ Download the original data</button>`;
+      box.classList.add("notice-warning");
     } else if (kind === "recovery") {
       text.textContent = "Your saved budget data needs attention. Nothing has been deleted, and nothing will be saved until you choose what to do.";
       actions.innerHTML = `<button class="button button-primary" data-notice="recovery">Review options</button>`;
@@ -1640,6 +1669,11 @@
         showToast("Backup downloaded.");
       }
     }
+    if (action === "reviews" && typeof openReviewRecordsDialog === "function") openReviewRecordsDialog();
+    if (action === "download-original" && boot.raw) {
+      downloadText(boot.raw, `pesaotas-original-data-${todayISO()}.json`);
+      showToast("Original data downloaded, exactly as it was stored.");
+    }
     if (action === "download-legacy") {
       const raw = PesaStorage.getRecoveryText(store, "legacy");
       if (raw) { downloadText(raw, `pesaflow-original-data-${todayISO()}.json`); showToast("PesaFlow data downloaded."); }
@@ -1661,6 +1695,7 @@
       if (it.kind === "quarantine") return `${formatWhen(it.at)} · ${it.reason || "failed its checks"}`;
       if (it.kind === "preCurrency") return `Saved ${formatWhen(it.at)} · before changing ${it.from || "?"} to ${it.to || "?"}`;
       if (it.kind === "olderVersion") return `Saved ${formatWhen(it.at)} · ${it.reason || "not chosen"}`;
+      if (it.kind === "reviewRecords") return `Saved ${formatWhen(it.at)} · your budget and transactions were not affected`;
       return `Saved ${formatWhen(it.at)}`;
     };
     const rows = inv.items.map(it => `<div class="safety-row"><div><strong>${escapeHTML(COPY_TITLES[it.kind])}</strong><small>${escapeHTML(detail(it))} · ${escapeHTML(sizeText(it.size))}${it.onlyCopy ? " · only copy on this device" : ""}</small></div>

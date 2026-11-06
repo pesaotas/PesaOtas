@@ -262,7 +262,8 @@ describe("restore checks: preview summary and round trip", () => {
     assert.deepEqual(r.summary, {
       currency: "KES", openingBalance: 20000, payday: "2026-12-01", cycleStart: "", closedCycles: 0, categoryCount: 5, transactionCount: 4,
       incomeCount: 1, expenseCount: 3, savingsCount: 0, incomeTotal: 3000, expenseTotal: 2400, cash: 20600,
-      totalSavings: 0, firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"]
+      totalSavings: 0, firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"],
+      alertReviewCount: 0 // v1.6 Phase 4 (D-20): valid alert review records, shown in the restore preview
     });
   });
 

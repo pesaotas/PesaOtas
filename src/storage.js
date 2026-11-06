@@ -47,6 +47,7 @@
     preUpgrade: "pesaotas.preserved.v1-5",           // v1.5.0-format data, copied before the upgrade
     olderVersion: "pesaotas.preserved.older-version",// data set aside when an older version saved after the upgrade
     preCurrency: "pesaotas.pre-currency",            // data copied before each currency change
+    reviewRecords: "pesaotas.preserved.review-records", // data kept before setting aside unreadable alert review records (D-20)
     quarantine: "pesaotas.quarantine",
     preRestore: "pesaotas.pre-restore",
     device: "pesaotas.device" // device notes only (backup date, storage request) — never financial data
@@ -65,7 +66,7 @@
   /** Safety copies kept as lists, by kind (see recoveryInventory). */
   const LIST_KEYS = Object.freeze({
     preserved: KEYS.preserved, preUpgrade: KEYS.preUpgrade, olderVersion: KEYS.olderVersion,
-    preCurrency: KEYS.preCurrency, quarantine: KEYS.quarantine
+    preCurrency: KEYS.preCurrency, quarantine: KEYS.quarantine, reviewRecords: KEYS.reviewRecords
   });
 
   const parseJSON = (raw) => { try { return { ok: true, value: JSON.parse(raw) }; } catch { return { ok: false }; } };
@@ -195,6 +196,11 @@
         }
         return { status: "older-version-conflict", state: report.state, raw: rawCurrent, report, olderRaw: rawOld, olderReport: check(rawOld) };
       }
+      // The money data is fine; only alert review records can't be read (D-20).
+      // Keep the exact original first, then let the user decide. Nothing else is written.
+      if (report && report.format === "pesaotas-v3" && D.onlyReviewIssues(report)) {
+        return reviewRecordsInvalid(storage, now, rawCurrent, report);
+      }
       // An upgrade interrupted mid-write can leave damaged v3 text while the
       // original v1.5 data is still in place (and safely copied). Set the damaged
       // text aside, then upgrade again from the original.
@@ -225,6 +231,38 @@
   }
 
   const markerFailed = (ok) => ({ ...ok, status: "upgrade-failed", stage: "marker", copySaved: true, originalIntact: true, dataUpgraded: true });
+
+  /**
+   * `review-records-invalid` (D-20): the budget and transactions passed every
+   * check, but some alert review records can't be read. The exact stored text is
+   * copied to its own safety list and verified BEFORE anything is offered; the
+   * app stays read-only until the user decides. `copyVerified:false` means the
+   * user can't continue (only Try again or Download the original).
+   */
+  function reviewRecordsInvalid(storage, now, raw, report) {
+    const copyVerified = keepReviewRecordsCopy(storage, now, raw);
+    return { status: "review-records-invalid", state: report.state, raw, report, copyVerified };
+  }
+
+  /** Copy the original text to the review-records safety list and confirm it. Never overwrites a damaged list. */
+  function keepReviewRecordsCopy(storage, now, raw) {
+    return addSnapshot(storage, KEYS.reviewRecords, raw, {
+      savedAt: now.toISOString(), sourceKey: KEYS.current,
+      reason: "Kept before setting aside alert review records that couldn't be read (your budget and transactions were not affected)"
+    });
+  }
+
+  /**
+   * "Continue without these records" (D-20). Refuses unless the verified copy
+   * of the original still holds exactly `originalRaw`; then saves the checked
+   * data (valid records only) through the normal verified, stale-tab-checked
+   * save. The safety copy is never changed or deleted here.
+   * @returns {{ok:true, state, raw} | {ok:false, reason:"copy-missing"|"changed-elsewhere"|string}}
+   */
+  function continueWithoutInvalidReviews(storage, state, originalRaw) {
+    if (typeof originalRaw !== "string" || !heldIn(storage, [KEYS.reviewRecords], originalRaw)) return { ok: false, reason: "copy-missing" };
+    return save(storage, state, { expectedRaw: originalRaw });
+  }
 
   function corrupt(storage, now, sourceKey, raw, report, reason) {
     const quarantined = addSnapshot(storage, KEYS.quarantine, raw,
@@ -469,7 +507,7 @@
     const damagedLists = [];
     const legacy = storage.getItem(KEYS.legacy);
     if (legacy !== null) items.push({ kind: "legacy", index: 0, raw: legacy, info: {} });
-    for (const kind of ["preserved", "preUpgrade", "olderVersion", "preCurrency", "quarantine"]) {
+    for (const kind of ["preserved", "preUpgrade", "olderVersion", "preCurrency", "quarantine", "reviewRecords"]) {
       const list = readList(storage, LIST_KEYS[kind]);
       if (list === null) { damagedLists.push(LIST_KEYS[kind]); continue; }
       list.forEach((s, i) => {
@@ -614,6 +652,7 @@
   return Object.freeze({
     KEYS, load, save, keepPreRestoreCopy, listRecovery, getRecoveryText,
     recoveryInventory, deleteRecoveryItem, readDeviceInfo, updateDeviceInfo, storageUsage,
-    MOVED_MARKER, isMovedMarker, resolveOlderVersion, keepPreCurrencyCopy
+    MOVED_MARKER, isMovedMarker, resolveOlderVersion, keepPreCurrencyCopy,
+    keepReviewRecordsCopy, continueWithoutInvalidReviews
   });
 });

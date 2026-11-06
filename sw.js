@@ -28,19 +28,19 @@
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
 const VERSION = "1.6.0-dev";
-const BUILD = "c9c052514fc5";
+const BUILD = "115386f19668";
 const PRECACHE = [
   ["index.html", "9939422af4b7cb9cd2126521111de30b62a3e643e52a382d23ee3a9b841902ee"],
   ["styles.css", "11ed90d00af1f6ff78d2f91e1803187f22fdadfa31eade085e818a913c3b64cf"],
-  ["app.js", "67185eab8acdaf14e9d5371f3b84ca9827f58eced0c1dc524193ecee387cc583"],
+  ["app.js", "1fab72369f0a4d09ec43f3a2d76a0215ce6f6c1cf71bfcd33a66d70a2ec07929"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
   ["icon.svg", "b0ee30f9b7cb64ec62958e425fefe2cc0955b52a4aa7c8e8c7db13847f8ade9e"],
   ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
   ["src/currency.js", "06476d6bb85e254a513b2f7a461da8259a8a74a6fa923476c0766c477538090d"],
   ["src/validation.js", "e55d0acd852216ae0c37f7fa7d6d409d03eadfac86f64a0ee94e02d374ae4d68"],
   ["src/finance.js", "8224f61b97cd7324f444f5b8623f7a86b5bd082a4a05cef2c245ab36275bd60a"],
-  ["src/data-model.js", "9b7814e420b2eeae3e8940d84272b44585a85bccd1d4e6c961f066ea15bbc83c"],
-  ["src/storage.js", "58bfa9358a75f755468e7f9465e1010c36e58aa244c344b7b3edb95770d8283a"],
+  ["src/data-model.js", "e526e71516f85577682c28e1cd017cae3df7df20677b8402871cf3d49683da30"],
+  ["src/storage.js", "742a621ac845a7ab9669868b42fc93b9de26a5c168ec8e834856eab4ae81af88"],
   ["src/entries.js", "3ee42bb6bbda68e3d52aae439fd4b325e76104ce4d7cc0b35516a445a4c9adf7"],
   ["src/insights.js", "e44f10c4be8f96abd5bae34d71fd622a8b4db4308ddc442574f460423c4584d3"],
   ["src/charts.js", "50871b455b65e4513b994e66bff953a5f1b53bd4b8b7f9ae2fa5b1bf168f6283"],
