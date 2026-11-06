@@ -286,7 +286,7 @@
     const tooMany = entryHashes.length > SETTINGS.uncategorisedMaxEntries;
     return {
       id: `${RULES.uncat}:${S.start}`, rule: RULES.uncat, kind: "alert",
-      label: "Uncategorised spending", subject: "Uncategorised", title: "Uncategorised spending",
+      label: "Uncategorised spending", subject: "Uncategorised", title: "Expenses without a category",
       figure: ctx.money(total), count: entries.length, total,
       text: entries.length === 1
         ? `1 expense (${ctx.money(total)}) has no category, so it isn't part of any allocation. It still reduces your spending cash. Choosing a category makes your budget more accurate.`

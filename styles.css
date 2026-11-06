@@ -348,3 +348,37 @@ input[type=date]:focus-within{outline:3px solid #1f7a5c;outline-offset:2px}
 .chart-table summary:focus-visible{outline:3px solid #1f7a5c;outline-offset:2px;border-radius:6px}
 @media (max-width:1100px){.chart-grid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:640px){.chart-nav .button{flex:1}.chart-figure-donut{justify-content:center}.chart-figure-donut .chart-area{flex-basis:100%;max-width:none}.chart-figure-donut .chart-area svg{margin:0 auto}}
+
+/* v1.6 Phase 4: Expense Detective (D-20) */
+.detective{margin-bottom:16px}
+.detective-blocked{margin:0 0 12px;padding:10px 12px;border-radius:9px;background:#fff7e9;border:1px solid #f0dfbd;color:#6d4d17;font-size:13px}
+.detective-filter{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.detective-filter-button{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid #dceae1;background:#f4f8f6;color:#33473f;font-size:13px;font-weight:700}
+.detective-filter-button[aria-pressed="true"]{background:#e3f1ea;border-color:#7fbf9f;color:#145a43}
+.detective-filter-button:focus-visible{outline:3px solid #1f7a5c;outline-offset:2px}
+.detective-list{display:grid;gap:12px;margin-bottom:12px}
+.detective-list:focus{outline:none}
+.detective-card{padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:#fcfdfc;min-width:0}
+.detective-card:focus-visible{outline:3px solid #1f7a5c;outline-offset:2px}
+.detective-observation{background:#f6f9f7;border-style:dashed}
+.detective-tag{margin:0 0 4px;font-size:12px;font-weight:700;color:#4d5c56;display:flex;gap:6px;align-items:center}
+.detective-card h4{margin:0 0 4px;font-size:15px}
+.detective-figure{margin:0 0 6px;font-size:18px;font-weight:800;letter-spacing:-.3px}
+.detective-text{margin:0 0 6px;font-size:13px;line-height:1.55}
+.detective-note{margin:6px 0;font-size:13px;line-height:1.5;color:#4d5c56}
+.detective-status{margin:6px 0;font-size:13px;color:#33473f}
+.detective-status-changed{padding:6px 10px;border-radius:8px;background:#fff7e9;border:1px solid #f0dfbd;color:#6d4d17}
+.detective-why,.detective-more-details{margin:8px 0}
+.detective-why summary,.detective-more-details summary,.detective-checks summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;font-weight:700;font-size:13px;color:var(--green)}
+.detective-why summary:focus-visible,.detective-more-details summary:focus-visible,.detective-checks summary:focus-visible{outline:3px solid #1f7a5c;outline-offset:2px;border-radius:6px}
+.detective-why ul{margin:4px 0 8px;padding-left:18px;font-size:13px;line-height:1.55}
+.detective-entry{display:flex;align-items:center;gap:8px}
+.detective-entry .activity-row{flex:1;min-width:0}
+.detective-edit{min-height:44px;font-size:13px;padding:0 12px}
+.detective-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.detective-actions .button{min-height:44px;font-size:13px;padding:0 14px}
+.detective-actions .button:disabled{opacity:.55;cursor:default}
+.detective-pace{margin:6px 0 4px}
+.detective-pace h4{margin:6px 0 4px;font-size:14px}
+.detective-check-list{margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.6}
+@media (max-width:640px){.detective-actions .button{flex:1 1 140px}}

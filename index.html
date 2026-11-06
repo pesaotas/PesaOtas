@@ -258,6 +258,23 @@
         </article>
         <div id="insight-body">
           <div class="kpi-grid" id="insight-kpis"></div>
+          <article class="card panel-card detective" id="detective" aria-labelledby="detective-title">
+            <div class="panel-heading"><div><h3 id="detective-title">Expense Detective</h3><p class="muted" id="detective-window"></p></div></div>
+            <p class="detective-blocked hidden" id="detective-blocked" role="status"></p>
+            <div class="detective-filter" role="group" aria-label="Show alerts">
+              <button type="button" class="detective-filter-button" data-detective-filter="toReview" aria-pressed="true" id="detective-filter-toReview">To review</button>
+              <button type="button" class="detective-filter-button" data-detective-filter="reviewed" aria-pressed="false" id="detective-filter-reviewed">Reviewed</button>
+              <button type="button" class="detective-filter-button" data-detective-filter="dismissed" aria-pressed="false" id="detective-filter-dismissed">Dismissed</button>
+            </div>
+            <div id="detective-list" class="detective-list" tabindex="-1" role="group" aria-label="Alerts"></div>
+            <div id="detective-observations" class="detective-list"></div>
+            <section class="detective-pace" aria-labelledby="detective-pace-title">
+              <h4 id="detective-pace-title">Spending pace</h4>
+              <div id="detective-pace"></div>
+            </section>
+            <details class="detective-checks" aria-labelledby="detective-checks-toggle"><summary id="detective-checks-toggle">What Expense Detective checked</summary><div id="detective-checks"></div></details>
+            <p class="sr-only" id="detective-announcer" aria-live="polite"></p>
+          </article>
           <div class="chart-grid" id="insight-charts">
           <article class="card panel-card chart-card chart-card-wide" id="chart-trend" aria-labelledby="chart-trend-title">
             <div class="panel-heading"><div><h3 id="chart-trend-title">Spending trend</h3><p class="muted">Spending over time in this period. Choose a bar to see its entries.</p></div></div>
@@ -403,7 +420,7 @@
         </article>
         <article class="card panel-card danger-zone">
           <h3>Erase everything and start again</h3>
-          <p class="muted">Removes your budget, transactions, pay cycles and savings records from this browser and starts PesaOtas empty. A copy of your current data is kept in Data safety, but download a backup first if you might need it.</p>
+          <p class="muted">Removes your budget, transactions, pay cycles, savings records and alert review records from this browser and starts PesaOtas empty. A copy of your current data is kept in Data safety, but download a backup first if you might need it.</p>
           <button class="button button-danger" type="button" id="reset-button">Erase and start empty</button>
         </article>
         <article class="privacy-note"><strong>Privacy note</strong><p>PesaOtas does not connect to your bank or M-Pesa, and does not send your financial data to a server. Anyone with access to this browser profile may be able to open the app, so protect your device and keep backups secure.</p></article>
@@ -547,6 +564,21 @@
     </div>
   </dialog>
 
+  <dialog id="reviews-dialog" class="sheet" aria-labelledby="reviews-title" aria-describedby="reviews-intro">
+    <div class="sheet-body">
+      <h2 id="reviews-title">Some alert review records couldn't be read</h2>
+      <div id="reviews-intro"></div>
+      <div id="reviews-content"></div>
+      <p id="reviews-error" class="replace-note hidden" role="alert"></p>
+    </div>
+    <div class="sheet-actions sheet-actions-stack">
+      <button class="button button-primary" id="reviews-continue" type="button">Continue without these records</button>
+      <button class="button button-primary hidden" id="reviews-retry" type="button">Try again to save a safety copy</button>
+      <button class="button button-secondary" id="reviews-download" type="button">↓ Download the original data</button>
+      <button class="text-button" id="reviews-later" type="button">Not now (nothing will be saved)</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="src/version.js"></script>
   <script src="src/currency.js"></script>
@@ -555,6 +587,7 @@
   <script src="src/data-model.js"></script>
   <script src="src/insights.js"></script>
   <script src="src/charts.js"></script>
+  <script src="src/detective.js"></script>
   <script src="src/storage.js"></script>
   <script src="src/entries.js"></script>
   <script src="app.js"></script>

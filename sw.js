@@ -28,11 +28,11 @@
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
 const VERSION = "1.6.0-dev";
-const BUILD = "115386f19668";
+const BUILD = "a32b7448179a";
 const PRECACHE = [
-  ["index.html", "9939422af4b7cb9cd2126521111de30b62a3e643e52a382d23ee3a9b841902ee"],
-  ["styles.css", "11ed90d00af1f6ff78d2f91e1803187f22fdadfa31eade085e818a913c3b64cf"],
-  ["app.js", "1fab72369f0a4d09ec43f3a2d76a0215ce6f6c1cf71bfcd33a66d70a2ec07929"],
+  ["index.html", "7b7b11b8dbe3d049796f10eaa2254e69b45453499c32d76068c100423c8c4c4c"],
+  ["styles.css", "51af4103777748940cc5d56877836c44324e2f6e33835ae2a80bbb7ece63b6cf"],
+  ["app.js", "03796524c3b28a720beedfa445af1b5f19613a33832550b84dd97a4b1b72d958"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
   ["icon.svg", "b0ee30f9b7cb64ec62958e425fefe2cc0955b52a4aa7c8e8c7db13847f8ade9e"],
   ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
@@ -44,6 +44,7 @@ const PRECACHE = [
   ["src/entries.js", "3ee42bb6bbda68e3d52aae439fd4b325e76104ce4d7cc0b35516a445a4c9adf7"],
   ["src/insights.js", "e44f10c4be8f96abd5bae34d71fd622a8b4db4308ddc442574f460423c4584d3"],
   ["src/charts.js", "50871b455b65e4513b994e66bff953a5f1b53bd4b8b7f9ae2fa5b1bf168f6283"],
+  ["src/detective.js", "a5f25fbc994c78f201e21fb2cb9d9edfbc5e9f2dc26632bd5d061ea8ceea9794"],
   ["icons/icon-192.png", "8108201013d2b840110e15cf673aebf8d8442539ee411d5c2e9617f410e4bd5c"],
   ["icons/icon-512.png", "bc3188217d1dabe481bab6051cf5f89c237f0ecb0753a62f6cfa50593ece3611"],
   ["icons/maskable-192.png", "14bb41445fa81172f3380fe46bc3804cded7f7a61dd7351d85df7b18a0944f48"],

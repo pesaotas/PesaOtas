@@ -456,6 +456,7 @@
     ];
     document.getElementById("insight-kpis").innerHTML = cards.join("");
     renderCharts(range.id, today);
+    renderDetective();
 
     // Where your money went
     const rows = sum.breakdown.rows.filter(r => r.amount > 0);
@@ -818,6 +819,219 @@
       if (next) { next.setAttribute("tabindex", "-1"); next.focus({ preventScroll: false }); }
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Expense Detective (v1.6 Phase 4, D-20). Rules come from src/detective.js;
+  // this code only shows them. Read-only, except the review buttons, which change
+  // only meta.alertReviews through the normal verified, stale-tab-checked save.
+  // ---------------------------------------------------------------------------
+  const DETECTIVE_PAGE = 25;
+  let detectiveFilter = "toReview";
+  let detectiveResult = null;
+  const detectiveShown = new Map();   // alert ID → entries shown
+  const detectiveOpen = new Set();    // alert IDs whose entry list is open
+  const DETECTIVE_ICONS = { "unusual-bill": "◆", "large-expense": "▲", "small-purchases": "∑", "uncategorised": "?", "spending-pace": "◷" };
+  const FILTER_LABELS = { toReview: "To review", reviewed: "Reviewed", dismissed: "Dismissed" };
+  const PACE_STATUS = { ahead: "Ahead of pace", "on-pace": "On pace", over: "Over allocation", "nothing-spent": "Nothing spent yet" };
+
+  function detectiveEntries(a) {
+    const byId = new Map(state.transactions.map(t => [t.id, t]));
+    const list = a.entryIds.map(id => byId.get(id)).filter(Boolean);
+    if (!list.length) return "";
+    const shown = list.slice(0, detectiveShown.get(a.id) || DETECTIVE_PAGE);
+    const total = list.reduce((sum, t) => sum + t.amount, 0);
+    const editable = a.rule === "uncategorised";
+    const rows = shown.map(t => editable
+      ? `<div class="detective-entry">${transactionMarkup(t, false)}<button class="button button-secondary detective-edit" type="button" data-detective-edit="${escapeHTML(t.id)}" aria-label="Edit: ${escapeHTML(describeTransaction(t).title)}, ${escapeHTML(money(t.amount))}, ${escapeHTML(formatDate(t.date))}"${canSave ? "" : " disabled"}>Edit</button></div>`
+      : transactionMarkup(t, false)).join("");
+    const more = list.length > shown.length
+      ? `<button class="button button-secondary chart-more" type="button" data-detective-more="${escapeHTML(a.id)}">Show ${Math.min(DETECTIVE_PAGE, list.length - shown.length)} more</button>` : "";
+    const head = `${plural(list.length, "entry", "entries")} · total ${money(total)}${list.length > shown.length ? ` · showing the newest ${shown.length}` : ""}`;
+    if (list.length === 1 && !editable) return `<div class="activity-list detective-entries">${rows}</div>`;
+    return `<details class="detective-more-details" data-entries-for="${escapeHTML(a.id)}"${detectiveOpen.has(a.id) ? " open" : ""}><summary>Show the ${plural(list.length, "entry", "entries")}${editable ? " (with Edit)" : ""}</summary>` +
+      `<p class="chart-entries-head">${escapeHTML(head)}</p><div class="activity-list detective-entries">${rows}</div>${more}</details>`;
+  }
+
+  function detectiveCard(a) {
+    const st = a.review ? a.review.state : "observation";
+    const rec = a.review ? a.review.record : null;
+    const when = rec ? formatWhen(rec.actedAt) : "";
+    const note = st === "changed" ? `Changed since you ${rec.status === "dismissed" ? "dismissed" : "reviewed"} it on ${when}.`
+      : st === "unknown-status" ? `Marked “${rec.status}” by a newer version of PesaOtas. It's kept unchanged until you choose an action here.`
+      : st === "reviewed" ? `Reviewed on ${when}.` : st === "dismissed" ? `Dismissed on ${when}.` : "";
+    const byId = new Map(state.transactions.map(t => [t.id, t]));
+    const history = (a.historyIds || []).map(id => byId.get(id)).filter(Boolean);
+    const extra = [];
+    if (a.rule === "small-purchases") {
+      if (a.top && a.top.length) extra.push(`Mostly: ${a.top.map(t => `${t.name} ${money(t.total)} (${t.count})`).join(", ")}.`);
+      if (a.count) extra.push(`Average small purchase: ${money(a.average)}.`);
+      if (a.previous) extra.push(`The ${F_days(a.previous)} before: ${plural(a.previous.count, "purchase", "purchases")}, ${money(a.previous.total)}.`);
+    }
+    const why = `<details class="detective-why"><summary>Why ${a.kind === "alert" ? "was this flagged" : "is this shown"}?</summary><ul>${a.why.map(w => `<li>${escapeHTML(w)}</li>`).join("")}</ul>` +
+      (history.length ? `<p class="chart-entries-head">Earlier entries used</p><div class="activity-list">${history.map(t => transactionMarkup(t, false)).join("")}</div>` : "") + `</details>`;
+    let actions = "";
+    if (a.kind === "alert") {
+      const can = canSave && a.reviewable;
+      const btn = (action, label) => `<button class="button button-secondary" type="button" data-detective-action="${action}" data-alert-id="${escapeHTML(a.id)}" aria-label="${escapeHTML(`${label}: ${a.title}`)}"${can ? "" : " disabled"}>${label}</button>`;
+      const set = st === "reviewed" ? [btn("dismissed", "Dismiss"), btn("move-back", "Move back to To review")]
+        : st === "dismissed" ? [btn("reviewed", "Mark as reviewed"), btn("move-back", "Move back to To review")]
+        : [btn("reviewed", "Mark as reviewed"), btn("dismissed", "Dismiss")];
+      actions = a.reviewable ? `<div class="detective-actions">${set.join("")}</div>` : `<p class="detective-note">${escapeHTML(a.notReviewableReason || "")}</p>`;
+    }
+    return `<article class="detective-card detective-${escapeHTML(a.kind)}" tabindex="-1" data-alert-id="${escapeHTML(a.id)}" aria-labelledby="det-${escapeHTML(a.id.replace(/[^A-Za-z0-9-]/g, "-"))}">` +
+      `<p class="detective-tag"><span aria-hidden="true">${DETECTIVE_ICONS[a.rule] || "•"}</span> ${escapeHTML(a.label)}</p>` +
+      `<h4 id="det-${escapeHTML(a.id.replace(/[^A-Za-z0-9-]/g, "-"))}">${escapeHTML(a.title)}</h4>` +
+      `<p class="detective-figure">${escapeHTML(a.figure)}</p>` +
+      `<p class="detective-text">${escapeHTML(a.text)}</p>` +
+      extra.map(x => `<p class="detective-note">${escapeHTML(x)}</p>`).join("") +
+      (note ? `<p class="detective-status${st === "changed" || st === "unknown-status" ? " detective-status-changed" : ""}">${escapeHTML(note)}</p>` : "") +
+      why + detectiveEntries(a) + actions + `</article>`;
+  }
+  const F_days = (p) => `${PesaFinance.daysBetween(p.start, p.end) + 1} days`;
+
+  function renderDetective(focus) {
+    const r = PesaDetective.run(state, todayISO());
+    detectiveResult = r;
+    const S = r.windows.summary;
+    const where = S.kind === "cycle" ? "This pay cycle" : "This month";
+    document.getElementById("detective-window").textContent =
+      `${where}: ${datesText(S)}. Uses your ${S.kind === "cycle" ? "pay cycle" : "calendar month (no pay cycle is set)"}, not the period chosen above.` +
+      (r.futureCount ? ` ${plural(r.futureCount, "entry", "entries")} dated after today ${r.futureCount === 1 ? "isn't" : "aren't"} included.` : "");
+    const blocked = document.getElementById("detective-blocked");
+    blocked.textContent = canSave ? "" : `Review buttons are unavailable. ${BLOCKED_MESSAGES[saveBlock] || BLOCKED_MESSAGES.storage}`;
+    blocked.classList.toggle("hidden", canSave);
+    for (const k of Object.keys(FILTER_LABELS)) {
+      const b = document.getElementById(`detective-filter-${k}`);
+      b.textContent = `${FILTER_LABELS[k]} (${r.groups[k].length})`;
+      b.setAttribute("aria-pressed", String(detectiveFilter === k));
+    }
+    const items = r.groups[detectiveFilter];
+    const whereLower = S.kind === "cycle" ? "this pay cycle" : "this month";
+    document.getElementById("detective-list").innerHTML = items.length ? items.map(detectiveCard).join("")
+      : `<p class="empty-state">${detectiveFilter === "toReview" ? `Nothing to review ${whereLower}. “What Expense Detective checked” below shows what was looked at.`
+        : detectiveFilter === "reviewed" ? "No reviewed alerts." : "No dismissed alerts."}</p>`;
+    document.getElementById("detective-observations").innerHTML = detectiveFilter === "toReview" ? r.observations.map(detectiveCard).join("") : "";
+    // Spending pace
+    const p = r.pace;
+    let pace;
+    if (!p.available) {
+      pace = `<p class="muted">${escapeHTML(p.reason === "payday-passed" ? "Payday has arrived; start your new pay cycle to see your spending pace." : "Set your pay cycle in Settings to see your spending pace.")}</p>`;
+    } else {
+      const cols = ["Allocation used", "Pay cycle gone", "Status"];
+      pace = `<p class="muted">${escapeHTML(`${p.elapsedDays} of ${p.lengthDays} days of the pay cycle gone (${datesText({ start: p.start, end: PesaFinance.addDays(p.payday, -1) })}). Compares the share of each allocation used with the share of the pay cycle gone; not a forecast.`)}</p>` +
+        (p.tooEarly ? `<p class="detective-note">Too early in the pay cycle to judge pace (it needs ${PesaDetective.SETTINGS.pace.minDays} days).</p>` : "") +
+        (p.rows.length ? `<div class="table-wrap"><table class="history-table detective-pace-table" role="table"><caption class="sr-only">Spending pace by category</caption>` +
+          `<thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Category</th>${cols.map(c => `<th scope="col" role="columnheader">${c}</th>`).join("")}</tr></thead><tbody role="rowgroup">` +
+          p.rows.map(x => `<tr role="row"><th scope="row" role="rowheader">${escapeHTML(x.name)}<small>${escapeHTML(`${money(x.spent)} of ${money(x.budget)}`)}</small></th>` +
+            `<td role="cell" data-label="${cols[0]}">${x.usedPct}%</td><td role="cell" data-label="${cols[1]}">${x.timePct}%</td><td role="cell" data-label="${cols[2]}">${escapeHTML(PACE_STATUS[x.status])}</td></tr>`).join("") +
+          `</tbody></table></div>` : `<p class="muted">No Essential, Flexible, Personal, Event or Other categories with an allocation.</p>`) +
+        (p.overall ? `<p class="detective-note">${escapeHTML(`Overall: ${money(p.overall.spent)} of ${money(p.overall.budget)} (${p.overall.usedPct}%) used, with ${p.overall.timePct}% of the pay cycle gone. Bills and Savings categories aren't included.`)}</p>` : "") +
+        (p.rows.some(x => x.status === "over") ? `<p class="detective-note">“Over allocation” is shown for information; the Overview already warns about it.</p>` : "") +
+        (p.futureNote ? `<p class="detective-note">${escapeHTML(p.futureNote)}</p>` : "");
+    }
+    document.getElementById("detective-pace").innerHTML = pace;
+    // What was checked
+    const label = { ok: "Checked", insufficient: "Not enough history", unavailable: "Not available" };
+    document.getElementById("detective-checks").innerHTML = `<ul class="detective-check-list">${r.checks.map(c => `<li><strong>${label[c.kind]}:</strong> ${escapeHTML(c.text)}</li>`).join("")}` +
+      (r.keptRecords ? `<li><strong>Kept:</strong> ${plural(r.keptRecords, "review record", "review records")} for alerts not shown now. Nothing is deleted automatically.</li>` : "") + `</ul>`;
+    if (focus) {
+      const cards = [...document.querySelectorAll("#detective-list .detective-card")];
+      (cards[Math.min(focus.index, cards.length - 1)] || document.getElementById("detective-list")).focus({ preventScroll: false });
+    }
+  }
+
+  document.getElementById("detective").addEventListener("toggle", e => {
+    const d = e.target;
+    if (!d.matches || !d.matches("details[data-entries-for]")) return;
+    if (d.open) detectiveOpen.add(d.dataset.entriesFor); else detectiveOpen.delete(d.dataset.entriesFor);
+  }, true);
+  document.getElementById("detective").addEventListener("click", e => {
+    const f = e.target.closest("[data-detective-filter]");
+    if (f) { detectiveFilter = f.dataset.detectiveFilter; renderDetective(); return; }
+    const more = e.target.closest("[data-detective-more]");
+    if (more) {
+      const id = more.dataset.detectiveMore;
+      detectiveShown.set(id, (detectiveShown.get(id) || DETECTIVE_PAGE) + DETECTIVE_PAGE);
+      detectiveOpen.add(id);
+      renderDetective();
+      return;
+    }
+    const edit = e.target.closest("[data-detective-edit]");
+    if (edit) { startEdit(edit.dataset.detectiveEdit); return; }
+    const act = e.target.closest("[data-detective-action]");
+    if (!act || !detectiveResult) return;
+    const a = detectiveResult.alerts.find(x => x.id === act.dataset.alertId);
+    if (!a) return;
+    const cards = [...document.querySelectorAll("#detective-list .detective-card")];
+    const index = Math.max(0, cards.findIndex(c => c.dataset.alertId === a.id));
+    const action = act.dataset.detectiveAction;
+    try {
+      state = action === "move-back" ? PesaDetective.clearReview(state, a.id) : PesaDetective.applyReview(state, a, action, new Date());
+    } catch {
+      return showToast("This alert can't be reviewed.");
+    }
+    if (!saveState()) { renderDetective(); return; }
+    const done = action === "move-back" ? "Moved back to To review" : action === "reviewed" ? "Marked as reviewed" : "Dismissed";
+    document.getElementById("detective-announcer").textContent = `${done}: ${a.title}.`;
+    showToast(`${done}.`);
+    renderDetective({ index });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Unreadable alert review records (D-20): a separate decision, never presented
+  // as damage to the budget. The verified copy of the original is made by
+  // storage before this is shown; continuing never changes or deletes it.
+  // ---------------------------------------------------------------------------
+  function openReviewRecordsDialog() {
+    if (boot.status !== "review-records-invalid" || saveBlock !== "reviews") return;
+    const issues = boot.report.reviewIssues;
+    document.getElementById("reviews-intro").innerHTML =
+      `<p><strong>Your budget and transactions are fine.</strong> ${plural(issues.length, "alert review record", "alert review records")} (marks saying an Expense Detective alert was reviewed or dismissed) couldn't be read:</p>`;
+    document.getElementById("reviews-content").innerHTML =
+      `<ul class="issue-plain">${issues.slice(0, 40).map(x => `<li>${escapeHTML(x.text)}</li>`).join("")}${issues.length > 40 ? `<li>…and ${issues.length - 40} more</li>` : ""}</ul>` +
+      (boot.copyVerified
+        ? `<p class="muted">A copy of your data exactly as it was is kept in Settings → Data safety. Continuing saves your budget with the ${plural(boot.state.meta.alertReviews ? boot.state.meta.alertReviews.length : 0, "record", "records")} that can be read; it doesn't change or delete that copy. The affected alerts will show as new.</p>`
+        : `<p class="replace-note"><strong>PesaOtas couldn't save a safety copy of your data, so you can't continue yet.</strong> Free up browser storage, then try again — or download the original data.</p>`) +
+      `<p class="muted">Until you decide, PesaOtas shows your budget but saves nothing.</p>`;
+    document.getElementById("reviews-continue").classList.toggle("hidden", !boot.copyVerified);
+    document.getElementById("reviews-retry").classList.toggle("hidden", !!boot.copyVerified);
+    openDialog(document.getElementById("reviews-dialog"));
+  }
+  const reviewsError = (msg) => { const el = document.getElementById("reviews-error"); el.textContent = msg; el.classList.toggle("hidden", !msg); };
+  document.getElementById("reviews-continue").addEventListener("click", () => {
+    if (!boot.copyVerified || saveBlock !== "reviews") return;
+    const res = PesaStorage.continueWithoutInvalidReviews(store, boot.state, boot.raw);
+    if (res.ok) {
+      state = res.state; lastSaved = clone(state); storedRaw = res.raw; canSave = true; saveBlock = null; noticeKind = null;
+      reviewsError("");
+      closeDialog(document.getElementById("reviews-dialog"));
+      renderAll(); renderNotice(); renderDataSafety();
+      showToast("Saved without the unreadable alert review records. The original is kept in Data safety.");
+      return;
+    }
+    if (res.reason === "copy-missing") {
+      boot.copyVerified = false;
+      openReviewRecordsDialog();
+      return reviewsError("The safety copy of your original data is no longer there, so nothing was changed. Try again to save a new copy first.");
+    }
+    if (res.reason === "changed-elsewhere") {
+      closeDialog(document.getElementById("reviews-dialog"));
+      markStale("tab");
+      return showToast(BLOCKED_MESSAGES.stale);
+    }
+    reviewsError("Nothing was changed: the browser couldn't save. Free up browser storage, then try again.");
+  });
+  document.getElementById("reviews-retry").addEventListener("click", () => {
+    boot.copyVerified = PesaStorage.keepReviewRecordsCopy(store, new Date(), boot.raw);
+    reviewsError(boot.copyVerified ? "" : "The safety copy still couldn't be saved. Free up browser storage, or download the original data.");
+    openReviewRecordsDialog();
+    renderNotice(); renderDataSafety();
+  });
+  document.getElementById("reviews-download").addEventListener("click", () => {
+    downloadText(boot.raw, `pesaotas-original-data-${todayISO()}.json`);
+    showToast("Original data downloaded, exactly as it was stored.");
+  });
+  document.getElementById("reviews-later").addEventListener("click", () => { closeDialog(document.getElementById("reviews-dialog")); renderNotice(); });
 
   // Closed pay cycles, worked out live from transactions and the stored dates/allocations.
   function renderCycleHistory() {
@@ -1274,7 +1488,7 @@
     e.target.value = "";
   });
   document.getElementById("reset-button").addEventListener("click",()=>{
-    if (!confirm("Erase everything and start PesaOtas empty? Your budget, transactions, pay cycles and savings records will be removed from this browser. A copy is kept in Settings → Data safety (only the most recent copy), so download a backup first if you might need it.")) return;
+    if (!confirm("Erase everything and start PesaOtas empty? Your budget, transactions, pay cycles, savings records and alert review records will be removed from this browser. A copy is kept in Settings → Data safety (only the most recent copy), so download a backup first if you might need it.")) return;
     budgetDraft = {};
     if (applyReplacement(PesaData.createBlankState(state.currency), "PesaOtas has been emptied. Your previous data is in Data safety.")) {
       resetEntryForm();
@@ -1669,7 +1883,7 @@
         showToast("Backup downloaded.");
       }
     }
-    if (action === "reviews" && typeof openReviewRecordsDialog === "function") openReviewRecordsDialog();
+    if (action === "reviews") openReviewRecordsDialog();
     if (action === "download-original" && boot.raw) {
       downloadText(boot.raw, `pesaotas-original-data-${todayISO()}.json`);
       showToast("Original data downloaded, exactly as it was stored.");
@@ -2073,7 +2287,7 @@
     if (saveBlock === "stale" && kind !== "older") return;
     canSave = false; saveBlock = "stale";
     noticeKind = kind === "older" ? "older-tab" : "stale";
-    renderNotice(); renderDataSafety();
+    renderNotice(); renderDataSafety(); renderDetective();
   }
   window.addEventListener("storage", e => {
     if (!store) return;
@@ -2086,6 +2300,7 @@
   renderNotice();
   if (recovery) openRecoveryDialog();
   if (saveBlock === "conflict") openConflictDialog();
+  if (saveBlock === "reviews") openReviewRecordsDialog();
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = `v${window.PESAOTAS_VERSION || ""}`; });
   refreshPersistStatus().then(renderStorageProtection);
 
