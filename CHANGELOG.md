@@ -46,6 +46,8 @@ Calculations are unchanged (`src/finance.js` untouched).
   decimals)".
 - Warnings show amounts with a non-breaking space, like every other amount.
 - Version label `1.6.0-dev`; release tooling accepts pre-release labels.
+- The note under *Download a v1.5.0-compatible backup* now lists exactly what the
+  file leaves out (KI-36).
 
 ## [1.5.0] — 2026-11-06 — Phase 5: installable app, safe updates, storage protection, GitHub Pages
 
