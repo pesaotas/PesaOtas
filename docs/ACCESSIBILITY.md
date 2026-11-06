@@ -33,6 +33,18 @@ Settings — with realistic data, and in the dialogs:
 These checks are part of the browser test suites that are run for each phase
 (see the CHANGELOG for counts).
 
+### Insights charts (v1.6 Phase 3, DECISIONS D-19)
+
+| Check | How | Result |
+|---|---|---|
+| Each chart is one Tab stop; arrow keys, Home and End choose a bar or category; focus ring visible | Browser suite presses the keys and reads the selected bar and the details panel | Pass |
+| Previous/Next buttons, category buttons and "Show as table" are at least 44px and work by click and by touch | Browser suite with touch emulation on a 375px phone | Pass |
+| Selections are announced politely (`aria-live`) | Announcer text checked after each selection | Pass |
+| Charts are named groups with a description (summary and keyboard help); the SVG drawing is hidden from screen readers; every chart has a captioned table with the same figures | Chrome's accessibility tree; table rows compared with the tested figures | Pass |
+| Step buttons have specific names ("Previous day", "Next category") | Accessibility tree | Pass |
+| No sideways scrolling, text at least 12px including inside the charts, contrast, names, 44px targets | In-page audit at 320, 375, 390, 768, 1280 and 1600px, all three periods; SVG drawn at its real width (no scaling) | Pass |
+| Meaning never by colour alone | Hatching (no records), zero markers (no spending), dashed outlines (partly covered), fixed positions (income left, expenses right), legend and table text | By design; drawn states checked |
+
 ## What has not been tested
 
 - **Real screen readers.** No testing with TalkBack (Android), VoiceOver (iPhone,
@@ -74,6 +86,8 @@ assistive technology. Each item should take a minute or two.
       green ring.
 - [ ] Dialogs: Tab stays inside; Escape closes (except the recovery dialog);
       focus returns to where you were.
+- [ ] Insights charts: Tab reaches each chart; the arrow keys, Home and End
+      change the selected bar or category, and the details below update.
 
 ### Zoom and text size
 - [ ] Browser zoom 200%: nothing overlaps or is cut off; no sideways scrolling.

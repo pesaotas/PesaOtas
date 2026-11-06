@@ -543,6 +543,71 @@ unchanged; Insights only adds up recorded entries.
   category's plan remains on the Budget screen; previous pay cycles remain on
   Insights.
 
+## D-19 Insights charts — plan approved 2026-11-06 (v1.6 Phase 3), implemented v1.6.0 Phase 3
+
+Three read-only charts in Insights, following the selected period (D-18). Data
+is prepared in `src/insights.js` (built on the tested `series` and
+`categoryBreakdown`); `src/charts.js` only turns those figures into SVG; the
+interface (`app.js`) chooses, formats and shows them. No charting library,
+external service or new dependency. Nothing in the charts saves anything.
+
+- **Spending trend**: one bar per day (Last 30 days), Monday–Sunday week (Last
+  6 months) or calendar month (All time). The bars add up to total expenses.
+- **Income vs expenses**: a pair of bars per calendar month, income left and
+  expenses right. Months are cut to the period's dates: Last 30 days shows the
+  two months it overlaps (for example 8–31 Oct and 1–6 Nov), each labelled as a
+  partial month and never presented as a whole month's total; other periods cut
+  only their edge months. Savings transfers and withdrawals are neither (D-04).
+- **Spending by category (donut)**: largest first, ties alphabetical. Five or
+  fewer categories: all shown separately. Exactly six: all six shown
+  separately. More than six: the five largest, then the rest grouped as
+  `Other categories (N)` (N is 2 or more). `Other / uncategorised` is an ordinary
+  category: shown separately when it is among those shown, otherwise one of
+  the grouped categories. Slices are drawn at their true size.
+- **Period clipping and coverage are separate** (owner safeguard). A bar cut
+  short by the period's start or end (`clipped`; `soFar` when it ends today) is
+  labelled with its actual dates and "partial week/month". Coverage (D-18) is a
+  separate state: *no history* (before the first record; hatched), *partly
+  covered* (records begin inside the bar; lighter fill, dashed outline),
+  *no spending recorded* (covered, nothing spent; a zero marker) and *spending*.
+  A clipped bar is never called partly covered for that reason alone.
+- **Selection and details**: each chart is one keyboard control (arrow keys,
+  Home, End) with Previous/Next buttons (44px) and click or tap selection
+  (nearest bar). The latest day/week/month and the largest category are
+  selected by default; selection resets when the period changes. A details
+  panel replaces hover-only tooltips; mouse hover adds a light highlight and the
+  browser's own tooltip. Selections are announced politely.
+- **Drill-through (read-only)**: a trend bar lists that day's, week's or
+  month's expenses; a category lists its expenses in the period; `Other
+  categories (N)` lists its categories (amount, share, entries) and their
+  expenses. Newest first (the Transactions screen's order), 25 at a time with
+  "Show 25 more", always with the count and total of the whole selection; never
+  entries dated after today. No edit or delete actions; the Transactions screen
+  is unchanged (no new filters).
+- **Tables**: each chart has "Show as table" with the same figures and the same
+  grouping, including partial-period and coverage notes and the categories inside
+  the group.
+- **Drawing**: SVG drawn at the chart area's measured width (no viewBox scaling),
+  so text is never below 12px; redrawn on resize; never drawn while Insights is
+  hidden. Bars at most 24px wide with 4px rounded tops; crowded labels are
+  thinned, not shrunk. If a chart can't be drawn, the card says so and opens
+  its table. Empty, future-only and no-spending periods say what's missing.
+- **Colours** (checked with a colour-blindness validator, light background):
+  spending/expenses `#d76c59` and income `#2a78d6` pass every check;
+  categories use `#2a78d6`, `#eb6834`, `#1baf7a`, `#eda100`, `#e87ba4`,
+  `#008300` in order, which pass for neighbouring slices including the last
+  next to the first. Three of these are below 3:1 contrast against white, so
+  every slice is also named in the legend, with its amount, and in the table.
+  Colour is never the only signal: hatching, zero markers, dashed outlines,
+  fixed positions and text carry the same meaning. Category colours follow the
+  slice's rank in the current chart (six colours can't each belong to one
+  category permanently).
+- **Performance**: with 20,000 fictional entries, preparing every chart for All
+  time takes about 95 ms in Node (measured; no optimisation needed).
+- **Not included** (owner decisions): cross-filtering, configurable
+  dashboards, cross-chart drill-down, Sankey diagrams. Richer desktop
+  analytics is recorded as a future enhancement in the roadmap.
+
 ## D-08 Phase gating — approved 2026-11-05
 
 Each phase ends with a report (files changed, tests run, results, outstanding

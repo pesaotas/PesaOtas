@@ -3,11 +3,37 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0-dev] — Unreleased — v1.6 Phases 1–2: currency foundation, storage-format safeguard, Insights foundation
+## [1.6.0-dev] — Unreleased — v1.6 Phases 1–3: currency foundation, storage-format safeguard, Insights foundation, Insights charts
 
 Work in progress on branch `v1.6-dev`; not published. `main` and the live
 v1.5.0 are unchanged (stable tag `v1.5.0-baseline`, commit `4d8f130`).
 Calculations are unchanged (`src/finance.js` untouched).
+
+### Phase 3 — Insights charts (D-19)
+- **Added — three charts in Insights**, following the selected period:
+  spending trend (by day, Monday–Sunday week or month), income vs expenses by
+  month (months cut to the period and labelled partial; Last 30 days shows e.g.
+  8–31 Oct and 1–6 Nov), and spending by category (donut: up to six categories
+  shown separately; more than six → five plus `Other categories (N)`).
+- Choose a bar or category by click, tap, arrow keys, Home/End or
+  Previous/Next; a details panel shows the figures and a read-only list of the
+  entries behind it (newest first, 25 at a time, with the count and total).
+  "Show as table" gives the same figures for every chart.
+- Missing history (hatched), partly covered bars (dashed) and covered days with
+  no spending (zero marker) are drawn differently; partial weeks and months cut
+  by the period are labelled separately from coverage.
+- Empty, future-only and no-spending states; a chart that can't be drawn says
+  so and opens its table.
+- `src/charts.js` (SVG only, no calculations) is part of the release and the
+  offline copy. No chart library or new dependency.
+- **Not changed**: every existing Insights section, the Transactions screen,
+  balances and calculations (`src/finance.js`), the data format
+  (`src/data-model.js`), storage, backups and safety copies. Charts never save
+  anything.
+- Tests: `insights-charts.test.js` (30) and `charts.test.js` (18); 11 of 11 and
+  10 of 10 deliberate faults caught. **419 tests, 419 pass.** Browser suite for
+  Phase 3: 134 checks from the site root and from `/PesaOtas/`.
+- 20,000 fictional entries: preparing every chart for All time takes about 95 ms.
 
 ### Phase 2 — Insights foundation (D-18)
 - **Added — new Insights screen** (`src/insights.js`, read-only):

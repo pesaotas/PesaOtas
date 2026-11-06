@@ -89,6 +89,12 @@ months** or **all time** (your choice is remembered on this device):
 - Spending by category, a week-by-week or month-by-month history, and patterns
   such as unusually expensive months once you have three complete months of
   records.
+- **Charts**: your spending over time (by day, week or month), income vs
+  expenses by month, and spending by category. Choose a bar or a category (tap,
+  click, or the arrow keys) to see its details and the entries behind it. Each
+  chart has **Show as table** with the same figures. Partial weeks and months
+  are labelled, and dates before your first record are shown as "no records
+  yet", not as zero.
 
 Insights only reads your records. It never changes them and nothing leaves your
 device.
@@ -248,7 +254,8 @@ src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (
 src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
 src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
-src/insights.js     Insights: periods, totals, comparisons, patterns (pure, read-only, tested)
+src/insights.js     Insights: periods, totals, comparisons, patterns, chart data (pure, read-only, tested)
+src/charts.js       Insights charts: SVG drawing only, no calculations (pure, tested)
 sw.js               Service worker: offline copy and safe updates (D-14)
 manifest.json       Install metadata
 icons/              App icons (PNG; sources and how to regenerate in icons/src)
