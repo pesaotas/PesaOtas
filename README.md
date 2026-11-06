@@ -99,6 +99,32 @@ months** or **all time** (your choice is remembered on this device):
 Insights only reads your records. It never changes them and nothing leaves your
 device.
 
+## Expense Detective
+
+In **Insights**, Expense Detective points out things worth a look in **this pay
+cycle** (or this month, if you haven't set a pay cycle), using simple rules it
+explains every time:
+
+- **Unusual bills**: a bill more than 25% above your usual amount for the same
+  bill (same category and description) and higher by at least your currency's
+  small-purchase amount (KSh 500 in shillings), once there are at least 3
+  earlier bills in 3 different months to compare with.
+- **Unusually large expenses**: an expense at least 3 times your usual amount in
+  that category (and higher by at least the small-purchase amount), once there
+  are at least 5 earlier expenses in the 180 days before to compare with.
+- **Small purchases**: how small purchases add up. It asks for a review only
+  when there are at least 10 making up at least 10% of your spending.
+- **Uncategorised spending**: entries without a category, with an **Edit**
+  button to choose one yourself.
+- **Spending pace**: whether you've used more of an allocation than the share of
+  the pay cycle that has passed.
+
+Mark an alert as **reviewed** or **dismiss** it; it comes back only if the
+entries behind it change (for example, an amount is edited), never just because
+time passes. Expense Detective never changes your transactions or categories,
+and nothing leaves your device. "What Expense Detective checked" shows what
+needed more history.
+
 ## Install it, use it offline, and updates
 
 Open PesaOtas from its web address (see [Publishing](#option-3-publish-it-on-github-pages)),
@@ -256,6 +282,7 @@ src/storage.js      Loading, migration, verified saving, safety copies (tested)
 src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
 src/insights.js     Insights: periods, totals, comparisons, patterns, chart data (pure, read-only, tested)
 src/charts.js       Insights charts: SVG drawing only, no calculations (pure, tested)
+src/detective.js    Expense Detective rules and review records (pure, read-only, tested)
 sw.js               Service worker: offline copy and safe updates (D-14)
 manifest.json       Install metadata
 icons/              App icons (PNG; sources and how to regenerate in icons/src)

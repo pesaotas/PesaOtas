@@ -391,7 +391,9 @@ that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
 - **Format v3** adds `currency` (D-17), `meta.currencyHistory` and
   `meta.upgradedFrom`. Format v2 (v1.1–v1.5 data and backups) and PesaFlow v1
   are still read and converted. Newer formats are refused.
-- **Deferred to Phase 4: `meta.alertReviews`** (the reviewed/dismissed marks
+- **Done in v1.6 Phase 4 (D-20)**, as required below: `meta.alertReviews` is part of
+  format v3, the v1.5.0-compatible backup lists it as left out, and every path
+  listed in point 3 is tested. *Original text:* **Deferred to Phase 4: `meta.alertReviews`** (the reviewed/dismissed marks
   for Expense Detective alerts, approved in Phase 0 decision 6). It is **not**
   part of the format yet: Phase 1 doesn't read, validate or keep it, and today
   any `meta` field the format doesn't know is dropped when data is checked. No
@@ -441,8 +443,8 @@ that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
   `meta` fields v1.5.0 understands (`onboarding`, `createdAt`, `migratedFrom`).
   It leaves out exactly the v1.6-only metadata: `meta.currencyHistory` (the
   record of currency changes) and `meta.upgradedFrom` (when the budget was
-  upgraded to format v3); `meta.alertReviews` will be added to this list in
-  Phase 4. `toV15Backup()` reports what it left out, and the app lists it when
+  upgraded to format v3), and `meta.alertReviews` (alert review records, since
+  Phase 4). `toV15Backup()` reports what it left out, and the app lists it when
   the file is downloaded. Procedure: [ROLLBACK.md](ROLLBACK.md). The stable release is tag
   `v1.5.0-baseline` (commit `4d8f130`).
 
@@ -607,6 +609,110 @@ external service or new dependency. Nothing in the charts saves anything.
 - **Not included** (owner decisions): cross-filtering, configurable
   dashboards, cross-chart drill-down, Sankey diagrams. Richer desktop
   analytics is recorded as a future enhancement in the roadmap.
+
+## D-20 Expense Detective — specification approved 2026-11-06 (v1.6 Phase 4), implemented v1.6.0 Phase 4
+
+Deterministic, explainable, local-only rules (`src/detective.js`, pure and
+read-only). No AI or machine learning, no network, no new dependency. Nothing
+is categorised, edited, deleted, reviewed or dismissed automatically.
+
+**Windows** (inclusive; entries dated after today are never used):
+- *S* — this pay cycle to today (cycle start on or before today), otherwise this
+  calendar month to today: small purchases, uncategorised spending, the label.
+- *C* — S start minus 30 days, to today: which entries can raise single-entry
+  alerts.
+- *R1* — for a bill dated *d*: the same series from 12 months before *d* to the
+  day before. *R2* — for an expense dated *d*: the same category, *d*−180 days
+  to *d*−1. *P* — pay cycle start to today (pace needs a pay cycle; with none,
+  the Budget screen counts all-time use, so a month-based pace would contradict
+  it).
+
+**Rules** (thresholds in `PesaDetective.SETTINGS`; currency small-purchase
+amounts from D-17):
+- *Unusual bill (U1)*: Bills-type category; series = category + normalised note
+  (lower case, digits removed, non-letters → spaces, collapsed). **A blank
+  normalised note is never grouped.** Needs ≥ 3 earlier entries (strictly
+  earlier dates) in ≥ 3 different months within R1. Typical = median of the
+  latest ≤ 6. Flagged when amount > 125% of typical (exactly 125% is not) **and**
+  amount − typical ≥ the threshold. With typical KSh 2,000: 2,499 and 2,500 not
+  flagged, 2,501 flagged. Only higher amounts.
+- *Unusually large expense (U2)*: non-Bills, categorised. Needs ≥ 5 earlier
+  expenses in R2. Flagged when amount ≥ 3 × their median **and** amount − median
+  ≥ the threshold.
+- *Repeated bills (U3)*: **deferred** — several entries in a month aren't enough
+  evidence of duplication.
+- *Small purchases*: expenses ≤ the threshold in S (figures from
+  `PesaInsights.leakSummary`, so they match the KPI card), with share,
+  average, top 3 categories, and the previous equal window when fully covered.
+  An **alert** only with ≥ 10 purchases **and** ≥ 10% of spending; otherwise an
+  **observation** (no review buttons, not counted as "to review").
+- *Uncategorised spending*: expenses in S whose category isn't a current one;
+  an alert from one entry. **Edit** opens the existing edit form; the user saves.
+- *Spending pace*: L = cycle length (cycle start to payday), e = days elapsed
+  including today; spending to date from `cycleSummary(start, today+1)`.
+  Eligible: Essential, Flexible, Personal, Event, Other with an allocation > 0
+  (Bills and Savings excluded). *Ahead of pace* (alert) when spending is below
+  the allocation, e ≥ 3, spending ≥ the threshold, and the share used is ≥ 25
+  percentage points above the share of the cycle gone. Spending at or over the
+  allocation is the informational status **Over allocation** (the Overview already
+  warns). No forecasts. Entries dated after today are left out (the Budget
+  screen includes them; the card says so when it matters).
+- A "What Expense Detective checked" panel explains every rule's result,
+  including where evidence was insufficient.
+
+**Review records — `meta.alertReviews`** (format v3, an addition; D-16):
+`{id, rule, status, actedAt, fingerprint, basis?, …}`. Statuses: New (no record),
+`reviewed`, `dismissed`; "Move back to To review" removes the record (the user's
+action). IDs: `unusual-bill:<txId>`, `large-expense:<txId>`,
+`small-purchases:<S start>`, `uncategorised:<S start>`,
+`spending-pace:<cycle start>:<categoryId>`. `basis`: small purchases
+`{count, total, frame}`, uncategorised `{entryHashes}` (≤ 2,000; above that the
+alert can't be reviewed, with a message), pace `{gapPoints, frame}`.
+- **Forward compatibility:** records are kept exactly — unknown rules, statuses
+  and fields (plain JSON, ≤ 4 levels, ≤ 64 KB per record), in order. A status
+  this version doesn't know shows the alert under To review, unchanged until the
+  user acts. Updating a status keeps every existing field.
+- **Validation:** unreadable records are reported in `reviewIssues`, never in
+  the financial `rejected` list, and make the data "not clean" so they can't be
+  saved away silently. An exact duplicate is removed with a note; a conflicting
+  one is an issue. Older formats ignore the field with a visible note.
+- **Separate decision flow (Option A; additive `storage.js` change):** when the
+  only problem is review records, `load()` returns `review-records-invalid` after
+  copying the exact original to `pesaotas.preserved.review-records` and
+  verifying it. The app opens read-only: "Your budget and transactions are
+  fine", each record listed, **Continue without these records** (only with a
+  verified copy; re-checks the copy, then a normal verified, stale-tab-checked
+  save; the copy is never changed or deleted), **Try again** (when the copy
+  failed), **Download the original data**, **Not now**. Financial damage takes
+  priority (the usual recovery, review problems listed separately). Restore
+  previews count readable records and list unreadable ones separately.
+- **Privacy:** records are locally stored metadata. This version writes only IDs,
+  rule and status names, action times, hex hashes and whole numbers — never
+  notes, descriptions or other personal text. Fields from future versions are
+  kept but no guarantee is made about their content. Records travel only in the
+  user's own backups and safety copies; the v1.5.0-compatible backup leaves them
+  out and says so. No pruning.
+
+**Fingerprints and reappearance:** 64-bit FNV-1a over the actual evidence —
+each transaction's ID, amount, date and category reference, plus the rule's
+settings — used **only to notice change; not a security or privacy mechanism**.
+U1: the bill and every series entry in R1, the typical amount, thresholds. U2:
+the expense and every entry in R2, the median, thresholds. Uncategorised: every
+entry (also hashed one by one). Small purchases and pace: every entry counted,
+plus a separate *frame* (window, currency, threshold, allocation, cycle dates).
+A reviewed or dismissed alert reappears ("Changed since you reviewed it on …")
+only on material change: U1/U2 any evidence change; uncategorised a new entry or
+a changed amount, date or category reference of one still uncategorised
+(categorising or deleting doesn't); small purchases a frame change or growth to
+≥ 125% and by ≥ the threshold; pace a frame change or a gap ≥ 25 points larger.
+Time alone never brings an alert back; a new pay cycle or month is a new subject.
+
+**Interface:** Insights only, after the KPI cards, with its own window label
+("…not the period chosen above"); To review / Reviewed / Dismissed; review
+buttons save through the normal save, are disabled with the reason when saving
+is blocked, are announced, and move focus to the next card. No Overview shortcut.
+
+**Performance:** 20,000 fictional entries — about 108 ms for every rule (Node).
 
 ## D-08 Phase gating — approved 2026-11-05
 

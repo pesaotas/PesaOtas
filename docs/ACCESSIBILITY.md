@@ -45,6 +45,17 @@ These checks are part of the browser test suites that are run for each phase
 | No sideways scrolling, text at least 12px including inside the charts, contrast, names, 44px targets | In-page audit at 320, 375, 390, 768, 1280 and 1600px, all three periods; SVG drawn at its real width (no scaling) | Pass |
 | Meaning never by colour alone | Hatching (no records), zero markers (no spending), dashed outlines (partly covered), fixed positions (income left, expenses right), legend and table text | By design; drawn states checked |
 
+### Expense Detective (v1.6 Phase 4, DECISIONS D-20)
+
+| Check | How | Result |
+|---|---|---|
+| Filter buttons show their counts and pressed state; action buttons name their alert ("Mark as reviewed: Unusual bill: Electricity") | Chrome's accessibility tree | Pass |
+| Tab reaches every action button, which shows a focus ring; Enter works | Browser suite presses Tab and Enter | Pass |
+| After an action, it is announced politely and focus moves to the next card | Announcer text and the focused element checked | Pass |
+| Every card is labelled by its title and has a text type label (never colour alone); "Why was this flagged?" and entry lists are named disclosures | Accessibility tree and DOM checks | Pass |
+| No sideways scrolling, text at least 12px, contrast, names, 44px targets | In-page audit at 320, 375, 390, 768, 1280 and 1600px, with every disclosure open | Pass |
+| The unreadable-review-records dialog is a named dialog with its choices as buttons | Accessibility tree | Pass |
+
 ## What has not been tested
 
 - **Real screen readers.** No testing with TalkBack (Android), VoiceOver (iPhone,
@@ -88,6 +99,8 @@ assistive technology. Each item should take a minute or two.
       focus returns to where you were.
 - [ ] Insights charts: Tab reaches each chart; the arrow keys, Home and End
       change the selected bar or category, and the details below update.
+- [ ] Expense Detective: Tab reaches the filter and every Mark as reviewed /
+      Dismiss button; after pressing one, the next alert gets focus.
 
 ### Zoom and text size
 - [ ] Browser zoom 200%: nothing overlaps or is cut off; no sideways scrolling.

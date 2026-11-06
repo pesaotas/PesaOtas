@@ -3,11 +3,45 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0-dev] — Unreleased — v1.6 Phases 1–3: currency foundation, storage-format safeguard, Insights foundation, Insights charts
+## [1.6.0-dev] — Unreleased — v1.6 Phases 1–4: currency foundation, storage-format safeguard, Insights foundation, Insights charts, Expense Detective
 
 Work in progress on branch `v1.6-dev`; not published. `main` and the live
 v1.5.0 are unchanged (stable tag `v1.5.0-baseline`, commit `4d8f130`).
 Calculations are unchanged (`src/finance.js` untouched).
+
+### Phase 4 — Expense Detective (D-20)
+- **Added — Expense Detective in Insights**, for this pay cycle (or this month
+  without one): unusual bills, unusually large expenses, small purchases (an
+  alert only with at least 10 making up at least 10% of spending; otherwise an
+  observation), uncategorised spending (with **Edit** through the existing
+  form), and spending pace (Over allocation shown as information). Every alert
+  explains its figures and the entries behind it; "What Expense Detective
+  checked" says where more history is needed.
+- **Alert review**: Mark as reviewed, Dismiss, Move back to To review. Saved as
+  `meta.alertReviews` in format v3; an alert comes back only when its evidence
+  changes materially, never because time passes.
+- **Review records are never dropped silently**: kept exactly (including fields
+  from future versions); unreadable ones open a separate decision ("Your budget
+  and transactions are fine") after a verified copy of the original is kept in
+  the new Data safety list; restore previews count and list them separately.
+- **Changed**: `src/storage.js` (approved, additive): the
+  `review-records-invalid` load status, the review-records safety list, and
+  `continueWithoutInvalidReviews`. `src/data-model.js`: the review-record rules,
+  `reviewIssues`, a stricter `isClean`, the restore-preview count, and the
+  v1.5.0-compatible backup now lists "alert review records (N)" as left out
+  (the note under its button says so). Erase wording mentions review records.
+- **Not built**: repeated-bill alerts (U3, deferred) and an Overview shortcut.
+- **Not changed**: every calculation (`src/finance.js`, `src/insights.js` and
+  `src/charts.js` untouched), Phase 2 and 3 Insights, and the restore and
+  recovery wording when no review records are involved.
+- Tests: `alert-reviews-format.test.js` (36), `alert-reviews-persistence.test.js`
+  (22, the D-16 gate), `detective.test.js` (39, including the unknown-fields
+  regression test); one existing assertion updated for the new summary field.
+  **516 tests, 516 pass.** Planted faults caught: 8 of 8 (format), 6 of 6
+  (persistence), 21 of 21 (rules). Phase 4 browser suite: 74 checks at the site
+  root and at `/PesaOtas/`, including the real v1.5.0.
+- Known issues KI-40 (earlier development builds would drop review records) and
+  KI-41 (pace vs Budget screen with future-dated entries).
 
 ### Phase 3 — Insights charts (D-19)
 - **Added — three charts in Insights**, following the selected period:

@@ -55,11 +55,11 @@ history.
     financial:
     - the record of currency changes (`meta.currencyHistory`);
     - the note of when the budget was upgraded to the v1.6 format
-      (`meta.upgradedFrom`).
+      (`meta.upgradedFrom`);
+    - Expense Detective's alert review records (`meta.alertReviews`): which
+      alerts were reviewed or dismissed (v1.6 Phase 4, DECISIONS D-20).
 
-    When Expense Detective arrives (v1.6 Phase 4), alert review marks
-    (`meta.alertReviews`) will be left out too, and added to this list. When
-    you download the file, the app lists exactly what was left out.
+    When you download the file, the app lists exactly what was left out.
   - It is available only for budgets in Kenyan shillings (KES), because v1.5.0
     shows every amount as KSh. A budget in another currency must first be
     changed back to KES (Settings → Currency; nothing is converted) or use the

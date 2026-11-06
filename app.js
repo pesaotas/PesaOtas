@@ -2140,7 +2140,7 @@
     const kes = state.currency === "KES";
     document.getElementById("export-v15-button").disabled = !kes;
     document.getElementById("export-v15-note").textContent = kes
-      ? "Only needed if you ever go back to PesaOtas v1.5.0. It keeps every amount, transaction, category, savings account and pay cycle. It leaves out two notes only v1.6 keeps: the record of currency changes and when your budget was upgraded."
+      ? "Only needed if you ever go back to PesaOtas v1.5.0. It keeps every amount, transaction, category, savings account and pay cycle. It leaves out only things v1.6 alone keeps, none of them financial: the record of currency changes, when your budget was upgraded, and alert review records."
       : `Not available for a budget in ${PesaCurrency.label(state.currency)}: PesaOtas v1.5.0 shows every amount as Kenyan shillings, so it would misread this budget. To go back to v1.5.0, change the currency back to Kenyan Shilling (KES) first, or use the copy made before the upgrade (Data safety).`;
   }
   document.getElementById("currency-select").addEventListener("change", e => {
