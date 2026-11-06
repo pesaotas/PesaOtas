@@ -28,11 +28,11 @@
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
 const VERSION = "1.6.0-dev";
-const BUILD = "a32b7448179a";
+const BUILD = "bd24d591c742";
 const PRECACHE = [
   ["index.html", "7b7b11b8dbe3d049796f10eaa2254e69b45453499c32d76068c100423c8c4c4c"],
   ["styles.css", "51af4103777748940cc5d56877836c44324e2f6e33835ae2a80bbb7ece63b6cf"],
-  ["app.js", "03796524c3b28a720beedfa445af1b5f19613a33832550b84dd97a4b1b72d958"],
+  ["app.js", "c726dfd17e50a54c6370f5807025faf3e76cb26e4dd15c10ce1cabec293a0ef1"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
   ["icon.svg", "b0ee30f9b7cb64ec62958e425fefe2cc0955b52a4aa7c8e8c7db13847f8ade9e"],
   ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],

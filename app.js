@@ -848,7 +848,8 @@
       ? `<button class="button button-secondary chart-more" type="button" data-detective-more="${escapeHTML(a.id)}">Show ${Math.min(DETECTIVE_PAGE, list.length - shown.length)} more</button>` : "";
     const head = `${plural(list.length, "entry", "entries")} · total ${money(total)}${list.length > shown.length ? ` · showing the newest ${shown.length}` : ""}`;
     if (list.length === 1 && !editable) return `<div class="activity-list detective-entries">${rows}</div>`;
-    return `<details class="detective-more-details" data-entries-for="${escapeHTML(a.id)}"${detectiveOpen.has(a.id) ? " open" : ""}><summary>Show the ${plural(list.length, "entry", "entries")}${editable ? " (with Edit)" : ""}</summary>` +
+    const sid = `det-ent-${a.id.replace(/[^A-Za-z0-9-]/g, "-")}`;
+    return `<details class="detective-more-details" data-entries-for="${escapeHTML(a.id)}" aria-labelledby="${sid}"${detectiveOpen.has(a.id) ? " open" : ""}><summary id="${sid}">Show the ${plural(list.length, "entry", "entries")}${editable ? " (with Edit)" : ""}</summary>` +
       `<p class="chart-entries-head">${escapeHTML(head)}</p><div class="activity-list detective-entries">${rows}</div>${more}</details>`;
   }
 
@@ -867,7 +868,8 @@
       if (a.count) extra.push(`Average small purchase: ${money(a.average)}.`);
       if (a.previous) extra.push(`The ${F_days(a.previous)} before: ${plural(a.previous.count, "purchase", "purchases")}, ${money(a.previous.total)}.`);
     }
-    const why = `<details class="detective-why"><summary>Why ${a.kind === "alert" ? "was this flagged" : "is this shown"}?</summary><ul>${a.why.map(w => `<li>${escapeHTML(w)}</li>`).join("")}</ul>` +
+    const wid = `det-why-${a.id.replace(/[^A-Za-z0-9-]/g, "-")}`;
+    const why = `<details class="detective-why" aria-labelledby="${wid}"><summary id="${wid}">Why ${a.kind === "alert" ? "was this flagged" : "is this shown"}?</summary><ul>${a.why.map(w => `<li>${escapeHTML(w)}</li>`).join("")}</ul>` +
       (history.length ? `<p class="chart-entries-head">Earlier entries used</p><div class="activity-list">${history.map(t => transactionMarkup(t, false)).join("")}</div>` : "") + `</details>`;
     let actions = "";
     if (a.kind === "alert") {
