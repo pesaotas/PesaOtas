@@ -28,13 +28,13 @@
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
 const VERSION = "1.6.0-dev";
-const BUILD = "cbd0c3b53569";
+const BUILD = "20776e3849ae";
 const PRECACHE = [
-  ["index.html", "25bbd2144381aba37b4a91d05d18bddb0647e92c8fd2ca03cfbaf032b06c8411"],
-  ["styles.css", "7438a6cd6c029d70219844b2772f1262b519028193ed0f94990b1323bf939d05"],
-  ["app.js", "04c871be7b186fffbfb19f819d1823fc0763fceccef9ff8f4bf517aa4799bc11"],
+  ["index.html", "75a0b34a4afebc77c0a0c9fc576c193e2e454895084852d36ae47af10cfa23cc"],
+  ["styles.css", "2c7fbd57bef02c830b7a939268015e87238dcf7be9f1459895084d567cf27381"],
+  ["app.js", "ea18056a670ff0e732d1b10f4659aa7d5291b94c4f4d11c339befbaee0d224f4"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
-  ["icon.svg", "0726c31579cacbe79fbf8e5d98e54c2f6d7719f05c0fc9961cbf620f3a011058"],
+  ["icon.svg", "caff807cec8eb0dbd47994677233b36e351c5fa6251a68b6ed2afbf2df2a71d9"],
   ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
   ["src/currency.js", "06476d6bb85e254a513b2f7a461da8259a8a74a6fa923476c0766c477538090d"],
   ["src/validation.js", "e55d0acd852216ae0c37f7fa7d6d409d03eadfac86f64a0ee94e02d374ae4d68"],
@@ -45,12 +45,12 @@ const PRECACHE = [
   ["src/insights.js", "e44f10c4be8f96abd5bae34d71fd622a8b4db4308ddc442574f460423c4584d3"],
   ["src/charts.js", "50871b455b65e4513b994e66bff953a5f1b53bd4b8b7f9ae2fa5b1bf168f6283"],
   ["src/detective.js", "e4f5452db3b33a68b20e67ec68f295865eb36c824e64b1a0303cb5ac73257927"],
-  ["icons/icon-192.png", "6c9c4934fa047ad0b8f273ee659705b54e2bd126c88ed31a94606d8336ad5787"],
-  ["icons/icon-512.png", "170f49f41c62bf269657893412eb1696b84dea68bbb10c9671cb129db496609d"],
+  ["icons/icon-192.png", "97e946f552a52a987b9e63f95fbf5b3a925ff8c547842ec3dc23df25bedee10d"],
+  ["icons/icon-512.png", "05b3c99acd29d71f65ddec64bd7f40892a33b1c54c06587fdae9154f6f8a9aae"],
   ["icons/maskable-192.png", "56fb867347f6298709a5c0aa62bb2bf082897d964afb4c1d590f1d76be0fcebb"],
   ["icons/maskable-512.png", "2f29848b79a3c4ab98e75aa1e4915f875a01ed5eff32408cc32e9311033510b3"],
   ["icons/apple-touch-icon.png", "327db4490d8713c31cd8606655fd40ac8eb0725606167f84302c5b1578e47435"],
-  ["icons/favicon-32.png", "29b75f01950a6cda5d3a0a05ee0d2515a00429b8bbff66702ad3bfb13c8aacbc"]
+  ["icons/favicon-32.png", "abe022d8b19bc1b8478ec9881b35cae9057941edd9feebdb239c07eee171c07e"]
 ];
 // RELEASE:END
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<!-- PesaOtas logo (the owner's mark, traced; geometry unchanged). Colours: approved recolour, Option 2 (v1.6 Phase 5). Rounded tile. -->
-<rect width="512" height="512" rx="144" fill="#102C25"/>
+<!-- PesaOtas logo (the owner's mark, traced; geometry unchanged). Colours: approved recolour, Option 2 (v1.6 Phase 5). Rounded tile, corner radius 112.64 (22%) as in the approved Option 2 tile. -->
+<rect width="512" height="512" rx="112.64" fill="#102C25"/>
 <g transform="translate(-283.73 1.00) scale(0.78222)"><defs>
  <clipPath id="pia"><path d="M226.2,764.1 L499.5,472.0 L646.5,315.5 L703.0,370.0 L842.5,223.5 L1115.8,-68.6 L1400,0 L0,0 Z"/></clipPath>
  <clipPath id="pib"><path d="M226.2,764.1 L499.5,472.0 L646.5,315.5 L703.0,370.0 L842.5,223.5 L1115.8,-68.6 L1400,800 L0,800 Z"/></clipPath>

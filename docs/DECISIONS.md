@@ -739,29 +739,39 @@ restore behaviour, Expense Detective rule or currency handling changed.
 - **Logo: approved recolour, Option 2** (confirmed by the owner 2026-11-06,
   from the Phase 0 options sheet): the owner's mark, traced from the supplied
   design with its geometry unchanged, in brand green `#147D62` with a white
-  arrow line on forest `#102C25`. Used for the app icon (`icon.svg`), favicon,
-  installable-app icons (normal, maskable with the mark inside the 40% safe
-  circle, and Apple touch), the desktop sidebar and the phone header. No
+  arrow line on forest `#102C25`. Used for the app icon (`icon.svg`: the
+  approved Option 2 rounded tile, corner radius 112.64 of 512, i.e. 22%),
+  favicon, installable-app icons (maskable: full-bleed square, mark inside the
+  40% safe circle; Apple touch: full-bleed opaque square, since iOS rounds the
+  corners itself), the desktop sidebar (44px) and the phone header (36px). No
   redesign: only colours, position and size. The decorative "PO" circle, which
   looked like a profile button but wasn't one, is replaced by the logo on phones.
-- **Dates (KI-37):** written by the app, never by the browser: "6 Nov 2026",
-  "6 November 2026", "Friday, 6 November 2026", and safety-copy times as
-  "6 Nov 2026, 10:05" in the device's local time. Short months are fixed
-  ("Sep", never "Sept"), matching Insights and Expense Detective.
+  Tests check that every source carries the approved mark unchanged and only
+  the approved colours, and that every PNG is exactly its SVG rendered at that
+  size (when `rsvg-convert` is installed; otherwise that test reports itself
+  skipped).
+- **Dates (KI-37):** formatted deterministically by the app, never by the
+  browser, so every browser shows the same text. Formats differ by context on
+  purpose: "6 Nov 2026" (lists, ranges, previews), "6 November 2026" (restore
+  and recovery summaries), "Friday, 6 November 2026" (payday card, header) and
+  "6 Nov 2026, 10:05" in the device's local time (safety-copy times). Month
+  names come from fixed lists ("Sep", never "Sept"), matching Insights and
+  Expense Detective, which keep their own compact forms ("6 Nov", "Sep 2026").
 - **Long dashes:** not used as joiners in messages; rewritten case by case as a
   full stop, colon, comma or brackets. Kept where they are the right mark: the
   page title and installed app name ("PesaOtas — Personal Finance"). En dashes
   in date ranges ("1 – 6 Nov") are kept. Placeholders are words ("Not set",
   "Not available"), which screen readers read sensibly.
 - **Consistency:** section headings no longer repeat the page title; the
-  saved-on-device pill says "Saved" on phones; singular and plural wording for
+  saved-on-device pill shows "Saved" on phones (screen readers hear "Saved on
+  this device" once, at every width); singular and plural wording for
   over-budget categories; a blank payday card says "Not set" instead of a long
   dash and no longer repeats itself; spacing fixes (over-budget warning, the
   safe-to-spend explainer, Settings cards, Expense Detective disclosures,
   setup checklist alignment).
-- **Transaction history** shows the newest 50 entries, then "Show 50 more"
-  (focus moves to the first newly shown entry). Display only: totals,
-  filters and every other screen still use every entry.
+- **Transaction history:** unchanged. A "Show 50 more" pagination added during
+  Phase 5 was removed at the owner's review as outside the phase's scope; the
+  list renders exactly as in Phase 4.
 - **KI-39 (category donut colours): investigated, not changed.** Substantiated
   in a narrow case: colours follow slice rank, so a category can change colour
   between periods (in the test data "Other / uncategorised" is pink in Last 30

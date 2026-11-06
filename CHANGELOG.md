@@ -12,21 +12,28 @@ Calculations are unchanged (`src/finance.js` untouched).
 ### Phase 5 — Logo and interface refinement (D-21)
 - **Logo**: the owner's mark (traced, geometry unchanged) in the approved
   recolour, Option 2 (brand green `#147D62`, white arrow line, forest
-  `#102C25`), for the app icon, favicon, installable-app icons (normal,
-  maskable, Apple touch), the desktop sidebar and the phone header. The
-  decorative "PO" circle is gone. No redesign.
-- **Dates (KI-37 fixed)**: the app writes every date itself, whatever the
-  browser ("6 Nov 2026", "Friday, 6 November 2026"; "Sep", never "Sept").
+  `#102C25`), for the app icon (the approved rounded tile, corner radius
+  22%), favicon, installable-app icons (maskable and Apple touch as full-bleed
+  squares), the desktop sidebar and the phone header. The decorative "PO"
+  circle is gone. No redesign.
+- **Dates (KI-37 fixed)**: formatted by the app, never by the browser, so every
+  browser shows the same text. Each context keeps its own format ("6 Nov
+  2026", "6 November 2026", "Friday, 6 November 2026"), all with fixed month
+  names ("Sep", never "Sept").
 - **Long dashes**: rewritten in about 30 messages as full stops, colons,
   commas or brackets; kept in the page title and installed app name. Empty
   values say "Not set" or "Not available" instead of a dash.
 - **Interface**: section headings no longer repeat the page title; "Saved" is
-  written next to the dot on phones; correct singular/plural for over-budget
+  shown next to the dot on phones (screen readers hear "Saved on this device"
+  once); correct singular/plural for over-budget
   categories; the empty payday card no longer shows a long bar or repeats
   itself; spacing fixes on Overview, Settings, Expense Detective and the setup
   checklist; the savings starting-balance form is no longer page-wide.
-- **Transaction history**: newest 50 entries, then "Show 50 more". Display
-  only; every total still uses every entry.
+- **Final correction pass (owner review)**: the app icon's corner radius is back
+  to the approved Option 2 value (112.64, was 144); the sidebar logo is declared
+  at the size it is drawn (44px); a "Show 50 more" pagination of the
+  transaction history was removed (the list is exactly as in Phase 4); comments
+  and documentation now describe the date rule accurately.
 - **Fixed while auditing**: a 17px sideways scroll on the empty Overview at
   320px; the chart legend's hatch pattern ID appeared more than once.
 - **KI-39 investigated, not changed**: category donut colours follow slice
@@ -35,11 +42,15 @@ Calculations are unchanged (`src/finance.js` untouched).
 - **Not changed**: calculations, storage format, migration, backup and
   restore behaviour, Expense Detective rules, currency handling. In `src/`, only
   four messages in `data-model.js` were reworded (long dashes).
-- Tests: `ui-text-and-logo.test.js` (7: no browser date formatting, no long
-  dashes outside comments, logo colours and identical geometry in every file).
-  **524 tests, 524 pass.** Planted faults caught: 4 of 4. Browser: every
+- Tests: `ui-text-and-logo.test.js` (16) with a small zero-dependency PNG
+  reader (`tests/helpers/png.js`): no browser date formatting; no long dashes
+  outside comments; each logo source carries the approved mark unchanged, on
+  the right background, in the approved colours only; every PNG equals its SVG
+  rendered at that size; the app icon's 22% corner; the maskable mark inside
+  the safe circle; declared logo sizes match CSS; the Saved pill read once.
+  **533 tests, 533 pass.** Planted faults caught: 7 of 7. Browser: every
   screen audited (rich and empty data) at 320, 375, 390, 768, 1280 and 1600px
-  (516 checks); all earlier browser suites pass at the site root and
+  (528 checks); all earlier browser suites pass at the site root and
   `/PesaOtas/`. One earlier check was updated: it expected "—" as the daily
   guide's empty value, now "Not available".
 

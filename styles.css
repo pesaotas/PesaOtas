@@ -182,7 +182,8 @@
   .toast{left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));text-align:center;font-size:14px;line-height:1.45}
   .input{font-size:16px}
   .local-pill{font-size:13px}
-  /* Phone: the pill shows only its dot; the words stay available to screen readers. */
+  /* Phone: the full words are kept for screen readers only; since Phase 5 the pill shows the short
+     visible word "Saved" (aria-hidden, so it isn't read twice). */
   .pill-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   /* The original rule ".nav-link span{font-size:17px}" was meant for the icon only; keep labels at 12px. */
   .nav-link .nav-label,.nav-link .nav-label span{font-size:12px;line-height:1.2}
@@ -405,8 +406,6 @@ img.brand-mark{display:block;width:44px;height:44px;border-radius:12px;backgroun
 /* Setup checklist: the step number lines up with the first line of its step. */
 .setup-steps li{align-items:start}
 .step-status{margin-top:1px}
-/* Transaction history: "Show more". */
-.list-more{margin-top:12px;min-height:44px;font-size:13px}
 @media(max-width:800px){
   #view-settings .content-grid>article:first-child{grid-row:auto}
   /* Phones: the logo appears in the header, where the sidebar brand isn't shown. */
@@ -415,7 +414,6 @@ img.brand-mark{display:block;width:44px;height:44px;border-radius:12px;backgroun
   /* The saved-on-device pill says "Saved" instead of showing a lone dot. */
   .pill-short{display:inline;font-size:13px}
   .local-pill{padding:6px 10px;display:inline-flex;align-items:center;gap:6px}
-  .list-more{width:100%}
   /* Setup checklist actions line up with their step's text, not with the number. The text column may
      shrink below the currency list's natural width, so nothing scrolls sideways at 320px (fixed in Phase 5). */
   .step-actions{grid-column:2}

@@ -10,9 +10,10 @@
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   };
-  // Dates are written one way everywhere, whatever the browser (KI-37): "6 Nov 2026",
-  // "6 November 2026", "Friday, 6 November 2026". Short months are fixed ("Sep", never "Sept"),
-  // matching the Insights tables and Expense Detective.
+  // Dates are formatted by the app, never by the browser (KI-37), so the result is the same in every
+  // browser. Each context keeps its own format: "6 Nov 2026" (formatDate), "6 November 2026"
+  // (formatLongDate), "Friday, 6 November 2026" (formatDayDate) and "6 Nov 2026, 10:05" (formatWhen).
+  // Month names come from fixed lists ("Sep", never "Sept"), as in Insights and Expense Detective.
   const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const MONTHS_LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -322,28 +323,16 @@
       alert.classList.add("hidden");
     }
   }
-  // The history shows the newest entries first, a page at a time, so long histories stay quick
-  // to read and render. Display only: nothing is filtered out of any total.
-  const TX_PAGE = 50;
-  let txShown = TX_PAGE, txFilterShown = "all";
   function renderTransactions() {
     const filter = document.getElementById("transaction-filter").value;
-    if (filter !== txFilterShown) { txShown = TX_PAGE; txFilterShown = filter; }
     const items = [...state.transactions]
       .filter(t => filter === "all"
         || (filter === "savings" ? isSavingsType(t.type)
           : filter === "cycle" ? !state.cycleStart || t.date >= state.cycleStart
           : t.type === filter))
       .sort(newestFirst);
-    const shown = items.slice(0, txShown);
-    const total = `${items.length} ${items.length===1?"entry":"entries"}`;
-    document.getElementById("transaction-count").textContent = shown.length < items.length ? `Newest ${shown.length} of ${total}` : total;
-    document.getElementById("all-transactions").innerHTML = items.length ? shown.map(t=>transactionMarkup(t,true)).join("") : `<div class="empty-state">Nothing here yet.<br>Your recorded transactions will appear here.</div>`;
-    const more = document.getElementById("transactions-more");
-    const next = Math.min(TX_PAGE, items.length - shown.length);
-    more.classList.toggle("hidden", next <= 0);
-    more.textContent = `Show ${next} more`;
-    more.setAttribute("aria-label", `Show ${next} more entries (${items.length - shown.length} not shown yet)`);
+    document.getElementById("transaction-count").textContent = `${items.length} ${items.length===1?"entry":"entries"}`;
+    document.getElementById("all-transactions").innerHTML = items.length ? items.map(t=>transactionMarkup(t,true)).join("") : `<div class="empty-state">Nothing here yet.<br>Your recorded transactions will appear here.</div>`;
   }
   // Unsaved budget edits survive any re-render (fixes KI-12). Keyed by category ID.
   let budgetDraft = {};
@@ -1406,15 +1395,6 @@
     showToast(done);
   });
   document.getElementById("transaction-filter").addEventListener("change",renderTransactions);
-  document.getElementById("transactions-more").addEventListener("click", () => {
-    const before = document.querySelectorAll("#all-transactions .activity-row").length;
-    txShown += TX_PAGE;
-    renderTransactions();
-    // Keep the keyboard in place: focus the first newly shown entry's Edit button.
-    const rows = document.querySelectorAll("#all-transactions .activity-row");
-    const target = rows[before] && rows[before].querySelector("button");
-    if (target) target.focus();
-  });
   document.getElementById("all-transactions").addEventListener("click", e => {
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) return startEdit(editBtn.dataset.edit);
