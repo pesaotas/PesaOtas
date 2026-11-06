@@ -1,7 +1,12 @@
-# Personal financial data must never be committed.
+# Personal financial data must never be committed (backups, downloaded safety copies).
 pesaflow-backup-*.json
 pesaotas-backup-*.json
 *backup*.json
+pesaotas-*.json
+pesaflow-*.json
+
+# Built site (made by `npm run build-site` or the GitHub Pages workflow)
+_site/
 
 # Tooling / OS
 node_modules/

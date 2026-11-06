@@ -3,6 +3,85 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0] — 2026-11-06 — Phase 5: installable app, safe updates, storage protection, GitHub Pages
+
+Fixes KI-17 and KI-19; KI-27 partly (see below). No change to the approved
+calculations or data checks (`src/finance.js`, `src/validation.js`,
+`src/data-model.js` and `src/entries.js` unchanged). Every Phase 1 protection is
+intact; `src/storage.js` only gained new functions. Existing users' data —
+including the original PesaFlow data and every safety copy — is byte-for-byte
+unchanged by the upgrade from v1.4.0 (tested in Chrome).
+
+### Added
+- **Installable app**: PNG icons (192 and 512 px, normal and maskable, a 180 px
+  Apple touch icon and a 32 px favicon) with sources in `icons/src`; complete
+  manifest (`id`, `scope`, `lang`, separate `any` and `maskable` icons);
+  Apple home-screen tags. Chrome reports no installability errors when served
+  from a `/PesaOtas/` subpath.
+- **Safe updates** (D-14, KI-17): new `sw.js`. Each release lists every app file
+  with a SHA-256 fingerprint (`npm run release`, `tools/stamp-sw.js`); a new
+  version installs into its own cache, reuses unchanged files, downloads
+  changed ones with revalidation and checks each fingerprint. A failed or
+  interrupted update (offline, server error, half-finished deployment) is
+  discarded and the current version keeps working. A ready version waits for
+  **Update now** (blocked while there are unsaved budget changes, an entry being
+  edited or a dialog open); other tabs are asked to reload; a message confirms
+  the data is unchanged. Update checks on launch, on return to the app and
+  hourly. Only older PesaOtas app caches are ever removed. v1.0–v1.4 workers
+  are replaced automatically once (those versions have no update prompt).
+- **Storage protection** (D-15): asks the browser once, after the first save, to
+  keep PesaOtas data (`navigator.storage.persist()`); Settings → Storage
+  protection shows the result (with a button to ask again), the last backup
+  date, space used and offline status, and explains how browser data can still
+  be lost (clearing data, private windows, lost devices, Safari's 7-day rule).
+- **Managing safety copies** (D-15, KI-19): Data safety shows each copy's size
+  and whether it is the only one on this device, with **Delete…**. Each deletion
+  explains its consequences for that type of copy and needs a ticked
+  confirmation; the only copy must be downloaded first; deleting is unavailable
+  while the current data needs recovery. `src/storage.js`: `recoveryInventory`,
+  `deleteRecoveryItem` (verified, refuses if the copy changed in another tab),
+  `readDeviceInfo`, `updateDeviceInfo`, `storageUsage`; new key
+  `pesaotas.device` (device notes only, never financial data, not in backups).
+- **GitHub Pages**: `.github/workflows/pages.yml` (checks fingerprints, runs the
+  tests, publishes only the app files via `tools/build-site.js`);
+  `docs/DEPLOYMENT.md` (repository setup, publishing, verification, updates,
+  rollback, privacy).
+- `src/version.js` (version shown in the sidebar and used by releases);
+  `npm run release`, `check-release`, `build-site`; `.gitattributes`
+  (consistent line endings).
+- Tests: `tests/release.test.js` (14), `tests/service-worker.test.js` (12, the
+  real `sw.js` against simulated caches and network),
+  `tests/safety-copies.test.js` (17). Total: **249 tests, 249 pass, 0 fail,
+  0 todo.** Mutation check: 16 of 17 deliberate faults in the new safety and
+  update rules are caught; the 17th (removing the HTTP-status check) is still
+  caught by the fingerprint check, so behaviour is unchanged.
+- Browser suite (Chrome 153, served like GitHub Pages under `/PesaOtas/`): 130
+  checks pass — upgrade from v1.4.0 with data, update prompt and guards, two
+  tabs, interrupted updates and recovery, offline use, installability, privacy,
+  storage protection, safety-copy deletion, keyboard and accessibility on every
+  screen and dialog at desktop and phone sizes, `file://` use. The Phase 1–4
+  suites (229 checks) still pass.
+- `docs/ACCESSIBILITY.md`: what is tested, what isn't, manual checklist.
+
+### Changed
+- DECISIONS D-09 rule 1: the original PesaFlow data is still never modified or
+  deleted automatically, but the user may now delete it under the D-15 rules.
+- `.gitignore` also excludes every safety-copy download (`pesaotas-*.json`,
+  `pesaflow-*.json`) and `_site/`.
+- Sidebar version comes from `src/version.js`.
+
+### Fixed
+- Date fields showed no focus ring when Tab reached the calendar button inside
+  them (found by the new keyboard test).
+
+### Known limitations
+- KI-27 (partly open): no real screen-reader testing and no third-party checker
+  (axe-core can't be installed here; Chrome 153 dropped its DevTools contrast
+  audit). KI-30: installation not verified on real Android/iPhone devices or in
+  Edge, Safari, Firefox. KI-31: browser storage is shared by every project on
+  the same `username.github.io` address. KI-32: offline use needs one online
+  visit; no offline copy when opened from disk.
+
 ## [1.4.0] — 2026-11-06 — Phase 4: PesaOtas branding and user experience
 
 Fixes KI-12, 13, 14, 15, 21. No change to the approved safe-to-spend, savings or

@@ -8,6 +8,11 @@
   <title>PesaOtas — Personal Finance</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="PesaOtas">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -30,7 +35,7 @@
         <strong>Small steps count.</strong>
         <p>Know what your money needs to do before you spend it.</p>
       </div>
-      <div class="sidebar-footer">PesaOtas v1.4 · Your data stays on this device</div>
+      <div class="sidebar-footer">PesaOtas <span class="app-version">v1.5.0</span> · Your data stays on this device</div>
     </aside>
 
     <main class="main-content" id="main" tabindex="-1">
@@ -48,6 +53,14 @@
       <div id="data-notice" class="data-notice hidden" role="status" aria-live="polite">
         <p id="data-notice-text"></p>
         <div id="data-notice-actions" class="data-notice-actions"></div>
+      </div>
+
+      <div id="update-banner" class="data-notice notice-update hidden" role="region" aria-label="App update">
+        <p id="update-text" aria-live="polite"></p>
+        <div class="data-notice-actions">
+          <button class="button button-primary" id="update-now" type="button">Update now</button>
+          <button class="button button-secondary" id="update-later" type="button">Later</button>
+        </div>
       </div>
 
       <section id="view-overview" class="view active">
@@ -285,8 +298,23 @@
           </form>
           <p class="tiny-muted">Entered by hand. PesaOtas never connects to KCB M-PESA, M-Shwari or any account, and never asks for PINs or passwords.</p>
         </article>
+        <article class="card panel-card" id="storage-protection">
+          <div class="panel-heading"><div><h3>Storage protection</h3><p class="muted">How safely this browser is keeping your PesaOtas data.</p></div></div>
+          <dl id="storage-status" class="summary-list"></dl>
+          <button class="button button-secondary hidden" type="button" id="persist-button">Ask this browser to protect my data</button>
+          <div class="storage-explain">
+            <p><strong>Your data can still be lost, so keep downloading backups.</strong> Even when protected, PesaOtas data is only in this browser on this device. It is gone if:</p>
+            <ul>
+              <li>you clear this browser's history, cookies or site data, or uninstall the browser or the installed app;</li>
+              <li>you use a private or incognito window (its data is deleted when you close it);</li>
+              <li>the phone or computer is lost, reset or replaced;</li>
+              <li>on iPhone, iPad or Mac, you open PesaOtas in Safari rather than from the Home Screen and don't use it for 7 days of Safari use — Safari may delete its data. Added to the Home Screen, PesaOtas is treated as its own app.</li>
+            </ul>
+            <p>A downloaded backup file is the only copy that survives all of these.</p>
+          </div>
+        </article>
         <article class="card panel-card" id="data-safety">
-          <div class="panel-heading"><div><h3>Data safety</h3><p class="muted">Copies kept on this device so nothing is lost when PesaOtas moves, restores or resets your data.</p></div></div>
+          <div class="panel-heading"><div><h3>Data safety</h3><p class="muted">Copies kept on this device so nothing is lost when PesaOtas moves, restores or resets your data. PesaOtas never deletes them on its own.</p></div></div>
           <div id="data-safety-list" class="safety-list"></div>
         </article>
         <article class="card panel-card danger-zone">
@@ -388,7 +416,27 @@
     </form>
   </dialog>
 
+  <dialog id="copy-delete-dialog" class="sheet" aria-labelledby="copy-delete-title" aria-describedby="copy-delete-content">
+    <div class="sheet-body">
+      <h2 id="copy-delete-title">Delete this safety copy?</h2>
+      <div id="copy-delete-content"></div>
+      <section id="copy-delete-only" class="danger-inline hidden" aria-labelledby="copy-delete-only-title">
+        <h3 id="copy-delete-only-title">This is the only copy on this device</h3>
+        <p>No other copy of this data is stored here. Download it first so you still have it as a file. Deleting stays unavailable until you do.</p>
+        <button class="button button-secondary" id="copy-delete-download" type="button">↓ Download this copy</button>
+        <p id="copy-delete-downloaded" class="tiny-muted hidden" role="status">Downloaded. Keep the file somewhere private.</p>
+      </section>
+      <label class="check-line" for="copy-delete-check"><input id="copy-delete-check" type="checkbox"><span>I understand this copy will be permanently deleted from this device, and PesaOtas can't bring it back.</span></label>
+      <p id="copy-delete-error" class="replace-note hidden" role="alert"></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="button button-secondary" id="copy-delete-cancel" type="button">Keep it</button>
+      <button class="button button-danger" id="copy-delete-confirm" type="button" disabled>Delete permanently</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="src/version.js"></script>
   <script src="src/validation.js"></script>
   <script src="src/finance.js"></script>
   <script src="src/data-model.js"></script>

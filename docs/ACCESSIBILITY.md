@@ -1,0 +1,82 @@
+# Accessibility
+
+PesaOtas aims to be usable with a keyboard, a screen reader, large text and on
+small phone screens. This page records what has been tested, how, and what
+hasn't been tested yet (KNOWN_ISSUES KI-27).
+
+## Targets (DECISIONS D-13)
+
+- Text at least 12px; WCAG AA contrast (4.5:1 for normal text, 3:1 for large).
+- Touch targets at least 44px tall.
+- Every control has a name a screen reader can announce; decorative icons are
+  hidden from screen readers; the current screen is marked (`aria-current`).
+- Visible keyboard focus everywhere; a "Skip to main content" link; focus moves
+  to the screen heading when changing screens and into each dialog when it
+  opens, and returns to the button that opened it when it closes.
+- No sideways scrolling at 375px wide; reduced-motion settings respected.
+
+## What is tested automatically (v1.5.0)
+
+Run in Google Chrome for Testing 153 (headless), at desktop (1280×900) and phone
+(375×812) sizes, on all five screens — Overview, Transactions, Budget, Insights,
+Settings — with realistic data, and in the dialogs:
+
+| Check | How | Result |
+|---|---|---|
+| Every visible control can be reached with Tab, and shows a focus ring when reached | Script presses Tab through each screen and compares the controls reached with every visible, enabled control | Pass on all screens, both sizes. *Fixed in 1.5.0:* the calendar button inside date fields (which Chrome now reaches with Tab) had no visible focus ring. |
+| Every control has an accessible name | Chrome's own accessibility tree (DevTools protocol `Accessibility.getFullAXTree`): no button, link, text box, checkbox, list box or number field without a name | Pass on all screens and dialogs |
+| Text size, contrast, names, 44px targets, no sideways scrolling | In-page audit that computes WCAG contrast from the rendered colours | Pass on all screens and dialogs, the update bar and the Storage protection card |
+| Dialogs (delete safety copy, category, new pay cycle) | Focus starts inside; Tab stays inside; Escape closes and returns focus to the opening button | Pass |
+| Recovery dialog | Escape does **not** close it (a choice is required) | Pass (Phase 1–4 suites) |
+| Update bar | Announced politely (`aria-live`); explains why "Update now" is unavailable while there are unsaved changes | Pass |
+
+These checks are part of the browser test suites that are run for each phase
+(see the CHANGELOG for counts).
+
+## What has not been tested
+
+- **Real screen readers.** No testing with TalkBack (Android), VoiceOver (iPhone,
+  Mac) or NVDA/JAWS (Windows) was possible in the build environment. The
+  accessibility tree checks above show what a screen reader is *given*, not how
+  it *sounds* in practice.
+- **A third-party checker.** axe-core could not be installed (the package
+  registry is blocked in the build environment), and Chrome 153 no longer
+  includes the DevTools contrast audit that was planned as a second opinion.
+  Contrast is checked by PesaOtas's own audit, which uses the WCAG formula.
+- **Zoom and large text** at 200% browser zoom and with phone font scaling.
+- **Voice control** (Voice Access, Voice Control) and switch access.
+
+## Manual checklist
+
+Worth doing on a real phone and a computer before relying on PesaOtas with
+assistive technology. Each item should take a minute or two.
+
+### Screen reader (TalkBack on Android, VoiceOver on iPhone)
+- [ ] Open PesaOtas. The screen title ("Your money at a glance") is read.
+- [ ] Swipe through the Overview: cash available, safe to spend and the daily
+      guide are read with "KSh" amounts; icons aren't read as symbols.
+- [ ] Bottom navigation: each button is read with its name and the current one
+      as "current page" / "selected".
+- [ ] Add an expense: every field is announced with its label; after saving,
+      the confirmation ("Transaction saved" or similar) is read.
+- [ ] Edit and delete an entry: the edit button says which entry it edits.
+- [ ] Budget: an allocation field is announced with its category; unsaved
+      changes are announced.
+- [ ] Settings → Data safety → **Delete…**: the dialog's title and
+      consequences are read; the tick box and **Delete permanently** (dimmed
+      until ticked) are announced.
+- [ ] Update bar (when a new version is published): its message is read.
+
+### Keyboard (computer)
+- [ ] Press Tab once: "Skip to main content" appears; Enter jumps to the
+      content.
+- [ ] Every button, field and link can be reached with Tab and shows a clear
+      green ring.
+- [ ] Dialogs: Tab stays inside; Escape closes (except the recovery dialog);
+      focus returns to where you were.
+
+### Zoom and text size
+- [ ] Browser zoom 200%: nothing overlaps or is cut off; no sideways scrolling.
+- [ ] Phone text size at its largest: amounts and buttons stay readable.
+
+Please record findings in `docs/KNOWN_ISSUES.md`.

@@ -31,6 +31,21 @@
   let damagedDownloaded = false;
   let pendingRestore = null;
   let toastTimer;
+  // Storage protection and safety copies (Phase 5, D-15)
+  let persistStatus = "unknown"; // "granted" | "not-granted" | "unsupported" | "unknown"
+  let appCopy = null;            // {version, build} of the offline copy, when known
+  let askedPersistThisSession = false;
+  function storageApi() { return (navigator.storage && typeof navigator.storage.persist === "function") ? navigator.storage : null; }
+  const COPY_TITLES = {
+    legacy: "Original PesaFlow data",
+    preserved: "Copy of PesaFlow data made before moving",
+    quarantine: "Damaged data set aside",
+    preRestore: "Your data before the last restore, recovery, reset or new pay cycle"
+  };
+  const sizeText = (chars) => chars < 1024 ? "under 1 KB" : `about ${Math.round(chars / 1024)} KB`;
+  // Deleting safety copies is allowed only while the current data is saved and healthy (D-15).
+  const canManageCopies = (inv) => canSave && !recovery && inv.currentSafe;
+
 
   switch (boot.status) {
     case "ok":
@@ -58,6 +73,7 @@
     if (result.ok) {
       state = result.state;
       lastSaved = clone(state);
+      askForPersistenceOnce();
       return true;
     }
     state = clone(lastSaved); // never show unsaved changes as if they were saved
@@ -124,7 +140,7 @@
     });
     const titles = {overview:"Your money at a glance",transactions:"Your transactions",budget:"Your budget plan",insights:"Your financial insights",settings:"Settings & backup"};
     document.getElementById("page-title").textContent = titles[view] || titles.overview;
-    if (view === "settings") { populateSettings(); renderDataSafety(); }
+    if (view === "settings") { populateSettings(); renderStorageProtection(); renderDataSafety(); }
     if (view === "transactions") renderTransactions();
     window.scrollTo({top:0,behavior:prefersReducedMotion() ? "auto" : "smooth"});
     document.getElementById("page-title").focus({preventScroll:true});
@@ -795,6 +811,8 @@
   });
   document.getElementById("export-button").addEventListener("click",()=>{
     downloadText(PesaData.serializeBackup(state), `pesaotas-backup-${todayISO()}.json`);
+    if (store) PesaStorage.updateDeviceInfo(store, { lastBackupAt: new Date().toISOString() });
+    renderStorageProtection();
     showToast("Backup downloaded.");
   });
   document.getElementById("import-file").addEventListener("change",async e=>{
@@ -1127,6 +1145,7 @@
     if (action === "download-legacy") {
       const raw = PesaStorage.getRecoveryText(store, "legacy");
       if (raw) { downloadText(raw, `pesaflow-original-data-${todayISO()}.json`); showToast("PesaFlow data downloaded."); }
+      else showToast("The original PesaFlow data is no longer on this device.");
     }
   });
 
@@ -1136,21 +1155,29 @@
   function renderDataSafety() {
     const el = document.getElementById("data-safety-list");
     if (!store) { el.innerHTML = `<p class="muted">This browser isn't letting PesaOtas store data.</p>`; return; }
-    const r = PesaStorage.listRecovery(store);
-    const rows = [];
-    if (r.legacyPresent) rows.push(["Original PesaFlow data", "Still on this device, unchanged. PesaOtas never edits or deletes it.", "legacy", 0]);
-    r.preserved.forEach(p => rows.push(["Copy of PesaFlow data made before moving", `Saved ${formatWhen(p.preservedAt)}`, "preserved", p.index]));
-    r.quarantine.forEach(q => rows.push(["Damaged data set aside", `${formatWhen(q.quarantinedAt)} · ${q.reason || "failed its checks"}`, "quarantine", q.index]));
-    if (r.preRestore) rows.push(["Your data before the last restore, recovery, reset or new pay cycle", `Saved ${formatWhen(r.preRestore.savedAt)}`, "preRestore", 0]);
-    const damaged = r.damagedLists.length
+    const inv = PesaStorage.recoveryInventory(store);
+    const manage = canManageCopies(inv);
+    const detail = (it) => {
+      if (it.kind === "legacy") return "Still on this device, unchanged. PesaOtas never edits it or deletes it on its own.";
+      if (it.kind === "quarantine") return `${formatWhen(it.at)} · ${it.reason || "failed its checks"}`;
+      return `Saved ${formatWhen(it.at)}`;
+    };
+    const rows = inv.items.map(it => `<div class="safety-row"><div><strong>${escapeHTML(COPY_TITLES[it.kind])}</strong><small>${escapeHTML(detail(it))} · ${escapeHTML(sizeText(it.size))}${it.onlyCopy ? " · only copy on this device" : ""}</small></div>
+      <div class="safety-actions"><button class="button button-secondary" type="button" data-recover="${it.kind}" data-index="${it.index}" aria-label="Download: ${escapeHTML(COPY_TITLES[it.kind])}">↓ Download</button>
+      <button class="button button-danger" type="button" data-delete-copy="${it.kind}" data-index="${it.index}" aria-label="Delete: ${escapeHTML(COPY_TITLES[it.kind])}"${manage ? "" : " disabled"}>Delete…</button></div></div>`).join("");
+    const damaged = inv.damagedLists.length
       ? `<p class="replace-note">A safety list on this device is itself damaged. It has been left untouched.</p>` : "";
-    el.innerHTML = rows.length
-      ? rows.map(([title, detail, kind, index]) => `<div class="safety-row"><div><strong>${escapeHTML(title)}</strong><small>${escapeHTML(detail)}</small></div><button class="button button-secondary" type="button" data-recover="${kind}" data-index="${index}">↓ Download</button></div>`).join("")
-        + damaged + `<p class="tiny-muted">To use a downloaded copy, choose “Restore from backup”. Every file is checked and previewed before anything is replaced.</p>
-          <p class="tiny-muted"><strong>Restoring replaces everything.</strong> Each copy is a snapshot of one moment. Restoring one — for example the copy made before a new pay cycle — replaces all current data, so anything recorded after that copy was made will no longer be in the app. Only the most recent replaced copy is kept here, so download a backup first.</p>`
+    const locked = inv.items.length && !manage
+      ? `<p class="replace-note">Safety copies can't be deleted right now, because your current data isn't saved and checked${recovery ? " (choose a recovery option first)" : ""}. They may be all that's left.</p>` : "";
+    el.innerHTML = inv.items.length
+      ? rows + damaged + locked + `<p class="tiny-muted">To use a downloaded copy, choose “Restore from backup”. Every file is checked and previewed before anything is replaced.</p>
+          <p class="tiny-muted"><strong>Restoring replaces everything.</strong> Each copy is a snapshot of one moment. Restoring one — for example the copy made before a new pay cycle — replaces all current data, so anything recorded after that copy was made will no longer be in the app. Only the most recent replaced copy is kept here, so download a backup first.</p>
+          <p class="tiny-muted"><strong>Deleting a copy</strong> only frees space; it never changes your current data. PesaOtas asks you to confirm each one, and asks you to download a copy first if it's the only one on this device.</p>`
       : damaged + `<p class="muted">No safety copies yet. They appear here automatically when PesaOtas moves, restores, recovers or resets your data.</p>`;
   }
   document.getElementById("data-safety-list").addEventListener("click", e => {
+    const del = e.target.closest("[data-delete-copy]");
+    if (del) return openCopyDelete(del.dataset.deleteCopy, Number(del.dataset.index));
     const btn = e.target.closest("[data-recover]");
     if (!btn) return;
     const raw = PesaStorage.getRecoveryText(store, btn.dataset.recover, Number(btn.dataset.index));
@@ -1159,12 +1186,253 @@
     showToast("Copy downloaded.");
   });
 
+  // ---------------------------------------------------------------------------
+  // Deleting a safety copy: per-type consequences → (download if it's the only
+  // copy) → tick to confirm → verified delete. Never automatic (D-15).
+  // ---------------------------------------------------------------------------
+  let pendingCopyDelete = null;
+  function copyConsequences(it) {
+    const migrated = !!(state.meta && state.meta.migratedFrom);
+    const same = it.copies > 0;
+    switch (it.kind) {
+      case "legacy": return [
+        "This is the data the old PesaFlow app saved, exactly as it left it.",
+        migrated
+          ? "Your PesaOtas data was created from it when you upgraded, so deleting it doesn't change anything you see in PesaOtas."
+          : "Your current PesaOtas data was not moved from it, so anything that exists only in this data will be lost.",
+        same ? "An identical copy stays in Data safety, so you can still download it later."
+             : "You won't be able to download PesaFlow's original data again.",
+        "If you still open the old PesaFlow app in this browser, it will start empty. PesaOtas won't move or re-create this data."
+      ];
+      case "preserved": return [
+        "This copy of your PesaFlow data was made just before it was moved into PesaOtas, in case the move went wrong.",
+        "Deleting it doesn't change your current PesaOtas data.",
+        same ? "An identical copy (such as the original PesaFlow data) stays on this device, so nothing is lost."
+             : "It's the last copy on this device of your data as it was in PesaFlow."
+      ];
+      case "quarantine": return [
+        "This is saved data that failed PesaOtas's checks and couldn't be opened. It was set aside instead of being deleted.",
+        "It may still hold transactions or settings that could be recovered from the downloaded file.",
+        "Deleting it doesn't change your current data."
+      ];
+      default: return [
+        "This is how your data looked just before it was last replaced as a whole — by a restore, a recovery, a reset or a new pay cycle.",
+        same ? "It's identical to your current data, so nothing is lost by deleting it."
+             : "Apart from a backup file you downloaded yourself, it's your only way back to that point.",
+        "Deleting it doesn't change your current data. The next restore, recovery, reset or new pay cycle keeps a new copy here."
+      ];
+    }
+  }
+  function openCopyDelete(kind, index) {
+    const inv = PesaStorage.recoveryInventory(store);
+    const it = inv.items.find(i => i.kind === kind && i.index === index);
+    const raw = PesaStorage.getRecoveryText(store, kind, index);
+    if (!it || raw === null) { renderDataSafety(); return showToast("That copy is no longer on this device."); }
+    if (!canManageCopies(inv)) { renderDataSafety(); return showToast("Safety copies can't be deleted while your current data needs attention."); }
+    pendingCopyDelete = { kind, index, raw, onlyCopy: it.onlyCopy, downloaded: false };
+    const dlg = document.getElementById("copy-delete-dialog");
+    document.getElementById("copy-delete-title").textContent = `Delete “${COPY_TITLES[kind]}”?`;
+    const when = it.kind === "legacy" ? "" : `${it.kind === "quarantine" ? "Set aside" : "Saved"} ${formatWhen(it.at)} · `;
+    document.getElementById("copy-delete-content").innerHTML =
+      `<p class="muted">${escapeHTML(when + sizeText(it.size))}</p><ul class="copy-facts">${copyConsequences(it).map(t => `<li>${escapeHTML(t)}</li>`).join("")}</ul>`;
+    document.getElementById("copy-delete-only").classList.toggle("hidden", !it.onlyCopy);
+    document.getElementById("copy-delete-downloaded").classList.add("hidden");
+    document.getElementById("copy-delete-check").checked = false;
+    document.getElementById("copy-delete-error").classList.add("hidden");
+    updateCopyDeleteButton();
+    openDialog(dlg);
+    document.getElementById("copy-delete-cancel").focus();
+  }
+  function updateCopyDeleteButton() {
+    const p = pendingCopyDelete;
+    document.getElementById("copy-delete-confirm").disabled =
+      !p || !document.getElementById("copy-delete-check").checked || (p.onlyCopy && !p.downloaded);
+  }
+  document.getElementById("copy-delete-check").addEventListener("change", updateCopyDeleteButton);
+  document.getElementById("copy-delete-download").addEventListener("click", () => {
+    const p = pendingCopyDelete;
+    if (!p) return;
+    downloadText(p.raw, `pesaotas-${p.kind}-copy-${todayISO()}.json`);
+    p.downloaded = true;
+    document.getElementById("copy-delete-downloaded").classList.remove("hidden");
+    updateCopyDeleteButton();
+  });
+  document.getElementById("copy-delete-cancel").addEventListener("click", () => closeDialog(document.getElementById("copy-delete-dialog")));
+  document.getElementById("copy-delete-dialog").addEventListener("close", () => { pendingCopyDelete = null; });
+  document.getElementById("copy-delete-confirm").addEventListener("click", () => {
+    const p = pendingCopyDelete;
+    if (!p || document.getElementById("copy-delete-confirm").disabled) return;
+    const err = document.getElementById("copy-delete-error");
+    if (!canSave || recovery) { err.textContent = "Your current data needs attention first. Nothing was deleted."; err.classList.remove("hidden"); return; }
+    const result = PesaStorage.deleteRecoveryItem(store, p.kind, p.index, p.raw, { acknowledgedOnlyCopy: p.onlyCopy && p.downloaded });
+    if (!result.ok) {
+      err.textContent = ({
+        "changed": "This copy changed after you opened this (perhaps in another tab). Nothing was deleted — please look again.",
+        "missing": "This copy is no longer on this device. Nothing was deleted.",
+        "only-copy": "This is now the only copy on this device. Download it first. Nothing was deleted.",
+        "current-not-safe": "Your current data isn't saved and checked, so safety copies are being kept. Nothing was deleted.",
+        "damaged-list": "This safety list is damaged, so it's being left untouched. Nothing was deleted."
+      })[result.reason] || "Couldn't delete — browser storage didn't respond. Nothing else was changed.";
+      err.classList.remove("hidden");
+      renderDataSafety();
+      return;
+    }
+    closeDialog(document.getElementById("copy-delete-dialog"));
+    renderDataSafety(); renderStorageProtection();
+    showToast("Safety copy deleted. Your current data is unchanged.");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Settings → Storage protection (D-15). Asking the browser to keep data
+  // ("persistent storage") reduces, but never removes, the need for backups.
+  // ---------------------------------------------------------------------------
+  async function refreshPersistStatus() {
+    const api = storageApi();
+    if (!api || typeof api.persisted !== "function") { persistStatus = "unsupported"; return; }
+    try { persistStatus = (await api.persisted()) ? "granted" : "not-granted"; }
+    catch { persistStatus = "unsupported"; }
+  }
+  async function requestPersistence(manual) {
+    const api = storageApi();
+    if (!api) { persistStatus = "unsupported"; renderStorageProtection(); return; }
+    let granted = false;
+    try { granted = await api.persist(); } catch { granted = false; }
+    if (store) PesaStorage.updateDeviceInfo(store, { persistAskedAt: new Date().toISOString(), persistGranted: granted });
+    persistStatus = granted ? "granted" : "not-granted";
+    renderStorageProtection();
+    if (manual) showToast(granted
+      ? "This browser has agreed to protect your PesaOtas data."
+      : "The browser said no for now. It decides by itself; installing PesaOtas or using it regularly can help.");
+  }
+  // Asked once, automatically, after the first successful save (not on page load).
+  function askForPersistenceOnce() {
+    if (askedPersistThisSession || !store || !storageApi()) return;
+    askedPersistThisSession = true;
+    if (PesaStorage.readDeviceInfo(store).persistAskedAt) return;
+    refreshPersistStatus().then(() => persistStatus === "granted"
+      ? PesaStorage.updateDeviceInfo(store, { persistAskedAt: new Date().toISOString(), persistGranted: true })
+      : requestPersistence(false));
+  }
+  function renderStorageProtection() {
+    const dl = document.getElementById("storage-status");
+    if (!dl) return;
+    const info = store ? PesaStorage.readDeviceInfo(store) : {};
+    const usage = store ? PesaStorage.storageUsage(store) : { total: 0 };
+    const protection = {
+      granted: "Protected — the browser won't clear it to free up space",
+      "not-granted": "Not protected yet — the browser may clear it if the device runs low on space",
+      unsupported: "This browser doesn't offer storage protection",
+      unknown: "Checking…"
+    }[persistStatus];
+    const offline = !location.protocol.startsWith("http")
+      ? "Not available when PesaOtas is opened as a file"
+      : appCopy ? `Ready (version ${appCopy.version})`
+      : ("serviceWorker" in navigator) ? "Not ready yet — open PesaOtas online once more" : "Not supported by this browser";
+    const rows = [
+      ["Protection", protection],
+      ["Last backup downloaded", info.lastBackupAt ? formatWhen(info.lastBackupAt) : "Not yet on this device"],
+      ["Space used", `${sizeText(usage.total)} of the roughly 5 MB browsers allow`],
+      ["Works offline", offline]
+    ];
+    dl.innerHTML = rows.map(([k, v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("");
+    document.getElementById("persist-button").classList.toggle("hidden", persistStatus !== "not-granted" || !store);
+  }
+  document.getElementById("persist-button").addEventListener("click", () => requestPersistence(true));
+
   const now = new Date();
   document.getElementById("today-label").textContent = now.toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).toUpperCase();
   renderAll();
   renderNotice();
   if (recovery) openRecoveryDialog();
+  document.querySelectorAll(".app-version").forEach(el => { el.textContent = `v${window.PESAOTAS_VERSION || ""}`; });
+  refreshPersistStatus().then(renderStorageProtection);
+
+  // ---------------------------------------------------------------------------
+  // App updates (D-14). A new version installs in the background and waits.
+  // It is used only when the user chooses "Update now", never while there are
+  // unsaved changes. Updates replace app files only; saved data is untouched.
+  // ---------------------------------------------------------------------------
+  const UPDATED_FLAG = "pesaotas.just-updated";
+  try {
+    if (sessionStorage.getItem(UPDATED_FLAG)) {
+      sessionStorage.removeItem(UPDATED_FLAG);
+      showToast(`Updated to PesaOtas v${window.PESAOTAS_VERSION}. Your data is unchanged.`);
+    }
+  } catch { /* session storage unavailable: no message */ }
+
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-    window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+    const banner = document.getElementById("update-banner");
+    const text = document.getElementById("update-text");
+    const nowBtn = document.getElementById("update-now");
+    const laterBtn = document.getElementById("update-later");
+    const hadController = !!navigator.serviceWorker.controller;
+    let waiting = null;        // a complete new version, ready to use
+    let applying = false;      // this tab asked for the switch
+    let elsewhere = false;     // another tab switched; this tab should reload
+    let dismissed = false;
+    const busy = () => hasBudgetDraft() || editingId !== null || !!document.querySelector("dialog[open]");
+    function renderUpdate() {
+      if (applying) return;
+      const show = !dismissed && (waiting || elsewhere);
+      banner.classList.toggle("hidden", !show);
+      if (!show) return;
+      const blocked = busy();
+      if (elsewhere) {
+        text.textContent = blocked
+          ? "PesaOtas was updated in another tab. Save or discard your changes here, then reload to use the new version."
+          : "PesaOtas was updated in another tab. Reload this tab to use the new version. Your data is unchanged.";
+        nowBtn.textContent = "Reload";
+      } else {
+        text.textContent = blocked
+          ? "A new version of PesaOtas is ready. Save or discard your unsaved changes (and close any open window) first, then update."
+          : "A new version of PesaOtas is ready. Updating only replaces the app's files — your data stays exactly as it is.";
+        nowBtn.textContent = "Update now";
+      }
+      nowBtn.disabled = blocked;
+    }
+    function offer(worker) { waiting = worker; dismissed = false; renderUpdate(); }
+    nowBtn.addEventListener("click", () => {
+      if (busy()) return renderUpdate();
+      if (elsewhere) return location.reload();
+      if (!waiting) return;
+      applying = true;
+      nowBtn.disabled = true;
+      text.textContent = "Updating…";
+      try { sessionStorage.setItem(UPDATED_FLAG, "1"); } catch { /* no message after reload */ }
+      waiting.postMessage({ type: "SKIP_WAITING" });
+    });
+    laterBtn.addEventListener("click", () => { dismissed = true; renderUpdate(); });
+    // Keep the banner's advice current as drafts are made, saved or discarded.
+    ["input", "change", "click", "close"].forEach(t => document.addEventListener(t, () => { if (waiting || elsewhere) setTimeout(renderUpdate, 0); }, true));
+
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (applying) { location.reload(); return; }
+      if (hadController) { elsewhere = true; dismissed = false; renderUpdate(); }
+    });
+    const askVersion = () => {
+      const c = navigator.serviceWorker.controller;
+      if (!c || typeof MessageChannel !== "function") return;
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (e) => { if (e.data && e.data.version) { appCopy = e.data; renderStorageProtection(); } };
+      c.postMessage({ type: "GET_VERSION" }, [ch.port2]);
+    };
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").then(reg => {
+        if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+        reg.addEventListener("updatefound", () => {
+          const w = reg.installing;
+          if (!w) return;
+          w.addEventListener("statechange", () => {
+            if (w.state === "installed" && navigator.serviceWorker.controller) offer(w);
+            if (w.state === "redundant" && waiting === w) { waiting = null; renderUpdate(); }
+          });
+        });
+        navigator.serviceWorker.ready.then(askVersion);
+        const check = () => reg.update().catch(() => { /* offline: try again later */ });
+        setInterval(check, 60 * 60 * 1000);
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(); });
+      }).catch(() => { /* offline support unavailable; the app still works */ });
+      navigator.serviceWorker.addEventListener("controllerchange", askVersion);
+    });
   }
 })();

@@ -1,10 +1,13 @@
 {
   "name": "pesaotas",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "PesaOtas — local-first personal budgeting assistant (KSh). No runtime or development dependencies.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "release": "node tools/stamp-sw.js",
+    "check-release": "node tools/stamp-sw.js --check",
+    "build-site": "node tools/build-site.js"
   },
   "engines": {
     "node": ">=20"

@@ -132,15 +132,19 @@ Browser storage keys:
 
 | Key | Holds | Written by PesaOtas? |
 |---|---|---|
-| `pesaflow.personal.v1` | Original PesaFlow data | **Never** |
+| `pesaflow.personal.v1` | Original PesaFlow data | **Never** written; deleted only when the user chooses to (D-15) |
 | `pesaotas.data.v2` | Live PesaOtas data (schema v2) | Yes, verified on every save |
 | `pesaotas.preserved.pesaflow-v1` | Copies of the original PesaFlow text, made before migrating | Added to only; identical copies not repeated |
 | `pesaotas.quarantine` | Damaged data set aside, with date and reason | Added to only; identical copies not repeated |
 | `pesaotas.pre-restore` | Data as it was before the last restore, recovery or reset | Replaced each time |
+| `pesaotas.device` | Device notes only: last backup date, storage-protection request (D-15). Never financial data, not in backups | Yes |
 
 Rules (enforced in `src/storage.js`, covered by `tests/storage.test.js`):
 
-1. The PesaFlow key is never modified or deleted.
+1. The PesaFlow key is never modified, and never deleted automatically.
+   *Amended 2026-11-06 (Phase 5, D-15):* the user may delete it — like any
+   safety copy — from Data safety, after a confirmation that explains the
+   consequences, and only by downloading it first when it is the only copy.
 2. Before migrating, the original text is copied to the preserved key and read
    back. If that fails, migration does not happen.
 3. Migrated data counts as saved only after it is written, read back,
@@ -301,6 +305,78 @@ WCAG AA contrast (4.5:1), touch targets at least 44px, every control named for
 screen readers, `aria-current` on the active screen, decorative icons hidden,
 visible keyboard focus, a skip link, focus moved to the screen heading on
 navigation, the toast above the bottom navigation, reduced motion respected.
+
+## D-14 App updates — approved 2026-11-06 (Phase 5), implemented v1.5.0
+
+Fixes KI-17. Updates replace the app's own files only; they never read, change
+or remove saved data (a service worker cannot reach `localStorage`).
+
+- **Fingerprinted release.** `npm run release` writes the version, a build ID
+  and a SHA-256 fingerprint of every app file into `sw.js`
+  (`tools/stamp-sw.js`; file list in `tools/release-files.js`). Any change to
+  any file changes `sw.js`, which is how browsers find a new version. `npm test`
+  fails if the fingerprints are out of date, so a forgotten bump can't ship.
+  Text files are fingerprinted with CRLF read as LF and any byte-order mark
+  ignored, so editing on Windows can't break updates.
+- **Verified, all-or-nothing install.** Each version installs into its own
+  cache (`pesaotas-shell-<version>-<build>`). Unchanged files are copied from the
+  current cache; changed files are downloaded with HTTP revalidation and must
+  match their fingerprint. Any failure — offline, a server error, or a
+  half-finished deployment still serving old files — deletes only the
+  incomplete new cache; the running version keeps working online and offline,
+  and the browser tries again later.
+- **The user decides when to switch.** A complete new version waits. The app
+  shows "A new version of PesaOtas is ready" with **Update now** and **Later**.
+  Update now is unavailable while there are unsaved budget changes, an entry
+  being edited, or a dialog open. After switching, the page reloads and says
+  the data is unchanged. Other open tabs are asked to reload rather than
+  reloaded. The app checks for updates when it is opened, when it comes back to
+  the foreground, and hourly while open.
+- **One-time takeover from v1.0–v1.4.** Those versions have no update prompt, so
+  when v1.5 replaces their worker it takes over by itself; the user sees v1.5 on
+  the next launch.
+- **Cleanup.** After a switch, only older PesaOtas app caches are deleted
+  (`pesaotas-shell-*`, and `pesaflow-v*` / `pesaotas-v*` from v1.0–v1.4). Any
+  other cache on the site is left alone.
+- **Serving.** The app's files come from the cache (works offline). Opening the
+  site folder or `index.html` (with or without a query) gives the app; other
+  addresses within the app's folder fall back to it when offline. Requests to
+  other sites or other folders are never handled.
+- Opening `index.html` directly from disk still works; offline support and
+  updates need a web address (http/https).
+
+## D-15 Storage protection and safety copies — approved 2026-11-06 (Phase 5), implemented v1.5.0
+
+Fixes KI-19.
+
+- **Persistent storage.** After the first successful save (never on page
+  load), PesaOtas asks the browser once to keep its data
+  (`navigator.storage.persist()`), and records that it asked in
+  `pesaotas.device`. Settings → Storage protection shows the answer, offers a
+  button to ask again when not protected, and shows the last backup date
+  (recorded on this device when a backup is downloaded), the space used, and
+  whether the app works offline. Browsers decide by themselves (Chrome silently,
+  by how the site is used; Firefox asks the user), so "not protected" is normal.
+- **Backups remain essential.** The card explains that data is still lost when
+  browser data is cleared, in private windows, with a lost or reset device, or
+  in Safari when PesaOtas is used in the browser rather than from the Home
+  Screen and not opened for 7 days of Safari use.
+- **Managing safety copies.** Data safety lists every copy with its date, size,
+  and whether it is the only copy on this device, with **Download** and
+  **Delete…**. Deleting:
+  - is never automatic, and needs a dialog that explains the consequences for
+    that kind of copy and a ticked confirmation;
+  - for the only copy on this device (no identical safety copy or current data),
+    is possible only after downloading it in the same dialog;
+  - is refused while the current data is missing, damaged, unsaved or awaiting
+    recovery, because the copies may be all that's left;
+  - names the exact copy the user saw; if another tab changed the list,
+    nothing is deleted;
+  - is verified by reading back, and never touches any other copy or the current
+    data (`deleteRecoveryItem` in `src/storage.js`, covered by
+    `tests/safety-copies.test.js`).
+- Deleting the original PesaFlow data is allowed under these rules (D-09 rule 1
+  as amended). PesaOtas never migrates or re-creates it afterwards.
 
 ## D-08 Phase gating — approved 2026-11-05
 

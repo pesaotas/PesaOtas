@@ -4,12 +4,14 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Status — v1.4.0 (Phase 4 complete).** Saved data and restores are protected
-> (Phase 1); safe-to-spend and savings with KCB M-PESA and M-Shwari work
-> (Phase 2); budgets follow your pay cycle (Phase 3); PesaOtas branding, blank
-> onboarding, editing, a category manager and mobile accessibility are in place
-> (Phase 4). Not yet done: installable app and online deployment (Phase 5).
-> Known defects: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+> **Status — v1.5.0 (Phase 5 complete, awaiting review).** Saved data and
+> restores are protected (Phase 1); safe-to-spend and savings with KCB M-PESA
+> and M-Shwari work (Phase 2); budgets follow your pay cycle (Phase 3);
+> PesaOtas branding, blank onboarding, editing and a category manager are in
+> place (Phase 4); PesaOtas installs as an app, works offline, updates safely,
+> asks the browser to protect its data, lets you manage safety copies, and is
+> ready for GitHub Pages (Phase 5).
+> Known issues: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
 ## Getting started
 
@@ -35,12 +37,44 @@ checklist on the Overview walks you through three steps:
   deleted.
 - **Unsaved budget changes** stay on screen until you save or discard them.
 
+## Install it, use it offline, and updates
+
+Open PesaOtas from its web address (see [Publishing](#option-3-publish-it-on-github-pages)),
+then install it: Chrome or Edge on a computer show an install icon in the address
+bar; on Android use the menu → **Install app**; on iPhone/iPad use Safari →
+Share → **Add to Home Screen**. Once opened online, it also works offline.
+
+When a new version is published, PesaOtas downloads it in the background and
+shows **"A new version of PesaOtas is ready"** with **Update now** and **Later**.
+Nothing changes until you choose Update now, and it waits while you have
+unsaved changes. Updates only replace the app's files — your data is never
+touched. If a download is interrupted, the current version keeps working and
+PesaOtas tries again later.
+
+## Keeping your data safe on this device
+
+**Settings → Storage protection** shows whether your browser has agreed to keep
+PesaOtas data even when the device is short of space (PesaOtas asks once, after
+you first save something; you can ask again there), when you last downloaded a
+backup, how much space PesaOtas uses, and whether it works offline. Even when
+protected, browser data is lost if you clear it, use a private window, lose or
+reset the device — or, on iPhone/iPad/Mac, if you use PesaOtas in Safari rather
+than from the Home Screen and don't open it for 7 days of Safari use.
+**Downloading backups is the only protection against all of these.**
+
+**Settings → Data safety** lists the safety copies PesaOtas keeps. You can
+download any of them, and delete ones you no longer need: PesaOtas explains
+what deleting that copy means, asks you to tick a confirmation, and — if it's
+the only copy on this device — asks you to download it first. Deleting a copy
+never changes your current data, and PesaOtas never deletes a copy on its own.
+
 ## Accessibility
 
 PesaOtas aims for text of at least 12px, WCAG AA colour contrast, touch targets
 of at least 44px, labelled controls for screen readers, visible keyboard focus
 and a "Skip to main content" link. It respects your device's reduced-motion
-setting.
+setting. What has and hasn't been tested (including real screen readers) is in
+[docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md).
 
 ## How "safe to spend" works
 
@@ -97,8 +131,8 @@ files can be restored too; PesaOtas checks and previews them first.
 2. Open the project folder.
 3. Double-click `index.html`.
 
-Everything works this way except offline/install features, which need a web
-server.
+Everything works this way except installing, offline use and update
+prompts, which need a web address.
 
 ### Option 2: run a local web server (Windows)
 Open Command Prompt in the project folder and run:
@@ -109,6 +143,10 @@ py -m http.server 8000
 
 Then open `http://localhost:8000`. Press `Ctrl + C` to stop. If `py` is not
 recognised, use `python -m http.server 8000`.
+
+### Option 3: publish it on GitHub Pages
+Free, no server needed, and your data still never leaves your device. Step by
+step: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Development
 
@@ -130,9 +168,16 @@ or, without npm:
 node --test
 ```
 
-You should see `fail 0`. The `todo` entries are known defects that are
+You should see `fail 0`. Any `todo` entries are known defects that are
 documented, not yet fixed (see the testing policy in
 [docs/DECISIONS.md](docs/DECISIONS.md), D-06).
+
+### Preparing a release
+After changing any app file, bump the version in `src/version.js` and
+`package.json`, then run `npm run release`. It records a fingerprint of every
+app file in `sw.js`, which is how browsers notice the update; `npm test` fails
+if you forget. `npm run build-site` builds the publishable folder (`_site`)
+with only the app files. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### Project structure
 
@@ -140,17 +185,23 @@ documented, not yet fixed (see the testing policy in
 index.html          App markup
 styles.css          Styles (mobile breakpoints at 1100, 800 and 390px)
 app.js              UI: rendering, forms, restore preview, recovery screens
+src/version.js      The app version (shown in the app; used by releases)
 src/validation.js   Amounts, dates and IDs (pure, tested)
 src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (pure, tested)
 src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
 src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
-sw.js               Service worker (offline cache)
+sw.js               Service worker: offline copy and safe updates (D-14)
 manifest.json       Install metadata
+icons/              App icons (PNG; sources and how to regenerate in icons/src)
+tools/              Release tooling: file list, sw.js fingerprints, site build
+.github/workflows/  GitHub Pages deployment
 tests/              node:test suite, neutral fixtures, fake browser storage
 docs/DECISIONS.md   Approved product and architecture decisions
 docs/KNOWN_ISSUES.md Known defects and the phase that fixes each
 docs/ROADMAP.md     Phase plan
+docs/DEPLOYMENT.md  Publishing on GitHub Pages, updates, rollback
+docs/ACCESSIBILITY.md What was tested, limits, manual checklist
 CHANGELOG.md        Every meaningful change
 ```
 
@@ -161,8 +212,10 @@ CHANGELOG.md        Every meaningful change
   directly, and never write to the PesaFlow key.
 - Whole Kenyan shillings only; display as **KSh**.
 - Plain `<script>` tags only — no build step, frameworks or paid services.
-- When a file is added to the app, add it to `APP_FILES` in `sw.js` and bump
-  `CACHE_NAME`.
+- When a file is added to the app, add it to `tools/release-files.js`. After
+  any change to the app, bump the version and run `npm run release`.
+- The app must never make network requests other than loading its own files
+  (no analytics, fonts, CDNs or APIs); `npm test` checks this.
 - Record every meaningful change in `CHANGELOG.md`.
 
 ## Privacy and backup
@@ -189,7 +242,12 @@ CHANGELOG.md        Every meaningful change
 - If saved data is ever damaged, PesaOtas sets it aside instead of replacing
   it, and asks you what to do. Nothing is saved until you choose.
 - Safety copies use the same browser storage (about 5 MB in total), which is
-  plenty for everyday use.
+  plenty for everyday use. You can delete ones you no longer need from Data
+  safety (with confirmation; the only copy must be downloaded first).
+- PesaOtas asks the browser to protect its data from automatic clean-up, but
+  that never replaces backups (see "Keeping your data safe on this device").
+- Publishing PesaOtas online (GitHub Pages) publishes only the app's files.
+  Your records stay in your browser and are never uploaded.
 - Anyone with access to your unlocked browser profile can open the app and its
   data.
 
