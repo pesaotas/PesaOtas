@@ -27,15 +27,15 @@
 "use strict";
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
-const VERSION = "1.6.0-dev";
-const BUILD = "20776e3849ae";
+const VERSION = "1.6.0";
+const BUILD = "3d498859c804";
 const PRECACHE = [
-  ["index.html", "75a0b34a4afebc77c0a0c9fc576c193e2e454895084852d36ae47af10cfa23cc"],
+  ["index.html", "465a0fb37a01c271d463ddc363e7af9c134466de436860756a82532819b07f00"],
   ["styles.css", "2c7fbd57bef02c830b7a939268015e87238dcf7be9f1459895084d567cf27381"],
   ["app.js", "ea18056a670ff0e732d1b10f4659aa7d5291b94c4f4d11c339befbaee0d224f4"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
   ["icon.svg", "caff807cec8eb0dbd47994677233b36e351c5fa6251a68b6ed2afbf2df2a71d9"],
-  ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
+  ["src/version.js", "0c91f4346820ce6b203edb0e4a590cb028ad77476d07977e3240c57cf1291396"],
   ["src/currency.js", "06476d6bb85e254a513b2f7a461da8259a8a74a6fa923476c0766c477538090d"],
   ["src/validation.js", "e55d0acd852216ae0c37f7fa7d6d409d03eadfac86f64a0ee94e02d374ae4d68"],
   ["src/finance.js", "8224f61b97cd7324f444f5b8623f7a86b5bd082a4a05cef2c245ab36275bd60a"],

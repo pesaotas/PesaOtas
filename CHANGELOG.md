@@ -3,11 +3,28 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0-dev] — Unreleased — v1.6 Phases 1–5: currency foundation, storage-format safeguard, Insights foundation, Insights charts, Expense Detective, logo and interface refinement
+## [1.6.0] — Unreleased (release candidate `v1.6.0-rc.1`, 7 Nov 2026)
 
-Work in progress on branch `v1.6-dev`; not published. `main` and the live
-v1.5.0 are unchanged (stable tag `v1.5.0-baseline`, commit `4d8f130`).
-Calculations are unchanged (`src/finance.js` untouched).
+v1.6.0 adds a choice of eight currencies, Insights with charts, Expense
+Detective, and the PesaOtas logo with a refined interface. Data saved by
+v1.5.0 is upgraded automatically after an exact copy is kept, and a
+v1.5.0-compatible backup makes going back possible (`docs/ROLLBACK.md`).
+Calculations are unchanged: `src/finance.js` is identical to v1.5.0.
+
+Not yet published: `main` and the live v1.5.0 are unchanged (stable tag
+`v1.5.0-baseline`, commit `4d8f130`). Publishing needs the owner's approval
+after the phone checks in `docs/DEPLOYMENT.md` section 8 (D-22).
+
+### Phase 6 — Final QA and release candidate (D-22)
+- **Version 1.6.0** in `src/version.js`, `package.json` and the sidebar text
+  in `index.html`; a new test checks that the version written into
+  `index.html` matches.
+- **Documentation for the release**: README (v1.6.0 overview, data formats),
+  DEPLOYMENT (version-neutral checks; section 8, the owner's phone checks;
+  section 9, the publishing steps), KNOWN_ISSUES (KI-27, KI-30, KI-39),
+  ACCESSIBILITY, DECISIONS D-22, ROADMAP.
+- **No defects found that block the release**, so no app code changed apart
+  from the version.
 
 ### Phase 5 — Logo and interface refinement (D-21)
 - **Logo**: the owner's mark (traced, geometry unchanged) in the approved

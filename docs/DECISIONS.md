@@ -785,6 +785,26 @@ restore behaviour, Expense Detective rule or currency handling changed.
   320px (the currency list in the setup checklist), and the chart legend's
   hatch pattern ID appearing more than once on the page.
 
+## D-22 v1.6.0 release candidate — approved 2026-11-07 (v1.6 Phase 6 brief)
+
+Phase 6 verifies the approved v1.6 work and prepares a release candidate. It
+adds no features and publishes nothing. The owner's decisions:
+
+1. **Candidate version `1.6.0`.** The candidate carries the final version, so
+   the approved candidate is exactly what would ship (same files, same build
+   ID). A defect found after a candidate gives a new commit and a new
+   candidate (`rc.2`), with every check rerun.
+2. **Local tag `v1.6.0-rc.1`** on the candidate commit. Never pushed.
+3. **KI-39 unchanged:** donut colours stay as approved in D-19.
+4. **Both taglines kept:** "Money, made clearer." (sidebar) and "Make your
+   money make sense." (phone footer).
+5. **Real-device testing is required before publication:** the owner checks
+   Android and iPhone installation, offline use and the upgrade from live
+   v1.5.0, a short screen-reader pass, and large text and zoom, after
+   downloading a backup (`docs/DEPLOYMENT.md`, "Before publishing v1.6.0").
+
+Publishing stays a separate step that needs the owner's explicit approval.
+
 ## D-08 Phase gating — approved 2026-11-05
 
 Each phase ends with a report (files changed, tests run, results, outstanding

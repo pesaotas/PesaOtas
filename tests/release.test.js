@@ -40,6 +40,13 @@ describe("release block in sw.js", () => {
     assert.match(read("sw.js"), new RegExp(`const VERSION = "${pkg.replace(/\./g, "\\.")}";`));
   });
 
+  it("the version written into index.html (shown before the scripts run) is the same version", () => {
+    const pkg = JSON.parse(read("package.json")).version;
+    const shown = [...read("index.html").matchAll(/<span class="app-version">v([^<]+)<\/span>/g)].map(m => m[1]);
+    assert.ok(shown.length >= 1);
+    for (const v of shown) assert.equal(v, pkg);
+  });
+
   it("lists only files that exist, and every file the app loads", () => {
     for (const f of PRECACHE_FILES) assert.ok(fs.existsSync(path.join(ROOT, f)), `${f} missing`);
     const html = read("index.html");

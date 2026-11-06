@@ -68,6 +68,14 @@ These checks are part of the browser test suites that are run for each phase
 | The saved-on-device pill is read once as "Saved on this device" at every width (on phones the visible word "Saved" is hidden from screen readers and the full words are visually hidden, not removed) | Chrome's accessibility tree at 320–1600px | Pass |
 | Placeholders are words ("Not set", "Not available"), not a long dash a screen reader would read as "em dash" | Text review | Done |
 
+### Release candidate v1.6.0-rc.1 (v1.6 Phase 6, DECISIONS D-22)
+
+| Check | How | Result |
+|---|---|---|
+| Every dialog (category, currency change, restore preview, delete a safety copy, new pay cycle, recovery, unreadable review records, two versions): text at least 12px, contrast, names, 44px targets, no sideways scrolling, and named by its title | In-page audit with each dialog open, at 375 and 1280px, at the site root and `/PesaOtas/` | See the Phase 6 report |
+| Every screen, with a full budget and an empty one | The Phase 5 audit (320 to 1600px) rerun on the candidate | See the Phase 6 report |
+| A real screen reader, the phone's largest text and 200% zoom | The owner's checks before publishing (`docs/DEPLOYMENT.md` section 8) | Required before publication |
+
 ## What has not been tested
 
 - **Real screen readers.** No testing with TalkBack (Android), VoiceOver (iPhone,

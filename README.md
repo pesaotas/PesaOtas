@@ -4,18 +4,22 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Development branch `v1.6-dev` — v1.6.0 Phase 1 (currency foundation)
-> complete, not yet released.** The live app is v1.5.0 (tag `v1.5.0-baseline`).
-> See CHANGELOG `[1.6.0-dev]`.
+> **PesaOtas v1.6.0.** New in this version: a choice of eight currencies
+> (never converted); **Insights**, with key figures, charts and history for the
+> last 30 days, the last 6 months or all time; **Expense Detective**, which
+> points out unusual bills, unusually large expenses, small purchases that add
+> up, uncategorised spending and spending ahead of pace; and the PesaOtas logo
+> with a refined interface. Your v1.5.0 data is upgraded automatically, after
+> an exact copy is kept (see [Upgrading to v1.6](#upgrading-to-v16)).
 >
-> **v1.5.0 (Phase 5 complete).** Saved data and
-> restores are protected (Phase 1); safe-to-spend and savings with KCB M-PESA
-> and M-Shwari work (Phase 2); budgets follow your pay cycle (Phase 3);
-> PesaOtas branding, blank onboarding, editing and a category manager are in
-> place (Phase 4); PesaOtas installs as an app, works offline, updates safely,
-> asks the browser to protect its data, lets you manage safety copies, and is
-> ready for GitHub Pages (Phase 5).
-> Known issues: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+> Already in v1.5.0: protected saving and restores, safe to spend, savings with
+> KCB M-PESA and M-Shwari, pay cycles, editing, a category manager, and an app
+> that installs, works offline and updates safely.
+>
+> Changes: [CHANGELOG.md](CHANGELOG.md). Known issues:
+> [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). The previous stable version is
+> v1.5.0 (tag `v1.5.0-baseline`); [docs/ROLLBACK.md](docs/ROLLBACK.md) explains
+> how to go back to it.
 
 ## Getting started
 
@@ -277,7 +281,7 @@ src/version.js      The app version (shown in the app; used by releases)
 src/currency.js     Supported currencies and amount formatting (D-17)
 src/validation.js   Amounts, dates and IDs (pure, tested)
 src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (pure, tested)
-src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
+src/data-model.js   Data formats v2 and v3, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
 src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
 src/insights.js     Insights: periods, totals, comparisons, patterns, chart data (pure, read-only, tested)
