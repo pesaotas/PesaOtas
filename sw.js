@@ -27,20 +27,21 @@
 "use strict";
 
 // RELEASE:BEGIN — written by `npm run release`; do not edit by hand.
-const VERSION = "1.5.0";
-const BUILD = "6d4e69950ece";
+const VERSION = "1.6.0-dev";
+const BUILD = "740f370e3a18";
 const PRECACHE = [
-  ["index.html", "e7ad2a045b067ea4348def49a6b5cfcc536491028e403a9441035320c20c971a"],
-  ["styles.css", "78aa795931a9888d2d6638fb5eb245f703e9b1a046333fef68a8343ecb21b460"],
-  ["app.js", "a98e95af8125b9c0c9ae915b67f268d489f96e1babe6c80e88bee92582ef38f8"],
+  ["index.html", "1ee1fd8847c29295d0c5d9c58dd52eee643e8b1967de6a9eac77bf7031cd268c"],
+  ["styles.css", "d6e09673beef225c943c7640598796bd89d79de51048e1b07ab1333564760979"],
+  ["app.js", "0d483d2c23ba123e964999961585aef4924b78091c5603130e2fd9707a10d69d"],
   ["manifest.json", "18fb5c66878b0e9c51fd1de227dd252c0d65ea5397ed474dea8da72ec573a55f"],
   ["icon.svg", "b0ee30f9b7cb64ec62958e425fefe2cc0955b52a4aa7c8e8c7db13847f8ade9e"],
-  ["src/version.js", "e3a7b23346b29cbf0d2508f64d884375e7648732d1a99dd5ea9543b5fd5a3f83"],
-  ["src/validation.js", "9f0ec781e635863eac4f2eaaba6d5f063271a86a02d2dd259383bbb5a369cf43"],
+  ["src/version.js", "5842f002c2afb9566a8e3dcd9b0e35c879f7108b5d8756da43549ff29c601bcd"],
+  ["src/currency.js", "06476d6bb85e254a513b2f7a461da8259a8a74a6fa923476c0766c477538090d"],
+  ["src/validation.js", "e55d0acd852216ae0c37f7fa7d6d409d03eadfac86f64a0ee94e02d374ae4d68"],
   ["src/finance.js", "8224f61b97cd7324f444f5b8623f7a86b5bd082a4a05cef2c245ab36275bd60a"],
-  ["src/data-model.js", "63ff560a251bd521c28866e02a866e338195fec959d4e649c322e2649918d29a"],
-  ["src/storage.js", "ba97aeff187b0339cc6551e480dea51379627343bb41431c854b5f1c0cc721b6"],
-  ["src/entries.js", "fddfce55420804c146f7be3e840c3761f457df5e5db048d6e41aad51f4b9bd1a"],
+  ["src/data-model.js", "9b7814e420b2eeae3e8940d84272b44585a85bccd1d4e6c961f066ea15bbc83c"],
+  ["src/storage.js", "3189084d788bde594532b2d6426352710d2815b3f26ae0af297b1aab1e918130"],
+  ["src/entries.js", "3ee42bb6bbda68e3d52aae439fd4b325e76104ce4d7cc0b35516a445a4c9adf7"],
   ["icons/icon-192.png", "8108201013d2b840110e15cf673aebf8d8442539ee411d5c2e9617f410e4bd5c"],
   ["icons/icon-512.png", "bc3188217d1dabe481bab6051cf5f89c237f0ecb0753a62f6cfa50593ece3611"],
   ["icons/maskable-192.png", "14bb41445fa81172f3380fe46bc3804cded7f7a61dd7351d85df7b18a0944f48"],

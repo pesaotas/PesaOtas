@@ -11,7 +11,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  /** Largest amount accepted anywhere (KSh 1 billion). Guards against typos and overflow. */
+  /** Largest amount accepted anywhere (1 billion in any currency). Guards against typos and overflow. */
   const MAX_AMOUNT = 1000000000;
   const MIN_YEAR = 2000;
   const MAX_YEAR = 2100;
@@ -37,14 +37,14 @@
     if (typeof value === "string") {
       const s = value.trim();
       if (!/^-?\d+$/.test(s)) {
-        return { ok: false, error: /^-?\d*\.\d+$/.test(s) ? "must be whole shillings (no cents)" : "is not a number" };
+        return { ok: false, error: /^-?\d*\.\d+$/.test(s) ? "must be a whole amount (no decimals)" : "is not a number" };
       }
       n = Number(s);
       coerced = true;
     } else if (typeof value !== "number" || !Number.isFinite(value)) {
       return { ok: false, error: value === undefined || value === null || value === "" ? "is missing" : "is not a number" };
     }
-    if (!Number.isInteger(n)) return { ok: false, error: "must be whole shillings (no cents)" };
+    if (!Number.isInteger(n)) return { ok: false, error: "must be a whole amount (no decimals)" };
     if (n < 0) return { ok: false, error: "cannot be negative" };
     if (n === 0 && !allowZero) return { ok: false, error: "must be more than zero" };
     if (n > MAX_AMOUNT) return { ok: false, error: "is unrealistically large" };

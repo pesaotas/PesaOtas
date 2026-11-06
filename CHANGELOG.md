@@ -3,6 +3,45 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0-dev] — Unreleased — v1.6 Phase 1: currency foundation and storage-format safeguard
+
+Work in progress on branch `v1.6-dev`; not published. `main` and the live
+v1.5.0 are unchanged (stable tag `v1.5.0-baseline`, commit `4d8f130`).
+Calculations are unchanged (`src/finance.js` untouched).
+
+### Added
+- **Currencies** (D-17): KES (default), UGX, TZS, NGN, ZAR, USD, GBP, EUR
+  (`src/currency.js`). Chosen during setup or in Settings → Currency. Every
+  amount, label, message, preview and backup uses the budget's currency. Whole
+  units only; never converted.
+- **Protected currency change**: shows both currencies with your own figures,
+  states there is no conversion, offers a backup, needs a ticked confirmation,
+  saves a verified "Before currency change" copy first (its own list), and
+  records the change. Undo by changing back or restoring the copy.
+- **Storage format v3** (D-16) under a new key, with a verified upgrade from
+  v1.5.0 (copy → write → marker), exact failure reporting at every step,
+  read-only mode with *Try again* / *Download your data*, and automatic
+  completion at a later launch.
+- **Old-version protection**: v1.5.0 refuses v1.6 data (tested with the real
+  v1.5.0). Data an older version saves later never replaces v1.6 data: v1.6
+  shows both and you choose; the other is kept.
+- **Stale-tab protection**: saves are refused if another tab changed the data;
+  the tab says so and stops saving until reloaded.
+- **v1.5.0-compatible backup** (Settings → Backup), KES budgets only.
+- Data safety: new copy types (before upgrading, two versions, before currency
+  change) and a **Restore…** button on every copy (preview first).
+- `docs/ROLLBACK.md`; DECISIONS D-16, D-17.
+- Tests: `currency.test.js` (16), `format-v3.test.js` (16), `upgrade.test.js`
+  (31, including a failure at every upgrade step and partial writes),
+  fictional fixture `tests/helpers/v15-data.js`. **312 tests, 312 pass.**
+  Mutation check: 15 of 15 deliberate faults in the new safeguards are caught.
+
+### Changed
+- Amount error text no longer mentions shillings: "must be a whole amount (no
+  decimals)".
+- Warnings show amounts with a non-breaking space, like every other amount.
+- Version label `1.6.0-dev`; release tooling accepts pre-release labels.
+
 ## [1.5.0] — 2026-11-06 — Phase 5: installable app, safe updates, storage protection, GitHub Pages
 
 Fixes KI-17 and KI-19; KI-27 partly (see below). No change to the approved

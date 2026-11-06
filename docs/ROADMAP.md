@@ -13,6 +13,18 @@ Each phase is small, tested and approved before the next begins (see
 | 4 | Rebrand to PesaOtas and UX: blank onboarding; edit transactions; category manager; keep unsaved budget edits; accessibility and mobile readability | KI-12–15, 21 | **Done (v1.4.0)** |
 | 5 | PWA and deployment: safe update strategy, PNG icons, storage-persistence request and limitation notice, managing safety copies, GitHub Pages | KI-17, 19, 27 (partly) | **Done (v1.5.0)** — awaiting review |
 
+## v1.6.0 (in progress on branch `v1.6-dev`)
+
+| Phase | Goal | Status |
+|---|---|---|
+| 0 | Audit and upgrade plan | **Approved** |
+| 1 | Currency foundation and storage-format safeguard (D-16, D-17) | **Done**, awaiting review |
+| 2 | Insights foundation: periods, aggregations, KPI cards, empty states | Not started |
+| 3 | Charts: spending trend, income vs expenses, category donut, drill-down | Not started |
+| 4 | Expense Detective: unusual bills, small and uncategorised spending, spending pace, alert review | Not started |
+| 5 | Logo (approved recolour) and app-wide UI/UX refinement | Not started |
+| 6 | Final QA and v1.6.0 release candidate | Not started |
+
 Future versions (not before the core is reliable): voice entry, M-Pesa
 statement import with user approval, recurring bills, savings goals,
 challenges, anomaly detection, monthly reports.

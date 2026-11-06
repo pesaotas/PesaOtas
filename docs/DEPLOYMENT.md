@@ -108,6 +108,8 @@ by itself the first time; they see it on their next launch, data unchanged.
 
 ### Rolling back
 
+To go back from v1.6 to the stable v1.5.0 without rewriting any history, follow [ROLLBACK.md](ROLLBACK.md). For a rollback within one major version:
+
 Revert the bad commit (`git revert <commit>`), bump the version again (for
 example 1.5.1 → 1.5.2 — browsers only move forward), run `npm run release`,
 commit and push. People are offered the fixed version as a normal update.

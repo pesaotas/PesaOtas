@@ -326,7 +326,7 @@ describe("date-ordered savings balances (KI-24)", () => {
     const s = withSavings(wd(1000, "m-shwari", "2026-11-05"), save(3000, "m-shwari", "2026-11-09"));
     const r = D.normalizeState(s);
     assert.ok(D.isClean(r));
-    assert.ok(r.warnings.some(w => w.includes("On 2026-11-05, M-Shwari would have held −KSh 1,000")), r.warnings.join(" | "));
+    assert.ok(r.warnings.some(w => w.includes("On 2026-11-05, M-Shwari would have held −KSh\u00A01,000")), r.warnings.join(" | "));
   });
 });
 
@@ -361,10 +361,11 @@ describe("data model: pay-cycle fields", () => {
     assert.ok(D.normalizeState(s).warnings.some(w => w.includes("on or after payday")));
   });
 
-  it("data saved by v1.2.0 (no cycle fields) still loads unchanged", () => {
+  it("data saved by v1.2.0 (no cycle fields) still loads unchanged (apart from the format number, v1.6)", () => {
     const s = plan(...november()); delete s.cycleStart;
-    const r = D.normalizeState(JSON.parse(JSON.stringify(s)));
+    const r = D.normalizeState(JSON.parse(JSON.stringify({ ...s, version: 2 })));
     assert.ok(D.isClean(r));
-    assert.deepEqual(r.state, s);
+    assert.equal(r.format, "pesaotas-v2");
+    assert.deepEqual(r.state, { ...s, version: 3 });
   });
 });

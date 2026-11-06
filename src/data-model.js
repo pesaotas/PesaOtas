@@ -17,18 +17,28 @@
  *   categories[].destinationId   optional; Savings categories only (D-04)
  *   transactions[].type          also "savings_transfer" / "savings_withdrawal",
  *                                which carry destinationId instead of categoryId
+ *
+ * Schema v3 (v1.6, decision D-16) adds:
+ *   currency               ISO 4217 code chosen by the user (D-17); v2 data is KES
+ *   meta.currencyHistory   [{from, to, changedAt}] — every currency relabel
+ *   meta.upgradedFrom      {version: 2, upgradedAt} — set by the v2 → v3 upgrade
+ * v1.5.0 and earlier refuse v3 data ("made by a newer version"), so they can
+ * never show it under the wrong currency or quietly drop the new fields.
+ * v2 data and backups are still read, and are converted to v3.
  */
 (function (root, factory) {
   "use strict";
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("./validation.js"), require("./finance.js"));
+    module.exports = factory(require("./validation.js"), require("./finance.js"), require("./currency.js"));
   } else {
-    root.PesaData = factory(root.PesaValidation, root.PesaFinance);
+    root.PesaData = factory(root.PesaValidation, root.PesaFinance, root.PesaCurrency);
   }
-})(typeof self !== "undefined" ? self : this, function (V, F) {
+})(typeof self !== "undefined" ? self : this, function (V, F, C) {
   "use strict";
 
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
+  /** The format v1.1.0–v1.5.0 read and write. Still accepted; converted to v3. */
+  const PREVIOUS_SCHEMA_VERSION = 2;
   const APP_ID = "PesaOtas";
   const MAX_BACKUP_CHARS = 5000000; // ~5 MB, about LocalStorage's own limit
   const MAX_NOTE_LENGTH = 200;
@@ -69,7 +79,6 @@
   const RESERVED = new Set(RESERVED_CATEGORY_IDS);
 
   const isObject = (o) => o !== null && typeof o === "object" && !Array.isArray(o);
-  const ksh = (n) => "KSh " + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const show = (v) => {
     const s = typeof v === "string" ? `"${v}"` : JSON.stringify(v);
     return s === undefined ? "nothing" : (s.length > 30 ? s.slice(0, 27) + "…" : s);
@@ -85,9 +94,9 @@
   }
 
   /** An empty plan: no categories, no transactions, no payday yet (Phase 4: shows the setup checklist). */
-  function createBlankState() {
+  function createBlankState(currency) {
     return {
-      app: APP_ID, version: SCHEMA_VERSION, currency: "KES",
+      app: APP_ID, version: SCHEMA_VERSION, currency: C.isSupported(currency) ? currency : C.DEFAULT_CURRENCY,
       openingBalance: 0, payday: "",
       categories: [], transactions: [],
       savingsDestinations: defaultDestinations(),
@@ -119,7 +128,8 @@
       r.errors.push("This isn't PesaOtas or PesaFlow budget data.");
       return r;
     }
-    if (input.version === SCHEMA_VERSION && input.app === APP_ID) r.format = "pesaotas-v2";
+    if (input.version === SCHEMA_VERSION && input.app === APP_ID) r.format = "pesaotas-v3";
+    else if (input.version === PREVIOUS_SCHEMA_VERSION && input.app === APP_ID) r.format = "pesaotas-v2";
     else if (input.version === 1) r.format = "pesaflow-v1";
     else if (typeof input.version === "number" && input.version > SCHEMA_VERSION) {
       r.errors.push("This data was made by a newer version of PesaOtas. Update the app, then try again.");
@@ -128,6 +138,18 @@
       r.errors.push("This isn't a recognised PesaOtas or PesaFlow format (missing or unknown version).");
       return r;
     }
+
+    // --- Currency (v3, D-17). Older formats were always Kenyan shillings. -----
+    let currency = C.DEFAULT_CURRENCY;
+    if (r.format === "pesaotas-v3") {
+      if (!C.isSupported(input.currency)) {
+        r.errors.push(`This data uses the currency ${show(input.currency)}, which this version of PesaOtas doesn't support. Nothing has been changed.`);
+        return r;
+      }
+      currency = input.currency;
+    }
+    // Amounts in messages below are shown in this data's own currency.
+    const ksh = (n) => C.format(n, currency);
 
     // --- Settings -----------------------------------------------------------
     const opening = V.parseWholeShillings(input.openingBalance, { allowZero: true });
@@ -366,9 +388,21 @@
       if (isObject(input.meta.migratedFrom) && typeof input.meta.migratedFrom.key === "string") {
         meta.migratedFrom = { key: input.meta.migratedFrom.key, migratedAt: String(input.meta.migratedFrom.migratedAt || "") };
       }
+      // v3 only: the record of currency relabels, and of the v2 → v3 upgrade.
+      if (r.format === "pesaotas-v3") {
+        if (Array.isArray(input.meta.currencyHistory)) {
+          const good = input.meta.currencyHistory.filter(h => isObject(h) && C.isSupported(h.from) && C.isSupported(h.to) && typeof h.changedAt === "string");
+          if (good.length) meta.currencyHistory = good.map(h => ({ from: h.from, to: h.to, changedAt: h.changedAt }));
+          const bad = input.meta.currencyHistory.length - good.length;
+          if (bad) r.warnings.push(`${bad} currency-change record${bad === 1 ? "" : "s"} couldn't be read and will be left out (amounts are not affected).`);
+        }
+        if (isObject(input.meta.upgradedFrom) && input.meta.upgradedFrom.version === PREVIOUS_SCHEMA_VERSION) {
+          meta.upgradedFrom = { version: PREVIOUS_SCHEMA_VERSION, upgradedAt: String(input.meta.upgradedFrom.upgradedAt || "") };
+        }
+      }
     }
     const state = {
-      app: APP_ID, version: SCHEMA_VERSION, currency: "KES",
+      app: APP_ID, version: SCHEMA_VERSION, currency,
       openingBalance, payday, categories, transactions, savingsDestinations, meta
     };
     if (typeof input.month === "string" && /^\d{4}-\d{2}$/.test(input.month)) state.month = input.month;
@@ -402,6 +436,7 @@
     const t = F.computeTotals(state);
     const dates = state.transactions.map(x => x.date).sort();
     return {
+      currency: state.currency || C.DEFAULT_CURRENCY,
       openingBalance: state.openingBalance,
       payday: state.payday,
       cycleStart: state.cycleStart || "",
@@ -442,9 +477,44 @@
   /** Text for a backup file. */
   const serializeBackup = (state) => JSON.stringify(state, null, 2);
 
+  /**
+   * A backup that PesaOtas v1.5.0 can restore (format v2), for going back to
+   * v1.5.0 (D-16). Only possible for KES budgets: v1.5.0 shows every amount as
+   * KSh, so any other currency would be misread. Every financial record is
+   * kept; information only v1.6 knows is left out and listed in `omitted`.
+   * The result is re-checked with the v2 rules and compared with the original.
+   *
+   * @param {object} state  valid v3 state
+   * @returns {{ok:true, text:string, omitted:string[]} | {ok:false, reason:"currency"|"invalid", currency?:string}}
+   */
+  function toV15Backup(state) {
+    const check = normalizeState(state);
+    if (!isClean(check)) return { ok: false, reason: "invalid" };
+    const s = check.state;
+    if (s.currency !== "KES") return { ok: false, reason: "currency", currency: s.currency };
+    const meta = {};
+    for (const k of ["createdAt", "onboarding", "migratedFrom"]) if (s.meta[k] !== undefined) meta[k] = s.meta[k];
+    const omitted = [];
+    if (s.meta.currencyHistory) omitted.push("the record of currency changes");
+    if (s.meta.upgradedFrom) omitted.push("the note of when this budget was upgraded to the v1.6 format");
+    const out = {
+      app: APP_ID, version: PREVIOUS_SCHEMA_VERSION, currency: "KES",
+      openingBalance: s.openingBalance, payday: s.payday,
+      categories: s.categories, transactions: s.transactions, savingsDestinations: s.savingsDestinations, meta
+    };
+    if (s.month) out.month = s.month;
+    if (s.cycleStart) out.cycleStart = s.cycleStart;
+    if (s.cycles) out.cycles = s.cycles;
+    // Prove the file reads back as the same budget under the v2 rules.
+    const back = normalizeState(JSON.parse(JSON.stringify(out)));
+    const financial = (x) => JSON.stringify([x.openingBalance, x.payday, x.cycleStart || "", x.cycles || [], x.categories, x.transactions, x.savingsDestinations]);
+    if (!isClean(back) || back.format !== "pesaotas-v2" || financial(back.state) !== financial(s)) return { ok: false, reason: "invalid" };
+    return { ok: true, text: JSON.stringify(out, null, 2), omitted };
+  }
+
   return Object.freeze({
-    SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS, CATEGORY_TYPES, INCOME_SOURCES,
+    SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS, CATEGORY_TYPES, INCOME_SOURCES,
     UNCATEGORISED_ID, RESERVED_CATEGORY_IDS,
-    canonicalType, createBlankState, normalizeState, isClean, summarize, analyzeBackup, serializeBackup
+    canonicalType, createBlankState, normalizeState, isClean, summarize, analyzeBackup, serializeBackup, toV15Backup
   });
 });

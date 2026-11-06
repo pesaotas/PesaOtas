@@ -1,7 +1,9 @@
 (() => {
   "use strict";
 
-  const money = (value) => PesaFinance.formatKSh(value); // "KSh 25,000" (KI-18)
+  // Amounts in the budget's own currency (v1.6, D-17), e.g. "KSh 25,000" or "$250".
+  const money = (value) => PesaCurrency.format(value, state && state.currency);
+  const cur = () => PesaCurrency.info(state && state.currency);
   const SAVINGS_TYPES = ["savings_transfer", "savings_withdrawal"];
   const isSavingsType = (type) => SAVINGS_TYPES.includes(type);
   const todayISO = () => {
@@ -39,6 +41,9 @@
   const COPY_TITLES = {
     legacy: "Original PesaFlow data",
     preserved: "Copy of PesaFlow data made before moving",
+    preUpgrade: "Your data before upgrading to v1.6 (v1.5.0 format)",
+    olderVersion: "Data set aside when two versions were found",
+    preCurrency: "Before currency change",
     quarantine: "Damaged data set aside",
     preRestore: "Your data before the last restore, recovery, reset or new pay cycle"
   };
@@ -47,36 +52,58 @@
   const canManageCopies = (inv) => canSave && !recovery && inv.currentSafe;
 
 
+  let storedRaw = null;    // the exact stored text this tab last read or wrote (stale-tab protection, D-16)
+  let saveBlock = null;    // why saving is paused: recovery | storage | migration | upgrade | conflict | stale
   switch (boot.status) {
     case "ok":
     case "migrated":
-      state = boot.state; break;
+    case "upgraded":
+      state = boot.state; storedRaw = boot.raw; break;
     case "new":
       // A genuinely new user: nothing on this device. Start empty (nothing is written until they act).
       state = PesaData.createBlankState(); break;
     case "migration-failed":
-      state = boot.state; canSave = false; break;   // read-only view of the converted copy
+      state = boot.state; canSave = false; saveBlock = "migration"; break;   // read-only view of the converted copy
+    case "upgrade-failed":
+      state = boot.state; canSave = false; saveBlock = "upgrade"; break;     // read-only until the upgrade completes
+    case "older-version-conflict":
+      state = boot.state; storedRaw = boot.raw; canSave = false; saveBlock = "conflict"; break;
     case "corrupt":
-      state = PesaData.createBlankState(); canSave = false; recovery = boot; break;
+      state = PesaData.createBlankState(); canSave = false; recovery = boot; saveBlock = "recovery";
+      storedRaw = boot.sourceKey === PesaStorage.KEYS.current ? boot.raw : null; break;
     default: // "unavailable"
-      state = PesaData.createBlankState(); canSave = false;
+      state = PesaData.createBlankState(); canSave = false; saveBlock = "storage";
   }
   lastSaved = clone(state);
 
+  const BLOCKED_MESSAGES = {
+    recovery: "Not saved — choose a recovery option first.",
+    storage: "Not saved — this browser isn't storing PesaOtas data.",
+    migration: "Not saved: your PesaFlow data hasn't finished moving yet. See the message at the top.",
+    upgrade: "Not saved: the upgrade to the v1.6 format hasn't finished yet. See the message at the top.",
+    conflict: "Not saved: choose which version of your budget to keep first.",
+    stale: "Not saved: this tab is out of date because your data changed in another tab. Reload to continue."
+  };
   function saveState() {
     if (!canSave) {
       state = clone(lastSaved);
-      showToast(recovery ? "Not saved — choose a recovery option first." : "Not saved — this browser isn't storing PesaOtas data.");
+      showToast(BLOCKED_MESSAGES[saveBlock] || BLOCKED_MESSAGES.storage);
       return false;
     }
-    const result = PesaStorage.save(store, state);
+    const result = PesaStorage.save(store, state, { expectedRaw: storedRaw });
     if (result.ok) {
       state = result.state;
       lastSaved = clone(state);
+      storedRaw = result.raw;
       askForPersistenceOnce();
       return true;
     }
     state = clone(lastSaved); // never show unsaved changes as if they were saved
+    if (result.reason === "changed-elsewhere") {
+      markStale("tab");
+      showToast(BLOCKED_MESSAGES.stale);
+      return false;
+    }
     showToast(result.reason === "invalid"
       ? "Not saved — that change failed a data check."
       : "Could not save. Browser storage may be full — download a backup from Settings.");
@@ -322,7 +349,7 @@
         const changed = draft.budget !== undefined || draft.link !== undefined;
         return `<article class="card budget-edit-card${changed ? " has-draft" : ""}">
           <div class="budget-edit-top"><strong>${escapeHTML(c.name)}</strong><span class="budget-edit-tags"><span class="category-kind">${escapeHTML(c.kind)}</span><button class="text-button" type="button" data-edit-category="${escapeHTML(c.id)}" aria-label="Edit category ${escapeHTML(c.name)}">Edit</button></span></div>
-          <div class="budget-edit-bottom"><input class="input budget-value" type="number" min="0" step="50" inputmode="numeric" value="${escapeHTML(value)}" data-budget-id="${escapeHTML(c.id)}" aria-label="${escapeHTML(c.name)} allocation (KSh)"><span>${status}</span></div>
+          <div class="budget-edit-bottom"><input class="input budget-value" type="number" min="0" step="50" inputmode="numeric" value="${escapeHTML(value)}" data-budget-id="${escapeHTML(c.id)}" aria-label="${escapeHTML(c.name)} allocation (${escapeHTML(cur().code)})"><span>${status}</span></div>
           ${link}
           ${changed ? `<p class="draft-note">Not saved yet</p>` : ""}
         </article>`;
@@ -580,7 +607,7 @@
       if (!saveState()) { renderAll(); return; }
       renderAll();
       setView("budget");
-      showToast(`Added ${r.added} categories, each at KSh 0. Set an allocation for each one, then save.`);
+      showToast(`Added ${r.added} categories, each at ${money(0)}. Set an allocation for each one, then save.`);
     }
   });
 
@@ -613,11 +640,12 @@
     document.getElementById("cycle-start-input").value = state.cycleStart || "";
     const t = totals();
     document.getElementById("savings-balance-fields").innerHTML = activeDestinations().map(d => `
-      <label class="field-label" for="dest-open-${escapeHTML(d.id)}">${escapeHTML(d.name)} — starting balance (KSh)</label>
+      <label class="field-label" for="dest-open-${escapeHTML(d.id)}">${escapeHTML(d.name)} — starting balance (${escapeHTML(cur().symbol)})</label>
       <input class="input dest-opening" id="dest-open-${escapeHTML(d.id)}" data-dest-id="${escapeHTML(d.id)}" type="number" min="0" step="1" value="${d.openingBalance}">
       <small class="tiny-muted">Balance now: ${money(t.destinationBalances[d.id] || 0)}</small>`).join("");
   }
   function renderAll() {
+    renderCurrencyLabels();
     renderOnboarding(); renderOverview(); renderTransactions(); renderBudget(); renderInsights(); populateCategorySelect();
   }
 
@@ -822,7 +850,7 @@
   document.getElementById("reset-button").addEventListener("click",()=>{
     if (!confirm("Erase everything and start PesaOtas empty? Your budget, transactions, pay cycles and savings records will be removed from this browser. A copy is kept in Settings → Data safety (only the most recent copy), so download a backup first if you might need it.")) return;
     budgetDraft = {};
-    if (applyReplacement(PesaData.createBlankState(), "PesaOtas has been emptied. Your previous data is in Data safety.")) {
+    if (applyReplacement(PesaData.createBlankState(state.currency), "PesaOtas has been emptied. Your previous data is in Data safety.")) {
       resetEntryForm();
       setView("overview");
     }
@@ -833,6 +861,7 @@
   // ---------------------------------------------------------------------------
   function applyReplacement(newState, message) {
     if (!store) { showToast("This browser isn't storing PesaOtas data, so nothing can be saved here."); return false; }
+    if (saveBlock === "upgrade" || saveBlock === "conflict" || saveBlock === "stale") { showToast(BLOCKED_MESSAGES[saveBlock]); return false; }
     if (recovery && !recovery.quarantined && !damagedDownloaded) {
       showToast("Download the damaged data first, so nothing is lost.");
       return false;
@@ -841,12 +870,13 @@
       showToast("Couldn't keep a safety copy of your current data. Download a backup first, then try again.");
       return false;
     }
-    const result = PesaStorage.save(store, newState);
+    const result = PesaStorage.save(store, newState, { expectedRaw: storedRaw });
     if (!result.ok) {
+      if (result.reason === "changed-elsewhere") { markStale("tab"); showToast(BLOCKED_MESSAGES.stale); return false; }
       showToast(result.reason === "invalid" ? "Not saved — the data failed a final check." : "Could not save. Browser storage may be full.");
       return false;
     }
-    state = result.state; lastSaved = clone(state); canSave = true; recovery = null;
+    state = result.state; lastSaved = clone(state); storedRaw = result.raw; canSave = true; recovery = null; saveBlock = null;
     if (noticeKind !== "migrated") noticeKind = null;
     renderAll(); populateSettings(); renderDataSafety(); renderNotice();
     showToast(message);
@@ -874,16 +904,19 @@
     issueSection("Corrected automatically", r.fixed, "issue-fixed") +
     issueSection("Please check", r.warnings, "issue-warning") +
     issueSection("Good to know", r.notes, "issue-note");
-  function summaryMarkup(s) {
+  function summaryMarkup(s, context) {
+    const view = context === "view";
+    const money = (v) => PesaCurrency.format(v, s.currency); // the backup's own currency
     const rows = [
+      ["Currency", PesaCurrency.label(s.currency)],
       ["Opening balance", money(s.openingBalance)],
       ["Next payday", formatLongDate(s.payday)],
       ["Pay cycle", s.cycleStart ? `Started ${formatLongDate(s.cycleStart)}${s.closedCycles ? ` · ${s.closedCycles} earlier cycle(s) in history` : ""}` : "No start date set"],
       ["Budget categories", String(s.categoryCount)],
       ["Transactions", `${s.transactionCount} (${s.incomeCount} income, ${s.expenseCount} expenses)`],
       ["Dates covered", s.firstDate ? `${formatDate(s.firstDate)} – ${formatDate(s.lastDate)}` : "No transactions"],
-      ["Cash after restoring", money(s.cash)],
-      ["Savings after restoring", `${money(s.totalSavings)} (${s.savingsCount} savings ${s.savingsCount === 1 ? "entry" : "entries"})`],
+      [view ? "Spending cash" : "Cash after restoring", money(s.cash)],
+      [view ? "Savings" : "Savings after restoring", `${money(s.totalSavings)} (${s.savingsCount} savings ${s.savingsCount === 1 ? "entry" : "entries"})`],
       ["Savings destinations", s.destinations.join(", ") || "None"]
     ];
     return `<dl class="summary-list">${rows.map(([k,v]) => `<div><dt>${escapeHTML(k)}</dt><dd>${escapeHTML(v)}</dd></div>`).join("")}</dl>`;
@@ -931,7 +964,11 @@
         : `<strong>This replaces everything on this device now:</strong> ${state.transactions.length} transactions, cash ${escapeHTML(money(current.cash))}.${missingNote} A copy of what's replaced is kept in Settings → Data safety, but only the most recent one — download a backup first if you might need it.`;
       title.textContent = "Check this backup before restoring";
       content.innerHTML =
-        `<p class="muted">${report.format === "pesaflow-v1" ? "This is an older PesaFlow backup. It will be converted for PesaOtas." : "PesaOtas backup."}</p>` +
+        `<p class="muted">${report.format === "pesaflow-v1" ? "This is an older PesaFlow backup. It will be converted for PesaOtas."
+          : report.format === "pesaotas-v2" ? "This is a backup from PesaOtas v1.5.0 or earlier (amounts in Kenyan shillings). It will be converted to the v1.6 format."
+          : "PesaOtas backup."}</p>` +
+        (report.summary.currency !== state.currency && !recovery
+          ? `<p class="replace-note">This backup is in <strong>${escapeHTML(PesaCurrency.label(report.summary.currency))}</strong>; your budget is currently in ${escapeHTML(PesaCurrency.label(state.currency))}. Restoring brings back the backup's currency too. Amounts are never converted.</p>` : "") +
         summaryMarkup(report.summary) +
         `<p class="replace-note">${replaces}</p>` +
         issueSections(report);
@@ -1102,7 +1139,10 @@
   // ---------------------------------------------------------------------------
   // Notices shown at the top of every screen
   // ---------------------------------------------------------------------------
-  let noticeKind = { migrated: "migrated", "migration-failed": "migration-failed", corrupt: "recovery", unavailable: "unavailable" }[boot.status] || null;
+  let noticeKind = {
+    migrated: "migrated", "migration-failed": "migration-failed", corrupt: "recovery", unavailable: "unavailable",
+    upgraded: "upgraded", "upgrade-failed": "upgrade-failed", "older-version-conflict": "conflict"
+  }[boot.status] || null;
   const failReasons = {
     "preserve-failed": "it couldn't make a safety copy of the original first",
     "storage-full": "browser storage is full",
@@ -1128,6 +1168,32 @@
       text.textContent = `PesaOtas couldn't move your PesaFlow data yet because ${failReasons[boot.reason] || "of a storage problem"}. Your original data is untouched. You can look around, but changes won't be saved. Free up browser storage or download your data, then reload this page.`;
       actions.innerHTML = `<button class="button button-secondary" data-notice="download-legacy">↓ Download your PesaFlow data</button>`;
       box.classList.add("notice-warning");
+    } else if (kind === "upgraded") {
+      text.textContent = `Your data has been upgraded to the PesaOtas v1.6 format, and every record was checked: ${boot.state.transactions.length} transactions and ${boot.state.categories.length} budget categories. Nothing was converted or removed. A copy in the old format is kept in Settings → Data safety, in case you ever need to go back to PesaOtas v1.5.0.`;
+      actions.innerHTML = `<button class="button button-secondary" data-notice="dismiss">Got it</button>`;
+      box.classList.add("notice-success");
+    } else if (kind === "upgrade-failed") {
+      const why = failReasons[boot.reason] || "of a storage problem";
+      text.textContent = boot.stage === "copy"
+        ? "PesaOtas needs to upgrade your data to the v1.6 format, but it couldn't save a safety copy first, so it didn't start. Nothing has been changed: your data is exactly as PesaOtas v1.5.0 saved it. You can look around, but changes won't be saved until the upgrade completes. Free up browser storage, then try again."
+        : boot.stage === "write"
+          ? `A safety copy of your data was saved (Settings → Data safety), but the upgraded data couldn't be saved because ${why}. ${boot.originalIntact ? "Your data is still saved exactly as PesaOtas v1.5.0 left it." : "PesaOtas couldn't confirm that the original is unchanged, but the safety copy holds it exactly."} Changes won't be saved until the upgrade completes. Free up browser storage, then try again.`
+          : "Your data was upgraded to the v1.6 format, saved and checked, and a copy in the old format was kept. One last step didn't complete: PesaOtas couldn't leave the note that stops older versions (v1.5.0 and earlier) opening out-of-date data. Changes won't be saved until it completes. Try again.";
+      actions.innerHTML = `<button class="button button-primary" data-notice="reload">Try again</button>` +
+        `<button class="button button-secondary" data-notice="download-upgrade">↓ Download your data</button>`;
+      box.classList.add("notice-warning");
+    } else if (kind === "conflict") {
+      text.textContent = "Two versions of your budget were found in this browser. Choose which one to keep; nothing will be saved until you do. Nothing has been overwritten or deleted.";
+      actions.innerHTML = `<button class="button button-primary" data-notice="conflict">Review options</button>`;
+      box.classList.add("notice-warning");
+    } else if (kind === "stale") {
+      text.textContent = "Your PesaOtas data was changed in another tab or window, so this tab is out of date. To protect your data it won't save anything. Reload to see the latest data.";
+      actions.innerHTML = `<button class="button button-primary" data-notice="reload">Reload</button>`;
+      box.classList.add("notice-warning");
+    } else if (kind === "older-tab") {
+      text.textContent = "An older version of PesaOtas (v1.5.0 or earlier), open in another tab, has just saved changes. They have not replaced your data here, and both are kept. Close that tab, then reload this one to choose which data to keep.";
+      actions.innerHTML = `<button class="button button-primary" data-notice="reload">Reload</button>`;
+      box.classList.add("notice-warning");
     } else if (kind === "unavailable") {
       text.textContent = "This browser isn't letting PesaOtas store data, so nothing you enter will be saved. Check that site data is allowed for this page, or try another browser.";
       box.classList.add("notice-warning");
@@ -1142,6 +1208,17 @@
     const action = e.target.closest("[data-notice]")?.dataset.notice;
     if (action === "dismiss") { noticeKind = null; renderNotice(); }
     if (action === "recovery") openRecoveryDialog();
+    if (action === "conflict") openConflictDialog();
+    if (action === "reload") location.reload();
+    if (action === "download-upgrade") {
+      if (boot.stage !== "marker" && boot.originalRaw) {
+        downloadText(boot.originalRaw, `pesaotas-v1.5-data-${todayISO()}.json`);
+        showToast("Your data downloaded, exactly as PesaOtas v1.5.0 saved it.");
+      } else {
+        downloadText(PesaData.serializeBackup(state), `pesaotas-backup-${todayISO()}.json`);
+        showToast("Backup downloaded.");
+      }
+    }
     if (action === "download-legacy") {
       const raw = PesaStorage.getRecoveryText(store, "legacy");
       if (raw) { downloadText(raw, `pesaflow-original-data-${todayISO()}.json`); showToast("PesaFlow data downloaded."); }
@@ -1157,25 +1234,35 @@
     if (!store) { el.innerHTML = `<p class="muted">This browser isn't letting PesaOtas store data.</p>`; return; }
     const inv = PesaStorage.recoveryInventory(store);
     const manage = canManageCopies(inv);
+    const restoreBlocked = saveBlock === "upgrade" || saveBlock === "conflict" || saveBlock === "stale" || saveBlock === "storage";
     const detail = (it) => {
       if (it.kind === "legacy") return "Still on this device, unchanged. PesaOtas never edits it or deletes it on its own.";
       if (it.kind === "quarantine") return `${formatWhen(it.at)} · ${it.reason || "failed its checks"}`;
+      if (it.kind === "preCurrency") return `Saved ${formatWhen(it.at)} · before changing ${it.from || "?"} to ${it.to || "?"}`;
+      if (it.kind === "olderVersion") return `Saved ${formatWhen(it.at)} · ${it.reason || "not chosen"}`;
       return `Saved ${formatWhen(it.at)}`;
     };
     const rows = inv.items.map(it => `<div class="safety-row"><div><strong>${escapeHTML(COPY_TITLES[it.kind])}</strong><small>${escapeHTML(detail(it))} · ${escapeHTML(sizeText(it.size))}${it.onlyCopy ? " · only copy on this device" : ""}</small></div>
       <div class="safety-actions"><button class="button button-secondary" type="button" data-recover="${it.kind}" data-index="${it.index}" aria-label="Download: ${escapeHTML(COPY_TITLES[it.kind])}">↓ Download</button>
+      <button class="button button-secondary" type="button" data-restore-copy="${it.kind}" data-index="${it.index}" aria-label="Restore: ${escapeHTML(COPY_TITLES[it.kind])}"${restoreBlocked ? " disabled" : ""}>Restore…</button>
       <button class="button button-danger" type="button" data-delete-copy="${it.kind}" data-index="${it.index}" aria-label="Delete: ${escapeHTML(COPY_TITLES[it.kind])}"${manage ? "" : " disabled"}>Delete…</button></div></div>`).join("");
     const damaged = inv.damagedLists.length
       ? `<p class="replace-note">A safety list on this device is itself damaged. It has been left untouched.</p>` : "";
     const locked = inv.items.length && !manage
       ? `<p class="replace-note">Safety copies can't be deleted right now, because your current data isn't saved and checked${recovery ? " (choose a recovery option first)" : ""}. They may be all that's left.</p>` : "";
     el.innerHTML = inv.items.length
-      ? rows + damaged + locked + `<p class="tiny-muted">To use a downloaded copy, choose “Restore from backup”. Every file is checked and previewed before anything is replaced.</p>
+      ? rows + damaged + locked + `<p class="tiny-muted"><strong>Restore…</strong> checks a copy and shows a preview first; nothing is replaced until you confirm. A downloaded copy can also be restored with “Restore from backup”.</p>
           <p class="tiny-muted"><strong>Restoring replaces everything.</strong> Each copy is a snapshot of one moment. Restoring one — for example the copy made before a new pay cycle — replaces all current data, so anything recorded after that copy was made will no longer be in the app. Only the most recent replaced copy is kept here, so download a backup first.</p>
           <p class="tiny-muted"><strong>Deleting a copy</strong> only frees space; it never changes your current data. PesaOtas asks you to confirm each one, and asks you to download a copy first if it's the only one on this device.</p>`
       : damaged + `<p class="muted">No safety copies yet. They appear here automatically when PesaOtas moves, restores, recovers or resets your data.</p>`;
   }
   document.getElementById("data-safety-list").addEventListener("click", e => {
+    const res = e.target.closest("[data-restore-copy]");
+    if (res) {
+      const raw = PesaStorage.getRecoveryText(store, res.dataset.restoreCopy, Number(res.dataset.index));
+      if (raw === null) return showToast("That copy couldn't be read.");
+      return openRestoreDialog(PesaData.analyzeBackup(raw));
+    }
     const del = e.target.closest("[data-delete-copy]");
     if (del) return openCopyDelete(del.dataset.deleteCopy, Number(del.dataset.index));
     const btn = e.target.closest("[data-recover]");
@@ -1209,6 +1296,23 @@
         "Deleting it doesn't change your current PesaOtas data.",
         same ? "An identical copy (such as the original PesaFlow data) stays on this device, so nothing is lost."
              : "It's the last copy on this device of your data as it was in PesaFlow."
+      ];
+      case "preUpgrade": return [
+        "This is your data exactly as PesaOtas v1.5.0 saved it, copied just before it was upgraded to the v1.6 format.",
+        "It's only needed if you ever go back to PesaOtas v1.5.0. It doesn't include anything recorded since the upgrade.",
+        "Deleting it doesn't change your current data.",
+        same ? "An identical copy stays on this device, so nothing is lost." : "It's the last copy on this device of your data in the v1.5.0 format."
+      ];
+      case "olderVersion": return [
+        "This is one of two versions of your budget that PesaOtas found in this browser. You chose to keep the other one.",
+        "It may contain entries that aren't in your current data.",
+        "Deleting it doesn't change your current data."
+      ];
+      case "preCurrency": return [
+        `This is your data as it was just before the currency was changed from ${it.from || "?"} to ${it.to || "?"}.`,
+        "Restoring it would bring back that currency, but also replace anything recorded since.",
+        "Deleting it doesn't change your current data. You can still change the currency back at any time; nothing is lost by doing that.",
+        same ? "An identical copy stays on this device." : "It's the only copy of that moment on this device."
       ];
       case "quarantine": return [
         "This is saved data that failed PesaOtas's checks and couldn't be opened. It was set aside instead of being deleted.",
@@ -1341,9 +1445,191 @@
 
   const now = new Date();
   document.getElementById("today-label").textContent = now.toLocaleDateString("en-KE",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).toUpperCase();
+  // ---------------------------------------------------------------------------
+  // Currency (v1.6, D-17): one currency per budget, never converted.
+  // ---------------------------------------------------------------------------
+  /** True once the budget holds any amount, so a currency change would relabel real figures. */
+  function hasRecords(s) {
+    return s.openingBalance > 0 || s.transactions.length > 0 || (s.cycles || []).length > 0 ||
+      s.categories.some(c => c.budget > 0) || (s.savingsDestinations || []).some(d => d.openingBalance > 0);
+  }
+  function renderCurrencyLabels() {
+    document.querySelectorAll("[data-currency-symbol]").forEach(el => { el.textContent = cur().symbol; });
+    document.querySelectorAll("[data-currency-select]").forEach(sel => {
+      if (!sel.options.length) sel.innerHTML = PesaCurrency.CODES.map(c => `<option value="${c}">${escapeHTML(PesaCurrency.label(c))}</option>`).join("");
+      sel.value = state.currency;
+    });
+    document.getElementById("currency-change-button").disabled = true;
+    const kes = state.currency === "KES";
+    document.getElementById("export-v15-button").disabled = !kes;
+    document.getElementById("export-v15-note").textContent = kes
+      ? "Only needed if you ever go back to PesaOtas v1.5.0. It keeps every amount, transaction, category, savings account and pay cycle, but leaves out what only v1.6 records: alert review marks and the record of currency changes."
+      : `Not available for a budget in ${PesaCurrency.label(state.currency)}: PesaOtas v1.5.0 shows every amount as Kenyan shillings, so it would misread this budget. To go back to v1.5.0, change the currency back to Kenyan Shilling (KES) first, or use the copy made before the upgrade (Data safety).`;
+  }
+  document.getElementById("currency-select").addEventListener("change", e => {
+    document.getElementById("currency-change-button").disabled = e.target.value === state.currency;
+  });
+  document.getElementById("currency-change-button").addEventListener("click", () => {
+    requestCurrencyChange(document.getElementById("currency-select").value);
+  });
+  document.getElementById("onboarding-currency").addEventListener("change", e => {
+    const to = e.target.value;
+    e.target.value = state.currency; // shown again once saved
+    requestCurrencyChange(to);
+  });
+  function requestCurrencyChange(to) {
+    if (!PesaCurrency.isSupported(to) || to === state.currency) return;
+    if (!canSave) return showToast(BLOCKED_MESSAGES[saveBlock] || BLOCKED_MESSAGES.storage);
+    if (hasBudgetDraft()) return showToast("Save or discard your budget changes first.");
+    if (!hasRecords(state)) {
+      // Nothing recorded yet, so there is nothing to relabel.
+      state = { ...state, currency: to };
+      if (saveState()) showToast(`Currency set to ${PesaCurrency.label(to)}.`);
+      renderAll(); populateSettings();
+      return;
+    }
+    openCurrencyDialog(to);
+  }
+  let pendingCurrency = null;
+  function openCurrencyDialog(to) {
+    const from = state.currency;
+    const t = totals();
+    const latest = state.transactions.slice().sort(newestFirst)[0];
+    const examples = [["Opening balance", state.openingBalance], ["Spending cash now", t.cash]];
+    if (latest) examples.push([`Latest entry (${formatDate(latest.date)})`, latest.amount]);
+    const f = (v, c) => escapeHTML(PesaCurrency.format(v, c));
+    pendingCurrency = { from, to };
+    document.getElementById("currency-dialog-title").textContent = `Change the currency to ${PesaCurrency.info(to).name}?`;
+    document.getElementById("currency-dialog-content").innerHTML =
+      `<dl class="summary-list"><div><dt>Current currency</dt><dd>${escapeHTML(PesaCurrency.label(from))}</dd></div><div><dt>New currency</dt><dd>${escapeHTML(PesaCurrency.label(to))}</dd></div></dl>` +
+      `<p><strong>No exchange-rate conversion takes place.</strong> Only the label changes: every number in your budget stays exactly the same.</p>` +
+      `<table class="currency-examples"><caption>How your amounts will look</caption><thead><tr><th scope="col">Amount</th><th scope="col">Now</th><th scope="col">After the change</th></tr></thead><tbody>` +
+      examples.map(([k, v]) => `<tr><th scope="row">${escapeHTML(k)}</th><td>${f(v, from)}</td><td>${f(v, to)}</td></tr>`).join("") +
+      `</tbody></table>` +
+      `<p class="muted">Use this if your budget is in the wrong currency. Before changing, PesaOtas saves a copy of your data in Settings → Data safety (“Before currency change”). To undo, change the currency back (nothing is lost) or restore that copy.</p>`;
+    document.getElementById("currency-dialog-check-text").textContent =
+      `I understand my amounts will be shown in ${PesaCurrency.label(to)} instead of ${PesaCurrency.label(from)}, without any conversion.`;
+    document.getElementById("currency-dialog-check").checked = false;
+    document.getElementById("currency-dialog-confirm").textContent = `Change to ${to}`;
+    document.getElementById("currency-dialog-confirm").disabled = true;
+    document.getElementById("currency-dialog-error").classList.add("hidden");
+    openDialog(document.getElementById("currency-dialog"));
+    document.getElementById("currency-dialog-cancel").focus();
+  }
+  const currencyError = (msg) => { const el = document.getElementById("currency-dialog-error"); el.textContent = msg; el.classList.remove("hidden"); };
+  document.getElementById("currency-dialog-check").addEventListener("change", e => {
+    document.getElementById("currency-dialog-confirm").disabled = !e.target.checked;
+  });
+  document.getElementById("currency-dialog-cancel").addEventListener("click", () => closeDialog(document.getElementById("currency-dialog")));
+  document.getElementById("currency-dialog").addEventListener("close", () => { pendingCurrency = null; renderCurrencyLabels(); });
+  document.getElementById("currency-dialog-download").addEventListener("click", () => {
+    downloadText(PesaData.serializeBackup(state), `pesaotas-backup-${todayISO()}.json`);
+    if (store) PesaStorage.updateDeviceInfo(store, { lastBackupAt: new Date().toISOString() });
+    showToast("Backup downloaded.");
+  });
+  document.getElementById("currency-dialog-confirm").addEventListener("click", () => {
+    const p = pendingCurrency;
+    if (!p || !document.getElementById("currency-dialog-check").checked) return;
+    if (!canSave) return currencyError(BLOCKED_MESSAGES[saveBlock] || BLOCKED_MESSAGES.storage);
+    if (hasBudgetDraft()) return currencyError("Save or discard your budget changes first. Nothing has been changed.");
+    if (state.currency !== p.from) return currencyError("The currency changed while this was open. Nothing has been changed.");
+    const now = new Date();
+    // 1. A verified safety copy first, in its own list (never replaces another copy).
+    if (!PesaStorage.keepPreCurrencyCopy(store, now, p.from, p.to)) {
+      return currencyError("PesaOtas couldn't save a safety copy of your data first, so the currency was not changed. Nothing has been changed. Free up browser storage, or download a backup, then try again.");
+    }
+    // 2. Relabel only: the same numbers, a new currency code, and a record of the change.
+    const history = (state.meta.currencyHistory || []).concat([{ from: p.from, to: p.to, changedAt: now.toISOString() }]);
+    state = { ...state, currency: p.to, meta: { ...state.meta, currencyHistory: history } };
+    if (!saveState()) {
+      renderAll();
+      return currencyError(`A safety copy was saved in Settings → Data safety, but the new currency couldn't be saved. Your budget is still in ${PesaCurrency.label(p.from)}; nothing else has changed.`);
+    }
+    closeDialog(document.getElementById("currency-dialog"));
+    renderAll(); populateSettings(); renderDataSafety();
+    showToast(`Currency changed to ${PesaCurrency.label(p.to)}. Amounts were not converted. A copy from before the change is in Settings → Data safety.`);
+  });
+
+  // Going back to v1.5.0 (D-16): a backup it can restore. KES budgets only.
+  document.getElementById("export-v15-button").addEventListener("click", () => {
+    const r = PesaData.toV15Backup(state);
+    if (!r.ok) {
+      return showToast(r.reason === "currency"
+        ? `PesaOtas v1.5.0 can't show a budget in ${PesaCurrency.label(r.currency)} correctly, so this backup isn't available.`
+        : "This backup couldn't be made: your data didn't pass a final check.");
+    }
+    downloadText(r.text, `pesaotas-v1.5-compatible-backup-${todayISO()}.json`);
+    if (store) PesaStorage.updateDeviceInfo(store, { lastBackupAt: new Date().toISOString() });
+    renderStorageProtection();
+    showToast(r.omitted.length
+      ? `v1.5.0-compatible backup downloaded. Left out (v1.6 only): ${r.omitted.join("; ")}.`
+      : "v1.5.0-compatible backup downloaded. Nothing was left out.");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Two versions found (D-16): v1.6 data, plus different data saved since by an
+  // older version. Nothing is chosen automatically; the other is always kept.
+  // ---------------------------------------------------------------------------
+  function openConflictDialog() {
+    if (saveBlock !== "conflict") return;
+    const older = boot.olderReport;
+    const olderOk = !!(older && PesaData.isClean(older) && older.format === "pesaotas-v2");
+    document.getElementById("conflict-intro").innerHTML =
+      `<p>This budget was upgraded to the v1.6 format, but an older version of PesaOtas (v1.5.0 or earlier) has since saved different data in this browser, for example in a tab that was still open, or after going back to v1.5.0. <strong>Nothing has been overwritten or deleted.</strong></p>` +
+      `<p class="muted">Choose which data to keep. The other one is kept in full in Settings → Data safety, where you can download or restore it later. Until you choose, nothing will be saved.</p>`;
+    const latestOf = (st) => st.transactions.map(x => x.date).sort().slice(-1)[0];
+    const col = (title, st) => `<section class="conflict-col"><h3>${escapeHTML(title)}</h3>${summaryMarkup(PesaData.summarize(st), "view")}<p class="tiny-muted">Latest entry: ${st.transactions.length ? escapeHTML(formatDate(latestOf(st))) : "none"}</p></section>`;
+    document.getElementById("conflict-content").innerHTML =
+      col("PesaOtas v1.6 data", boot.state) +
+      (olderOk ? col("Saved by the older version", older.state)
+        : `<section class="conflict-col"><h3>Saved by the older version</h3><p>This data can't be used as it is:</p><ul class="issue-plain">${((older && older.errors) || ["It couldn't be read."]).map(m => `<li>${escapeHTML(m)}</li>`).join("")}</ul><p class="muted">It will be kept in Data safety if you keep the v1.6 data.</p></section>`);
+    document.getElementById("conflict-older").classList.toggle("hidden", !olderOk);
+    document.getElementById("conflict-error").classList.add("hidden");
+    openDialog(document.getElementById("conflict-dialog"));
+  }
+  function resolveConflict(choice) {
+    const r = PesaStorage.resolveOlderVersion(store, new Date(), choice, { currentRaw: boot.raw, olderRaw: boot.olderRaw });
+    if (!r.ok) {
+      const err = document.getElementById("conflict-error");
+      err.textContent = ({
+        changed: "Your data changed in another tab while this was open. Nothing was changed here. Reload and choose again.",
+        "copy-failed": "PesaOtas couldn't save a safety copy of the other data first, so nothing was changed. Free up browser storage, then try again."
+      })[r.reason] || "That couldn't be completed, so nothing was changed. Reload and try again.";
+      err.classList.remove("hidden");
+      return;
+    }
+    state = r.state; lastSaved = clone(state); storedRaw = r.raw; canSave = true; saveBlock = null; noticeKind = null;
+    closeDialog(document.getElementById("conflict-dialog"));
+    renderAll(); populateSettings(); renderDataSafety(); renderNotice();
+    showToast(choice === "keep-current"
+      ? "Kept the v1.6 data. The data saved by the older version is in Settings → Data safety."
+      : "Now using the data saved by the older version, upgraded to the v1.6 format. Your previous v1.6 data is in Settings → Data safety.");
+  }
+  document.getElementById("conflict-keep").addEventListener("click", () => resolveConflict("keep-current"));
+  document.getElementById("conflict-older").addEventListener("click", () => resolveConflict("use-older"));
+  document.getElementById("conflict-later").addEventListener("click", () => { closeDialog(document.getElementById("conflict-dialog")); renderNotice(); });
+
+  // ---------------------------------------------------------------------------
+  // Other tabs (D-16). A tab whose data was changed elsewhere stops saving, so it
+  // can never overwrite newer data; saves also re-check the stored data first.
+  // ---------------------------------------------------------------------------
+  function markStale(kind) {
+    if (saveBlock === "stale" && kind !== "older") return;
+    canSave = false; saveBlock = "stale";
+    noticeKind = kind === "older" ? "older-tab" : "stale";
+    renderNotice(); renderDataSafety();
+  }
+  window.addEventListener("storage", e => {
+    if (!store) return;
+    if (e.key === null) return markStale("tab"); // storage cleared from another tab
+    if (e.key === PesaStorage.KEYS.current && e.newValue !== storedRaw) return markStale("tab");
+    if (e.key === PesaStorage.KEYS.v15 && e.newValue !== null && !PesaStorage.isMovedMarker(e.newValue)) return markStale("older");
+  });
+
   renderAll();
   renderNotice();
   if (recovery) openRecoveryDialog();
+  if (saveBlock === "conflict") openConflictDialog();
   document.querySelectorAll(".app-version").forEach(el => { el.textContent = `v${window.PESAOTAS_VERSION || ""}`; });
   refreshPersistStatus().then(renderStorageProtection);
 

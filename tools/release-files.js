@@ -16,6 +16,7 @@ const PRECACHE_FILES = Object.freeze([
   "manifest.json",
   "icon.svg",
   "src/version.js",
+  "src/currency.js",
   "src/validation.js",
   "src/finance.js",
   "src/data-model.js",

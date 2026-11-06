@@ -4,7 +4,11 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Status — v1.5.0 (Phase 5 complete, awaiting review).** Saved data and
+> **Development branch `v1.6-dev` — v1.6.0 Phase 1 (currency foundation)
+> complete, not yet released.** The live app is v1.5.0 (tag `v1.5.0-baseline`).
+> See CHANGELOG `[1.6.0-dev]`.
+>
+> **v1.5.0 (Phase 5 complete).** Saved data and
 > restores are protected (Phase 1); safe-to-spend and savings with KCB M-PESA
 > and M-Shwari work (Phase 2); budgets follow your pay cycle (Phase 3);
 > PesaOtas branding, blank onboarding, editing and a category manager are in
@@ -24,6 +28,34 @@ checklist on the Overview walks you through three steps:
    categories** for a starting list of names (each at KSh 0), then give each
    one an allocation.
 3. **Record your first entry**: your salary, a purchase, or money you save.
+
+## Currency
+
+PesaOtas keeps each budget in one currency: Kenyan Shilling (KES, the
+default), Ugandan Shilling (UGX), Tanzanian Shilling (TZS), Nigerian Naira
+(NGN), South African Rand (ZAR), US Dollar (USD), British Pound (GBP) or Euro
+(EUR). Choose it during setup, or later in **Settings → Currency**. Amounts are
+whole units (no cents).
+
+**PesaOtas never converts between currencies.** Changing the currency only
+changes the label next to the same numbers. Once you've recorded amounts,
+PesaOtas shows the current and new currency with your own figures, asks you to
+confirm, and first saves a copy of your data in **Data safety → Before
+currency change**. To undo, change the currency back (nothing is lost) or
+restore that copy. Backups include the currency.
+
+## Upgrading to v1.6
+
+The first time you open v1.6, your data is moved to a new storage format.
+PesaOtas first saves an exact copy of your v1.5.0 data (Settings → Data
+safety), and nothing is converted or removed. PesaOtas v1.5.0 can't open the
+new format, which stops it misreading your budget. If you ever need to go back,
+download a **v1.5.0-compatible backup** first (Settings → Backup your data),
+then follow [docs/ROLLBACK.md](docs/ROLLBACK.md).
+
+If you have PesaOtas open in two tabs, a tab whose data was changed in the
+other one says so and stops saving until you reload it, so it can never
+overwrite newer data.
 
 ## Managing your entries and categories
 
@@ -186,6 +218,7 @@ index.html          App markup
 styles.css          Styles (mobile breakpoints at 1100, 800 and 390px)
 app.js              UI: rendering, forms, restore preview, recovery screens
 src/version.js      The app version (shown in the app; used by releases)
+src/currency.js     Supported currencies and amount formatting (D-17)
 src/validation.js   Amounts, dates and IDs (pure, tested)
 src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (pure, tested)
 src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
@@ -201,6 +234,7 @@ docs/DECISIONS.md   Approved product and architecture decisions
 docs/KNOWN_ISSUES.md Known defects and the phase that fixes each
 docs/ROADMAP.md     Phase plan
 docs/DEPLOYMENT.md  Publishing on GitHub Pages, updates, rollback
+docs/ROLLBACK.md    Going back to v1.5.0 safely (no history rewritten)
 docs/ACCESSIBILITY.md What was tested, limits, manual checklist
 CHANGELOG.md        Every meaningful change
 ```
@@ -210,7 +244,9 @@ CHANGELOG.md        Every meaningful change
 - All reading and writing of saved data goes through `src/storage.js`, which
   enforces the safety rules in DECISIONS D-09. Never write to browser storage
   directly, and never write to the PesaFlow key.
-- Whole Kenyan shillings only; display as **KSh**.
+- Whole units only, in the budget's own currency. Format amounts with
+  `PesaCurrency.format` (or the app's `money()`); never write a currency
+  symbol into the code.
 - Plain `<script>` tags only — no build step, frameworks or paid services.
 - When a file is added to the app, add it to `tools/release-files.js`. After
   any change to the app, bump the version and run `npm run release`.

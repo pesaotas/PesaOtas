@@ -10,11 +10,11 @@
 (function (root, factory) {
   "use strict";
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("./validation.js"), require("./finance.js"), require("./data-model.js"));
+    module.exports = factory(require("./validation.js"), require("./finance.js"), require("./data-model.js"), require("./currency.js"));
   } else {
-    root.PesaEntries = factory(root.PesaValidation, root.PesaFinance, root.PesaData);
+    root.PesaEntries = factory(root.PesaValidation, root.PesaFinance, root.PesaData, root.PesaCurrency);
   }
-})(typeof self !== "undefined" ? self : this, function (V, F, D) {
+})(typeof self !== "undefined" ? self : this, function (V, F, D, C) {
   "use strict";
 
   const TYPES = ["expense", "income", "savings_transfer", "savings_withdrawal"];
@@ -26,10 +26,11 @@
 
   /** "2026-11-05" → "5 Nov 2026" (deterministic, matches the app's dates). */
   const fmtDate = (iso) => { const [y, m, d] = iso.split("-").map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; };
-  const ksh = (n) => F.formatKSh(n);
+  /** An amount in the budget's own currency (v1.6, D-17). */
+  const money = (state, n) => C.format(n, state && state.currency);
   const destName = (state, id) => ((state.savingsDestinations || []).find(d => d.id === id) || {}).name || "Savings";
 
-  /** Suggested category NAMES for a new user — every allocation starts at KSh 0. */
+  /** Suggested category NAMES for a new user — every allocation starts at 0. */
   const SUGGESTED_CATEGORIES = Object.freeze([
     { name: "Rent", kind: "Bills" },
     { name: "Food", kind: "Essential" },
@@ -89,9 +90,9 @@
         if (amount.value > available) {
           const held = F.balanceOn(base, destinationId, date);
           const later = available < held
-            ? ` ${ksh(held - available)} of that is needed for withdrawals recorded later, so you can withdraw up to ${ksh(available)}.`
+            ? ` ${money(state, held - available)} of that is needed for withdrawals recorded later, so you can withdraw up to ${money(state, available)}.`
             : "";
-          return { ok: false, errors: [`Not saved. ${dest.name} holds ${ksh(held)} on ${fmtDate(date)}.${later}`] };
+          return { ok: false, errors: [`Not saved. ${dest.name} holds ${money(state, held)} on ${fmtDate(date)}.${later}`] };
         }
       }
       entry = { id, type, amount: amount.value, destinationId, date, note, createdAt };
@@ -115,7 +116,7 @@
     // Changing or adding an entry must never leave a savings destination below zero on any day.
     const issue = newSavingsIssue(state, next);
     if (issue) {
-      return { ok: false, errors: [`Not saved: ${destName(state, issue.destinationId)} would hold ${ksh(issue.balance)} on ${fmtDate(issue.date)}, because a withdrawal recorded later depends on this money. Change or delete that withdrawal first.`] };
+      return { ok: false, errors: [`Not saved: ${destName(state, issue.destinationId)} would hold ${money(state, issue.balance)} on ${fmtDate(issue.date)}, because a withdrawal recorded later depends on this money. Change or delete that withdrawal first.`] };
     }
 
     const confirms = [];
@@ -125,7 +126,7 @@
     if (type === "savings_transfer") {
       const cash = F.computeTotals(base).cash;
       if (amount.value > Math.max(0, cash)) {
-        confirms.push({ code: "over-cash", message: `This transfer of ${ksh(amount.value)} is more than your spending cash (${ksh(cash)}). Your spending cash would go below zero. Record it anyway?` });
+        confirms.push({ code: "over-cash", message: `This transfer of ${money(state, amount.value)} is more than your spending cash (${money(state, cash)}). Your spending cash would go below zero. Record it anyway?` });
       }
     }
     return { ok: true, entry, state: next, confirms };
@@ -141,7 +142,7 @@
     const next = { ...state, transactions: state.transactions.filter(t => t !== tx) };
     const issue = newSavingsIssue(state, next);
     if (issue) {
-      return { ok: false, error: `Can't delete this: ${destName(state, issue.destinationId)} would hold ${ksh(issue.balance)} on ${fmtDate(issue.date)}. Delete the later withdrawal first.` };
+      return { ok: false, error: `Can't delete this: ${destName(state, issue.destinationId)} would hold ${money(state, issue.balance)} on ${fmtDate(issue.date)}. Delete the later withdrawal first.` };
     }
     return { ok: true, state: next };
   }
@@ -249,7 +250,7 @@
     return { ok: true, state: next, moved: usage.transactionCount, released: usage.allocation };
   }
 
-  /** Add the suggested category names (KSh 0 each) that the user doesn't already have. */
+  /** Add the suggested category names (0 each) that the user doesn't already have. */
   function addSuggestedCategories(state, randomFor) {
     let next = state;
     let added = 0;

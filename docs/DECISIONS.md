@@ -133,7 +133,11 @@ Browser storage keys:
 | Key | Holds | Written by PesaOtas? |
 |---|---|---|
 | `pesaflow.personal.v1` | Original PesaFlow data | **Never** written; deleted only when the user chooses to (D-15) |
-| `pesaotas.data.v2` | Live PesaOtas data (schema v2) | Yes, verified on every save |
+| `pesaotas.data.v3` | Live PesaOtas data (format v3, v1.6 and later, D-16) | Yes, verified on every save; refused if another tab changed it |
+| `pesaotas.data.v2` | v1.1–v1.5 data (format v2). After the upgrade: a small "moved" marker that v1.5.0 refuses to open (D-16) | Marker only; data an older version writes here is never overwritten without the user choosing |
+| `pesaotas.preserved.v1-5` | Exact copies of v1.5.0-format data, made before the upgrade (D-16) | Added to only; identical copies not repeated |
+| `pesaotas.preserved.older-version` | The data not chosen when two versions were found (D-16) | Added to only |
+| `pesaotas.pre-currency` | Data as it was before each currency change (D-17) | Added to only; never replaces another copy |
 | `pesaotas.preserved.pesaflow-v1` | Copies of the original PesaFlow text, made before migrating | Added to only; identical copies not repeated |
 | `pesaotas.quarantine` | Damaged data set aside, with date and reason | Added to only; identical copies not repeated |
 | `pesaotas.pre-restore` | Data as it was before the last restore, recovery or reset | Replaced each time |
@@ -377,6 +381,66 @@ Fixes KI-19.
     `tests/safety-copies.test.js`).
 - Deleting the original PesaFlow data is allowed under these rules (D-09 rule 1
   as amended). PesaOtas never migrates or re-creates it afterwards.
+
+## D-16 Storage format v3 and the compatibility safeguard — approved 2026-11-06 (v1.6 Phase 0), implemented v1.6.0 Phase 1
+
+v1.5.0 ignores fields it doesn't know and always assumes KES, so it would show
+a non-KES budget as KSh and quietly drop v1.6 fields on its next save. To stop
+that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
+
+- **Format v3** adds `currency` (D-17), `meta.currencyHistory` and
+  `meta.upgradedFrom`. Format v2 (v1.1–v1.5 data and backups) and PesaFlow v1
+  are still read and converted. Newer formats are refused.
+- **New key.** v3 data lives under `pesaotas.data.v3`; the old key
+  `pesaotas.data.v2` keeps a "moved" marker (version 3). *Changed during Phase 1
+  from the Phase 0 plan, which kept the data under the old key:* testing showed
+  that a v1.5.0 tab left open would otherwise overwrite v1.6 data with its own
+  older copy, and v1.5.0's code can't be changed to prevent that. With a separate
+  key, an older tab can only write under the old key; v1.6 detects it and never
+  lets it replace v1.6 data.
+- **The upgrade** (first v1.6 launch): check the v2 data → copy it exactly to
+  `pesaotas.preserved.v1-5` and read it back → write v3 and verify it → write
+  the marker. A failure at any step is reported exactly (`upgrade-failed` with
+  the stage: copy, write or marker), loses nothing, shows the data read-only
+  with **Try again** and **Download your data**, and completes at a later launch
+  (an interrupted write is set aside in quarantine, never deleted; a damaged copy
+  list is set aside rather than overwritten). Reopening never repeats it.
+- **Two versions.** If v3 data exists and an older version has since saved
+  different data under the old key (an open old tab, or after a rollback), v1.6
+  shows both and the user chooses: keep the v1.6 data, or use the older data
+  (upgraded). The other is kept in full in `pesaotas.preserved.older-version`
+  first. Old-key data that exactly matches a safety copy carries nothing new and
+  is simply replaced by the marker.
+- **Stale tabs.** Every save checks that the stored data is exactly what this
+  tab last read or wrote; if not, nothing is written and the tab stops saving
+  until it is reloaded. Tabs are also told at once when another tab changes the
+  data.
+- **Going back to v1.5.0** uses a *v1.5.0-compatible backup* (format v2, KES only;
+  leaves out alert review marks and the currency history) or the pre-upgrade
+  copy. Procedure: [ROLLBACK.md](ROLLBACK.md). The stable release is tag
+  `v1.5.0-baseline` (commit `4d8f130`).
+
+## D-17 Currency — approved 2026-11-06 (v1.6 Phase 0), implemented v1.6.0 Phase 1
+
+- One currency per budget: KES (default), UGX, TZS, NGN, ZAR, USD, GBP, EUR, in
+  `src/currency.js` (adding one is a one-line change). Only the ISO code is
+  stored. Display: grouping via `Intl.NumberFormat("en")`, symbols from the
+  table (browsers disagree on symbols). KES looks exactly as in v1.5.0.
+- **Whole units only** in v1.6 for every currency (no cents). Decimal support
+  would need its own data migration in a later release.
+- **No conversion, ever.** Changing the currency relabels the same numbers.
+  With nothing recorded yet (onboarding), the choice applies at once. Otherwise
+  a dialog shows the current and new currency with the user's own figures,
+  states that no exchange-rate conversion takes place, offers a backup download,
+  and needs a ticked confirmation. A verified copy is saved first in its own
+  list (`pesaotas.pre-currency`), never replacing any other copy; if it can't be
+  saved, nothing changes. The change is recorded in `meta.currencyHistory`. To
+  undo: change back (lossless) or restore that copy.
+- Backups carry the currency; restoring a backup in another currency says so
+  in the preview and brings that currency back.
+- Small-purchase investigation thresholds per currency (for Expense Detective,
+  Phase 4): KES 500, UGX 15,000, TZS 10,000, NGN 3,000, ZAR 100, USD/GBP/EUR 5.
+  They are prompts to look, never judgements.
 
 ## D-08 Phase gating — approved 2026-11-05
 

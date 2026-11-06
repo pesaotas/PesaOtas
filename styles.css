@@ -241,3 +241,21 @@
 /* Date fields: Chrome also lets Tab reach the calendar button inside the field; keep the focus ring visible then too. */
 .input:focus-within{border-color:#68a98a;box-shadow:0 0 0 3px #e4f3e9}
 input[type=date]:focus-within{outline:3px solid #1f7a5c;outline-offset:2px}
+
+/* v1.6 Phase 1: currency, upgrade and two-versions dialogs */
+.onboarding-currency{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.onboarding-currency .field-label{margin:0}
+.onboarding-currency select{min-height:44px;max-width:260px}
+#currency-settings select,#currency-change-button{min-height:44px}
+.v15-backup{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;display:grid;gap:8px}
+.v15-backup .button{min-height:44px}
+.currency-examples{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+.currency-examples caption{text-align:left;font-weight:700;margin-bottom:6px}
+.currency-examples th,.currency-examples td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+.currency-examples thead th{font-size:12px;color:var(--muted)}
+.conflict-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.conflict-col{border:1px solid var(--line);border-radius:12px;padding:12px}
+.conflict-col h3{font-size:14px;margin:0 0 8px}
+@media (max-width:640px){.conflict-grid{grid-template-columns:1fr}}
+#conflict-dialog{width:min(820px,calc(100vw - 24px))}
+.conflict-col .summary-list{grid-template-columns:1fr}
