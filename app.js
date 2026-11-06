@@ -450,6 +450,7 @@
         compareLine(leaks.change, range))
     ];
     document.getElementById("insight-kpis").innerHTML = cards.join("");
+    renderCharts(range.id, today);
 
     // Where your money went
     const rows = sum.breakdown.rows.filter(r => r.amount > 0);
@@ -516,6 +517,299 @@
     document.getElementById("insight-patterns").innerHTML = parts.join("");
     renderCycleHistory();
   }
+
+  // ---------------------------------------------------------------------------
+  // Insights charts (v1.6 Phase 3, D-19). Figures come from src/insights.js and
+  // are drawn by src/charts.js; this code only chooses, formats and shows them.
+  // Read-only: nothing here saves anything. Each chart is one keyboard control
+  // (arrow keys, Home, End), with Previous/Next buttons, a details panel, a
+  // table with the same figures, and a polite announcement on selection.
+  // ---------------------------------------------------------------------------
+  const CHART_PAGE = 25;
+  const chartState = {
+    trend: { items: [], meta: null, sel: 0, hover: null, period: null, shown: CHART_PAGE, hit: null, width: 0 },
+    flow: { items: [], meta: null, sel: 0, hover: null, period: null, shown: CHART_PAGE, hit: null, width: 0 },
+    cats: { items: [], meta: null, sel: 0, hover: null, period: null, shown: CHART_PAGE, hit: null, width: 0 }
+  };
+  const chartEl = (key, part) => document.getElementById(`chart-${key}-${part}`);
+  const UNIT_WORD = { day: "day", week: "week", month: "month" };
+  const withoutYear = (label) => label.replace(/ \d{4}$/, "");
+  const datesText = (b) => b.start === b.end ? formatDate(b.start) : `${formatDate(b.start)} – ${formatDate(b.end)}`;
+  const shareText = (x) => (x > 0 && Math.round(x * 100) === 0 ? "less than 1%" : pctText(x));
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  /** Short notes for a bar: period clipping and coverage are separate things (D-19). */
+  function bucketNotes(b, unit) {
+    const notes = [];
+    if (b.state === "no-history") notes.push("no records yet");
+    else if (b.state === "partly-covered") notes.push(`records start ${formatDate(b.coveredStart)}`);
+    else if (b.state === "no-spending" && unit !== "month") notes.push("no spending recorded");
+    if (b.clipped) notes.push(b.soFar ? `partial ${UNIT_WORD[unit]}, so far` : `partial ${UNIT_WORD[unit]}`);
+    return notes;
+  }
+  /** A full sentence explaining a bar's dates and coverage, for the details panel. */
+  function bucketSentence(b, unit, range) {
+    const w = UNIT_WORD[unit];
+    const out = [];
+    if (b.clipped && b.soFar) out.push(`This ${w} isn't over yet: the figures run to today.`);
+    else if (b.clipped) out.push(`Partial ${w}: only ${datesText(b)} is inside this period, so this isn't a full ${w}'s total.`);
+    if (b.state === "no-history") out.push(range.coverage.recordsStart ? `No records yet for these dates: your records start on ${formatDate(range.coverage.recordsStart)}.` : "No records yet for these dates.");
+    else if (b.state === "partly-covered") out.push(`Your records start on ${formatDate(b.coveredStart)}, so ${plural(b.coveredDays, "day", "days")} of these ${b.days} are covered.`);
+    else if (b.state === "no-spending") out.push(unit === "day" ? "No spending recorded on this day." : "No spending recorded on these dates.");
+    return out.join(" ");
+  }
+  /** Read-only entry list with "Show 25 more". */
+  function entryListMarkup(key, found, noun) {
+    const c = chartState[key];
+    if (!found.count) return "";
+    const shown = found.entries.slice(0, c.shown);
+    return `<p class="chart-entries-head"><strong>${plural(found.count, noun, noun + "s")}</strong> · total ${escapeHTML(money(found.total))}${found.count > shown.length ? ` · showing the newest ${shown.length}` : ""}</p>` +
+      `<div class="activity-list chart-entries">${shown.map(t => transactionMarkup(t, false)).join("")}</div>` +
+      (found.count > shown.length ? `<button class="button button-secondary chart-more" type="button" data-chart-more="${key}">Show ${Math.min(CHART_PAGE, found.count - shown.length)} more</button>` : "");
+  }
+  function swatch(kind, color) {
+    const fill = { spending: PesaCharts.COLORS.spending, income: PesaCharts.COLORS.income }[kind] || color;
+    const shapes = {
+      "partly-covered": `<rect x="1" y="1" width="14" height="12" rx="2" fill="${PesaCharts.COLORS.spendingTint}" stroke="${PesaCharts.COLORS.spending}" stroke-dasharray="3 2"/>`,
+      "no-spending": `<rect x="1" y="10" width="14" height="3" rx="1" fill="${PesaCharts.COLORS.axisText}"/>`,
+      "no-history": `<defs><pattern id="sw-hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="${PesaCharts.COLORS.hatch}" stroke-width="2"/></pattern></defs><rect x="1" y="1" width="14" height="12" fill="url(#sw-hatch)" stroke="${PesaCharts.COLORS.hatch}"/>`
+    };
+    return `<svg class="chart-swatch" width="16" height="14" aria-hidden="true" focusable="false">${shapes[kind] || `<rect x="1" y="1" width="14" height="12" rx="2" fill="${fill}"/>`}</svg>`;
+  }
+  const KEY_TEXT = { spending: "Spending", "partly-covered": "Partly covered: your records start inside", "no-spending": "No spending recorded", "no-history": "No records yet" };
+
+  function renderCharts(periodId, today) {
+    const trend = PesaInsights.spendingTrend(state, periodId, today);
+    const flow = PesaInsights.incomeExpenseMonths(state, periodId, today);
+    const cats = PesaInsights.categorySegments(state, periodId, today);
+    setChartData("trend", trend.buckets, { ...trend, today }, periodId, trend.buckets.length - 1);
+    setChartData("flow", flow.months, { ...flow, today }, periodId, flow.months.length - 1);
+    setChartData("cats", cats.segments, { ...cats, today }, periodId, 0);
+  }
+  function setChartData(key, items, meta, period, defaultIndex) {
+    const c = chartState[key];
+    if (c.period !== period || c.sel >= items.length || c.sel < 0) { c.sel = Math.max(0, defaultIndex); c.shown = CHART_PAGE; }
+    c.items = items; c.meta = meta; c.period = period; c.hover = null;
+    renderChartCard(key);
+  }
+
+  function renderChartCard(key) {
+    const c = chartState[key], m = c.meta;
+    const hasData = key === "cats" ? m.total > 0 : m.hasHistory;
+    const emptyText = !m.hasHistory && key !== "cats"
+      ? "No recorded history in this period yet, so there's nothing to chart."
+      : key === "cats" ? (m.range.coverage.empty ? "No recorded history in this period yet, so there's nothing to chart." : "No spending recorded in this period.") : "";
+    chartEl(key, "empty").textContent = hasData ? "" : emptyText;
+    chartEl(key, "empty").classList.toggle("hidden", hasData);
+    chartEl(key, "body").classList.toggle("hidden", !hasData);
+    chartEl(key, "summary").classList.toggle("hidden", !hasData);
+    if (!hasData) { chartEl(key, "area").innerHTML = ""; return; }
+    const unit = key === "trend" ? m.unit : "month";
+    // Summary sentence (also the chart's accessible description).
+    let summary = "";
+    if (key === "trend") {
+      const top = c.items.reduce((best, b) => (b.expenses > (best ? best.expenses : 0) ? b : best), null);
+      summary = m.total > 0
+        ? `${money(m.total)} spent, shown by ${UNIT_WORD[unit]}${c.items.length === 1 ? "" : ` across ${plural(c.items.length, UNIT_WORD[unit], UNIT_WORD[unit] + "s")}`}. Highest: ${datesText(top)}, ${money(top.expenses)}.`
+        : "No spending recorded in this period.";
+    } else if (key === "flow") {
+      summary = `${money(m.income)} came in and ${money(m.expenses)} was spent across ${plural(c.items.length, "month", "months")}${c.items.some(x => x.clipped) ? "; partial months are marked" : ""}.`;
+    } else {
+      const top = c.items[0];
+      summary = `${top.name} is the largest: ${shareText(top.share)} of ${money(m.total)} spent.` +
+        (m.grouped ? ` The ${c.items.at(-1).members.length} smallest categories are grouped as ${c.items.at(-1).name}.` : "");
+    }
+    chartEl(key, "summary").textContent = summary;
+    chartEl(key, "help").textContent = key === "cats"
+      ? "Use the left and right arrow keys, Home and End to choose a category, or use the category buttons."
+      : `Use the left and right arrow keys, Home and End to choose a ${UNIT_WORD[unit]}.`;
+    // Key (legend): only what is on the chart.
+    const states = [...new Set(c.items.map(b => b.state))];
+    let keyItems = [];
+    if (key === "trend") keyItems = ["spending", "partly-covered", "no-spending", "no-history"].filter(s => s === "spending" || states.includes(s)).map(s => [s, KEY_TEXT[s]]);
+    if (key === "flow") keyItems = [["income", "Income"], ["spending", "Expenses"]].concat(["partly-covered", "no-history"].filter(s => states.includes(s)).map(s => [s, KEY_TEXT[s]]));
+    chartEl(key, "key").innerHTML = keyItems.map(([k, text]) => `<li>${swatch(k)}<span>${escapeHTML(text)}</span></li>`).join("");
+    chartEl(key, "key").classList.toggle("hidden", !keyItems.length);
+    if (key === "cats") renderCategoryLegend();
+    renderChartTable(key);
+    renderChartDetail(key);
+    drawChart(key, true);
+  }
+
+  function renderCategoryLegend() {
+    const c = chartState.cats;
+    document.getElementById("chart-cats-legend").innerHTML = c.items.map((s, i) =>
+      `<button class="chart-legend-item" type="button" data-chart-pick="cats:${i}" aria-pressed="${i === c.sel}">` +
+      `${swatch("category", PesaCharts.COLORS.categories[i % PesaCharts.COLORS.categories.length])}` +
+      `<span class="chart-legend-name">${escapeHTML(s.name)}</span><span class="chart-legend-value">${escapeHTML(money(s.amount))} · ${shareText(s.share)}</span></button>`).join("");
+  }
+
+  function renderChartTable(key) {
+    const c = chartState[key], m = c.meta;
+    const unit = key === "trend" ? m.unit : "month";
+    let head, rows, caption;
+    if (key === "trend") {
+      caption = `Spending by ${UNIT_WORD[unit]}`;
+      head = [unit === "day" ? "Day" : unit === "week" ? "Week" : "Month", "Spending"];
+      rows = c.items.map(b => [b.label, bucketNotes(b, unit), [money(b.expenses)]]);
+    } else if (key === "flow") {
+      caption = "Income and expenses by month";
+      head = ["Month", "Income", "Expenses", "Difference"];
+      rows = c.items.map(b => [b.label, bucketNotes(b, "month"), [money(b.income), money(b.expenses), `${b.difference > 0 ? "+" : ""}${money(b.difference)}`]]);
+    } else {
+      caption = "Spending by category";
+      head = ["Category", "Spending", "Share", "Entries"];
+      rows = [];
+      for (const s of c.items) {
+        rows.push([s.name, [], [money(s.amount), shareText(s.share), String(s.count)]]);
+        if (s.group) for (const mem of s.members) rows.push([`– ${mem.name}`, ["in " + s.name], [money(mem.amount), shareText(mem.share), String(mem.count)]]);
+      }
+    }
+    chartEl(key, "table").innerHTML =
+      `<table class="history-table chart-data-table" role="table"><caption class="sr-only">${escapeHTML(caption)}</caption>` +
+      `<thead role="rowgroup"><tr role="row">${head.map(h => `<th scope="col" role="columnheader">${escapeHTML(h)}</th>`).join("")}</tr></thead><tbody role="rowgroup">` +
+      rows.map(([label, notes, vals]) => `<tr role="row"><th scope="row" role="rowheader">${escapeHTML(label)}${notes.length ? `<small>(${escapeHTML(notes.join("; "))})</small>` : ""}</th>` +
+        vals.map((v, i) => `<td role="cell" data-label="${escapeHTML(head[i + 1])}">${escapeHTML(v)}</td>`).join("") + `</tr>`).join("") +
+      `</tbody></table>`;
+  }
+
+  function renderChartDetail(key) {
+    const c = chartState[key], m = c.meta;
+    const item = c.items[c.sel];
+    if (!item) { chartEl(key, "detail").innerHTML = ""; return; }
+    let html = "";
+    if (key === "trend") {
+      const found = PesaInsights.entriesFor(state, { start: item.start, end: item.end, types: ["expense"] }, m.today);
+      const sentence = bucketSentence(item, m.unit, m.range);
+      html = `<h4>${escapeHTML(datesText(item))}${item.soFar ? " (so far)" : ""}</h4>` +
+        `<p class="chart-detail-figure">${escapeHTML(money(item.expenses))} <small>spent</small></p>` +
+        (sentence ? `<p class="chart-detail-note">${escapeHTML(sentence)}</p>` : "") +
+        entryListMarkup(key, found, "expense");
+    } else if (key === "flow") {
+      const sentence = bucketSentence(item, "month", m.range);
+      const diff = item.difference;
+      html = `<h4>${escapeHTML(datesText(item))}${item.clipped ? (item.soFar ? " (partial month, so far)" : " (partial month)") : ""}</h4>` +
+        `<dl class="chart-detail-pairs"><div><dt>${swatch("income")} Income</dt><dd>${escapeHTML(money(item.income))}</dd></div>` +
+        `<div><dt>${swatch("spending")} Expenses</dt><dd>${escapeHTML(money(item.expenses))}</dd></div>` +
+        `<div><dt>Difference</dt><dd>${diff > 0 ? `${escapeHTML(money(diff))} more came in than was spent` : diff < 0 ? `spending was ${escapeHTML(money(-diff))} more than income` : "the same"}</dd></div></dl>` +
+        (sentence ? `<p class="chart-detail-note">${escapeHTML(sentence)}</p>` : "") +
+        `<p class="chart-detail-note">Savings transfers and withdrawals aren't income or spending, so they're not included.</p>`;
+    } else {
+      const found = PesaInsights.entriesFor(state, { start: m.range.start, end: m.range.end, categoryKeys: item.members.map(x => x.key) }, m.today);
+      html = `<h4>${escapeHTML(item.name)}</h4>` +
+        `<p class="chart-detail-figure">${escapeHTML(money(item.amount))} <small>${shareText(item.share)} of spending in this period</small></p>` +
+        (item.group ? `<p class="chart-detail-note">Includes ${plural(item.members.length, "category", "categories")}:</p><ul class="chart-members">${item.members.map(x => `<li><strong>${escapeHTML(x.name)}</strong> ${escapeHTML(money(x.amount))} · ${shareText(x.share)} · ${plural(x.count, "entry", "entries")}</li>`).join("")}</ul>` : "") +
+        entryListMarkup(key, found, "expense");
+    }
+    chartEl(key, "detail").innerHTML = html;
+    chartEl(key, "prev").disabled = c.sel <= 0;
+    chartEl(key, "next").disabled = c.sel >= c.items.length - 1;
+  }
+
+  /** Draws the SVG at the chart area's real width (redrawn on resize). Never at zero width. */
+  function drawChart(key, force) {
+    const c = chartState[key], m = c.meta;
+    const area = chartEl(key, "area");
+    if (!m || !c.items.length || chartEl(key, "body").classList.contains("hidden")) return;
+    const width = Math.floor(area.clientWidth);
+    if (!width) return; // Insights isn't visible yet; the resize observer draws it when it is.
+    if (!force && width === c.width) return;
+    c.width = width;
+    const err = chartEl(key, "error");
+    try {
+      let r;
+      if (key === "trend") {
+        r = PesaCharts.trendChart({ id: "chart-trend", width, code: state.currency, selected: c.sel, hover: c.hover,
+          bars: c.items.map((b, i) => ({ value: b.expenses, state: b.state,
+            tick: m.unit === "month" && b.clipped ? withoutYear(b.label) : b.tick,
+            subTick: m.unit === "month" && (i === 0 || b.start.slice(5, 7) === "01") ? b.year : "",
+            title: `${b.label}: ${money(b.expenses)} spent${bucketNotes(b, m.unit).length ? ` (${bucketNotes(b, m.unit).join("; ")})` : ""}` })) });
+      } else if (key === "flow") {
+        r = PesaCharts.pairedChart({ id: "chart-flow", width, code: state.currency, selected: c.sel, hover: c.hover,
+          months: c.items.map((b, i) => ({ income: b.income, expenses: b.expenses, state: b.state,
+            tick: b.clipped ? withoutYear(b.label) : b.tick, subTick: i === 0 || b.start.slice(5, 7) === "01" ? b.year : "",
+            title: `${b.label}: income ${money(b.income)}, expenses ${money(b.expenses)}${bucketNotes(b, "month").length ? ` (${bucketNotes(b, "month").join("; ")})` : ""}` })) });
+      } else {
+        r = PesaCharts.donutChart({ id: "chart-cats", size: Math.min(width, 260), selected: c.sel,
+          segments: c.items.map(s => ({ value: s.amount, title: `${s.name}: ${money(s.amount)} (${shareText(s.share)})` })),
+          centre: { value: money(m.total), label: "spent" } });
+      }
+      area.innerHTML = r.svg;
+      c.hit = r.hit || null;
+      err.classList.add("hidden");
+      area.classList.remove("hidden");
+    } catch (e) {
+      // Never a blank card: say so, and keep the table (built separately) available.
+      area.innerHTML = "";
+      area.classList.add("hidden");
+      err.textContent = "This chart couldn't be drawn. The same figures are in the table below.";
+      err.classList.remove("hidden");
+      const details = chartEl(key, "table").closest("details");
+      if (details) details.open = true;
+      console.warn("PesaOtas: chart not drawn", key, e && e.message);
+    }
+  }
+
+  function selectChart(key, index, announce) {
+    const c = chartState[key];
+    if (!c.items.length) return;
+    const i = Math.max(0, Math.min(c.items.length - 1, index));
+    if (i === c.sel && !announce) return;
+    c.sel = i; c.shown = CHART_PAGE;
+    renderChartDetail(key);
+    if (key === "cats") renderCategoryLegend();
+    drawChart(key, true);
+    if (announce) {
+      const it = c.items[i];
+      document.getElementById("chart-announcer").textContent = key === "trend"
+        ? `${datesText(it)}${it.soFar ? " so far" : ""}: ${money(it.expenses)} spent.`
+        : key === "flow" ? `${datesText(it)}: income ${money(it.income)}, expenses ${money(it.expenses)}.`
+        : `${it.name}: ${money(it.amount)}, ${shareText(it.share)}.`;
+    }
+  }
+
+  ["trend", "flow", "cats"].forEach(key => {
+    const area = chartEl(key, "area");
+    area.addEventListener("keydown", e => {
+      const c = chartState[key];
+      const moves = { ArrowLeft: c.sel - 1, ArrowDown: c.sel - 1, ArrowRight: c.sel + 1, ArrowUp: c.sel + 1, Home: 0, End: c.items.length - 1 };
+      if (!(e.key in moves)) return;
+      e.preventDefault();
+      selectChart(key, moves[e.key], true);
+    });
+    area.addEventListener("click", e => {
+      const c = chartState[key];
+      let i = -1;
+      if (key === "cats") { const g = e.target.closest("[data-index]"); i = g ? Number(g.dataset.index) : -1; }
+      else { const svg = area.querySelector("svg"); if (svg) i = PesaCharts.indexAt(c.hit, e.clientX - svg.getBoundingClientRect().left); }
+      if (i >= 0) selectChart(key, i, true);
+    });
+    if (key !== "cats") {
+      area.addEventListener("pointermove", e => {
+        if (e.pointerType !== "mouse") return;
+        const c = chartState[key], svg = area.querySelector("svg");
+        if (!svg) return;
+        const i = PesaCharts.indexAt(c.hit, e.clientX - svg.getBoundingClientRect().left);
+        const h = i >= 0 ? i : null;
+        if (h !== c.hover) { c.hover = h; drawChart(key, true); }
+      });
+      area.addEventListener("pointerleave", () => { const c = chartState[key]; if (c.hover !== null) { c.hover = null; drawChart(key, true); } });
+    }
+    if (typeof ResizeObserver === "function") new ResizeObserver(() => drawChart(key, false)).observe(area);
+  });
+  document.getElementById("insight-charts").addEventListener("click", e => {
+    const step = e.target.closest("[data-chart-step]");
+    if (step) { const [key, d] = step.dataset.chartStep.split(":"); selectChart(key, chartState[key].sel + Number(d), true); return; }
+    const pick = e.target.closest("[data-chart-pick]");
+    if (pick) { const [key, i] = pick.dataset.chartPick.split(":"); selectChart(key, Number(i), true); return; }
+    const more = e.target.closest("[data-chart-more]");
+    if (more) {
+      const key = more.dataset.chartMore;
+      chartState[key].shown += CHART_PAGE;
+      renderChartDetail(key);
+      const next = chartEl(key, "detail").querySelectorAll(".chart-entries .activity-row")[chartState[key].shown - CHART_PAGE];
+      if (next) { next.setAttribute("tabindex", "-1"); next.focus({ preventScroll: false }); }
+    }
+  });
 
   // Closed pay cycles, worked out live from transactions and the stored dates/allocations.
   function renderCycleHistory() {
