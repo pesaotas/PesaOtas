@@ -48,7 +48,7 @@ describe("schema v2", () => {
   it("a blank state has no categories or transactions, no payday, and both default savings destinations", () => {
     const s = D.createBlankState();
     assert.equal(s.app, "PesaOtas");
-    assert.equal(s.version, 2);
+    assert.equal(s.version, 3);
     assert.equal(s.currency, "KES");
     assert.deepEqual([s.openingBalance, s.payday, s.categories.length, s.transactions.length], [0, "", 0, 0]);
     assert.deepEqual(s.savingsDestinations.map(d => [d.id, d.name, d.openingBalance, d.builtIn]),
@@ -134,7 +134,7 @@ describe("restore checks: unusable files are refused", () => {
   it("empty file", () => refused("   ", "empty"));
   it("not JSON", () => refused("{ this is not json", "couldn't be read"));
   it("JSON that isn't budget data", () => { refused("[1,2,3]"); refused('"hello"'); refused("null"); refused("{}", "recognised"); });
-  it("a newer, unknown version", () => refused(backup({ ...v2(), version: 3 }), "newer version"));
+  it("a newer, unknown version", () => refused(backup({ ...v2(), version: 4 }), "newer version"));
   it("missing categories or transactions", () => {
     const a = legacyState(); delete a.categories; refused(backup(a), "categories");
     const b = legacyState(); b.transactions = "oops"; refused(backup(b), "transaction list");
@@ -260,9 +260,10 @@ describe("restore checks: preview summary and round trip", () => {
   it("summarises what the backup contains", () => {
     const r = D.analyzeBackup(backup(legacyState()));
     assert.deepEqual(r.summary, {
-      openingBalance: 20000, payday: "2026-12-01", cycleStart: "", closedCycles: 0, categoryCount: 5, transactionCount: 4,
+      currency: "KES", openingBalance: 20000, payday: "2026-12-01", cycleStart: "", closedCycles: 0, categoryCount: 5, transactionCount: 4,
       incomeCount: 1, expenseCount: 3, savingsCount: 0, incomeTotal: 3000, expenseTotal: 2400, cash: 20600,
-      totalSavings: 0, firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"]
+      totalSavings: 0, firstDate: "2026-11-03", lastDate: "2026-11-05", destinations: ["KCB M-PESA", "M-Shwari"],
+      alertReviewCount: 0 // v1.6 Phase 4 (D-20): valid alert review records, shown in the restore preview
     });
   });
 
@@ -271,7 +272,7 @@ describe("restore checks: preview summary and round trip", () => {
     original.savingsDestinations[0].openingBalance = 2500;
     const r = D.analyzeBackup(D.serializeBackup(original));
     assert.ok(D.isClean(r));
-    assert.equal(r.format, "pesaotas-v2");
+    assert.equal(r.format, "pesaotas-v3");
     assert.deepEqual(r.state, original);
     assert.deepEqual(computeTotals(r.state), computeTotals(original));
   });
@@ -324,7 +325,7 @@ describe("Phase 2: savings entries in the data model", () => {
     s.transactions.push({ id: "s3", type: "savings_withdrawal", amount: 5000, destinationId: "kcb-mpesa", date: "2026-11-05", note: "", createdAt: 7 });
     const r = D.normalizeState(s);
     assert.ok(D.isClean(r));
-    assert.ok(has(r.warnings, "KCB M-PESA would show −KSh 4,500"), r.warnings.join(" | "));
+    assert.ok(has(r.warnings, "KCB M-PESA would show −KSh\u00A04,500"), r.warnings.join(" | "));
   });
 
   it("an exact duplicate savings transfer is removed so it isn't counted twice", () => {

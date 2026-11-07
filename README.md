@@ -4,14 +4,22 @@ A free, local-first personal budgeting assistant for everyday budgeting in
 Kenya. It answers one question: **how much can I safely spend right now
 without compromising my other commitments?**
 
-> **Status — v1.5.0 (Phase 5 complete, awaiting review).** Saved data and
-> restores are protected (Phase 1); safe-to-spend and savings with KCB M-PESA
-> and M-Shwari work (Phase 2); budgets follow your pay cycle (Phase 3);
-> PesaOtas branding, blank onboarding, editing and a category manager are in
-> place (Phase 4); PesaOtas installs as an app, works offline, updates safely,
-> asks the browser to protect its data, lets you manage safety copies, and is
-> ready for GitHub Pages (Phase 5).
-> Known issues: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+> **PesaOtas v1.6.0.** New in this version: a choice of eight currencies
+> (never converted); **Insights**, with key figures, charts and history for the
+> last 30 days, the last 6 months or all time; **Expense Detective**, which
+> points out unusual bills, unusually large expenses, small purchases that add
+> up, uncategorised spending and spending ahead of pace; and the PesaOtas logo
+> with a refined interface. Your v1.5.0 data is upgraded automatically, after
+> an exact copy is kept (see [Upgrading to v1.6](#upgrading-to-v16)).
+>
+> Already in v1.5.0: protected saving and restores, safe to spend, savings with
+> KCB M-PESA and M-Shwari, pay cycles, editing, a category manager, and an app
+> that installs, works offline and updates safely.
+>
+> Changes: [CHANGELOG.md](CHANGELOG.md). Known issues:
+> [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). The previous stable version is
+> v1.5.0 (tag `v1.5.0-baseline`); [docs/ROLLBACK.md](docs/ROLLBACK.md) explains
+> how to go back to it.
 
 ## Getting started
 
@@ -25,6 +33,34 @@ checklist on the Overview walks you through three steps:
    one an allocation.
 3. **Record your first entry**: your salary, a purchase, or money you save.
 
+## Currency
+
+PesaOtas keeps each budget in one currency: Kenyan Shilling (KES, the
+default), Ugandan Shilling (UGX), Tanzanian Shilling (TZS), Nigerian Naira
+(NGN), South African Rand (ZAR), US Dollar (USD), British Pound (GBP) or Euro
+(EUR). Choose it during setup, or later in **Settings → Currency**. Amounts are
+whole units (no cents).
+
+**PesaOtas never converts between currencies.** Changing the currency only
+changes the label next to the same numbers. Once you've recorded amounts,
+PesaOtas shows the current and new currency with your own figures, asks you to
+confirm, and first saves a copy of your data in **Data safety → Before
+currency change**. To undo, change the currency back (nothing is lost) or
+restore that copy. Backups include the currency.
+
+## Upgrading to v1.6
+
+The first time you open v1.6, your data is moved to a new storage format.
+PesaOtas first saves an exact copy of your v1.5.0 data (Settings → Data
+safety), and nothing is converted or removed. PesaOtas v1.5.0 can't open the
+new format, which stops it misreading your budget. If you ever need to go back,
+download a **v1.5.0-compatible backup** first (Settings → Backup your data),
+then follow [docs/ROLLBACK.md](docs/ROLLBACK.md).
+
+If you have PesaOtas open in two tabs, a tab whose data was changed in the
+other one says so and stops saving until you reload it, so it can never
+overwrite newer data.
+
 ## Managing your entries and categories
 
 - **Edit any entry** with the ✎ button in Transactions. The same checks apply
@@ -36,6 +72,62 @@ checklist on the Overview walks you through three steps:
   can only be deleted once you choose where those transactions go — nothing is
   deleted.
 - **Unsaved budget changes** stay on screen until you save or discard them.
+
+## Insights
+
+**Insights** shows where your money went, for the **last 30 days**, the **last 6
+months** or **all time** (your choice is remembered on this device):
+
+- **Total expenses**, **average daily spending**, your **largest spending
+  category**, **income vs expenses**, **net cash movement** (how much your
+  spending cash went up or down) and **potential spending leaks** (small
+  purchases and uncategorised spending worth a look).
+- Average daily spending is per calendar day, counted from the start of the
+  period or your first record, whichever is later. Days without entries count as
+  days with no spending, so the average is only as complete as your records.
+- Each figure is compared with the previous period of the same length, but only
+  when your records cover all of it. Otherwise it tells you when a comparison
+  will be possible. It never guesses.
+- Money moved to savings is not spending, and money taken out of savings is not
+  income.
+- Spending by category, a week-by-week or month-by-month history, and patterns
+  such as unusually expensive months once you have three complete months of
+  records.
+- **Charts**: your spending over time (by day, week or month), income vs
+  expenses by month, and spending by category. Choose a bar or a category (tap,
+  click, or the arrow keys) to see its details and the entries behind it. Each
+  chart has **Show as table** with the same figures. Partial weeks and months
+  are labelled, and dates before your first record are shown as "no records
+  yet", not as zero.
+
+Insights only reads your records. It never changes them and nothing leaves your
+device.
+
+## Expense Detective
+
+In **Insights**, Expense Detective points out things worth a look in **this pay
+cycle** (or this month, if you haven't set a pay cycle), using simple rules it
+explains every time:
+
+- **Unusual bills**: a bill more than 25% above your usual amount for the same
+  bill (same category and description) and higher by at least your currency's
+  small-purchase amount (KSh 500 in shillings), once there are at least 3
+  earlier bills in 3 different months to compare with.
+- **Unusually large expenses**: an expense at least 3 times your usual amount in
+  that category (and higher by at least the small-purchase amount), once there
+  are at least 5 earlier expenses in the 180 days before to compare with.
+- **Small purchases**: how small purchases add up. It asks for a review only
+  when there are at least 10 making up at least 10% of your spending.
+- **Uncategorised spending**: entries without a category, with an **Edit**
+  button to choose one yourself.
+- **Spending pace**: whether you've used more of an allocation than the share of
+  the pay cycle that has passed.
+
+Mark an alert as **reviewed** or **dismiss** it; it comes back only if the
+entries behind it change (for example, an amount is edited), never just because
+time passes. Expense Detective never changes your transactions or categories,
+and nothing leaves your device. "What Expense Detective checked" shows what
+needed more history.
 
 ## Install it, use it offline, and updates
 
@@ -186,11 +278,15 @@ index.html          App markup
 styles.css          Styles (mobile breakpoints at 1100, 800 and 390px)
 app.js              UI: rendering, forms, restore preview, recovery screens
 src/version.js      The app version (shown in the app; used by releases)
+src/currency.js     Supported currencies and amount formatting (D-17)
 src/validation.js   Amounts, dates and IDs (pure, tested)
 src/finance.js      Calculations: balances, safe-to-spend, savings, KSh format (pure, tested)
-src/data-model.js   Schema v2, PesaFlow conversion, data/backup checks (pure, tested)
+src/data-model.js   Data formats v2 and v3, PesaFlow conversion, data/backup checks (pure, tested)
 src/storage.js      Loading, migration, verified saving, safety copies (tested)
 src/entries.js      Rules for adding/editing entries and managing categories (pure, tested)
+src/insights.js     Insights: periods, totals, comparisons, patterns, chart data (pure, read-only, tested)
+src/charts.js       Insights charts: SVG drawing only, no calculations (pure, tested)
+src/detective.js    Expense Detective rules and review records (pure, read-only, tested)
 sw.js               Service worker: offline copy and safe updates (D-14)
 manifest.json       Install metadata
 icons/              App icons (PNG; sources and how to regenerate in icons/src)
@@ -201,6 +297,7 @@ docs/DECISIONS.md   Approved product and architecture decisions
 docs/KNOWN_ISSUES.md Known defects and the phase that fixes each
 docs/ROADMAP.md     Phase plan
 docs/DEPLOYMENT.md  Publishing on GitHub Pages, updates, rollback
+docs/ROLLBACK.md    Going back to v1.5.0 safely (no history rewritten)
 docs/ACCESSIBILITY.md What was tested, limits, manual checklist
 CHANGELOG.md        Every meaningful change
 ```
@@ -210,7 +307,9 @@ CHANGELOG.md        Every meaningful change
 - All reading and writing of saved data goes through `src/storage.js`, which
   enforces the safety rules in DECISIONS D-09. Never write to browser storage
   directly, and never write to the PesaFlow key.
-- Whole Kenyan shillings only; display as **KSh**.
+- Whole units only, in the budget's own currency. Format amounts with
+  `PesaCurrency.format` (or the app's `money()`); never write a currency
+  symbol into the code.
 - Plain `<script>` tags only — no build step, frameworks or paid services.
 - When a file is added to the app, add it to `tools/release-files.js`. After
   any change to the app, bump the version and run `npm run release`.

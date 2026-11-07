@@ -198,8 +198,9 @@ describe("device notes and space used", () => {
     const store = migratedStore();
     store.setItem("someone-else", "x".repeat(10000));
     const usage = S.storageUsage(store);
-    const expected = [KEYS.current, KEYS.legacy, KEYS.preserved].reduce((n, k) => n + k.length + store.getItem(k).length, 0);
+    const keys = [KEYS.current, KEYS.v15, KEYS.legacy, KEYS.preserved]; // v15 holds the "moved" marker (v1.6)
+    const expected = keys.reduce((n, k) => n + k.length + store.getItem(k).length, 0);
     assert.equal(usage.total, expected);
-    assert.deepEqual(Object.keys(usage.byKey).sort(), [KEYS.current, KEYS.legacy, KEYS.preserved].sort());
+    assert.deepEqual(Object.keys(usage.byKey).sort(), keys.sort());
   });
 });

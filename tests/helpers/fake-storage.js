@@ -9,6 +9,7 @@ class FakeStorage {
     this.map = new Map(Object.entries(initial));
     this.failWrites = new Set();      // keys whose setItem throws QuotaExceededError
     this.corruptWrites = new Set();   // keys whose setItem stores truncated text
+    this.failRemoves = new Set();     // keys whose removeItem throws
     this.blocked = false;             // every call throws (e.g. storage disabled)
     this.writes = [];                 // log of [key, value] for every successful write
   }
@@ -21,7 +22,7 @@ class FakeStorage {
     this.map.set(k, value);
     this.writes.push([k, value]);
   }
-  removeItem(k) { this._check(); this.map.delete(k); }
+  removeItem(k) { this._check(); if (this.failRemoves.has(k)) throw new Error("remove failed"); this.map.delete(k); }
   snapshot() { return Object.fromEntries(this.map); }
 }
 

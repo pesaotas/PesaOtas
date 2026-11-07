@@ -133,7 +133,11 @@ Browser storage keys:
 | Key | Holds | Written by PesaOtas? |
 |---|---|---|
 | `pesaflow.personal.v1` | Original PesaFlow data | **Never** written; deleted only when the user chooses to (D-15) |
-| `pesaotas.data.v2` | Live PesaOtas data (schema v2) | Yes, verified on every save |
+| `pesaotas.data.v3` | Live PesaOtas data (format v3, v1.6 and later, D-16) | Yes, verified on every save; refused if another tab changed it |
+| `pesaotas.data.v2` | v1.1–v1.5 data (format v2). After the upgrade: a small "moved" marker that v1.5.0 refuses to open (D-16) | Marker only; data an older version writes here is never overwritten without the user choosing |
+| `pesaotas.preserved.v1-5` | Exact copies of v1.5.0-format data, made before the upgrade (D-16) | Added to only; identical copies not repeated |
+| `pesaotas.preserved.older-version` | The data not chosen when two versions were found (D-16) | Added to only |
+| `pesaotas.pre-currency` | Data as it was before each currency change (D-17) | Added to only; never replaces another copy |
 | `pesaotas.preserved.pesaflow-v1` | Copies of the original PesaFlow text, made before migrating | Added to only; identical copies not repeated |
 | `pesaotas.quarantine` | Damaged data set aside, with date and reason | Added to only; identical copies not repeated |
 | `pesaotas.pre-restore` | Data as it was before the last restore, recovery or reset | Replaced each time |
@@ -377,6 +381,429 @@ Fixes KI-19.
     `tests/safety-copies.test.js`).
 - Deleting the original PesaFlow data is allowed under these rules (D-09 rule 1
   as amended). PesaOtas never migrates or re-creates it afterwards.
+
+## D-16 Storage format v3 and the compatibility safeguard — approved 2026-11-06 (v1.6 Phase 0), implemented v1.6.0 Phase 1
+
+v1.5.0 ignores fields it doesn't know and always assumes KES, so it would show
+a non-KES budget as KSh and quietly drop v1.6 fields on its next save. To stop
+that, v1.6 uses a new storage format (v3) that v1.5.0 refuses.
+
+- **Format v3** adds `currency` (D-17), `meta.currencyHistory` and
+  `meta.upgradedFrom`. Format v2 (v1.1–v1.5 data and backups) and PesaFlow v1
+  are still read and converted. Newer formats are refused.
+- **Done in v1.6 Phase 4 (D-20)**, as required below: `meta.alertReviews` is part of
+  format v3, the v1.5.0-compatible backup lists it as left out, and every path
+  listed in point 3 is tested. *Original text:* **Deferred to Phase 4: `meta.alertReviews`** (the reviewed/dismissed marks
+  for Expense Detective alerts, approved in Phase 0 decision 6). It is **not**
+  part of the format yet: Phase 1 doesn't read, validate or keep it, and today
+  any `meta` field the format doesn't know is dropped when data is checked. No
+  data contains it yet, so nothing can be lost now. Before any code writes alert
+  marks, Phase 4 must:
+  1. add `meta.alertReviews` to the v3 rules in `src/data-model.js`, keeping
+     every valid entry and reporting (never silently dropping) any unreadable
+     one;
+  2. add it to the v1.5.0-compatible backup's `omitted` list ("alert review
+     marks"), because v1.5.0 can't hold it;
+  3. prove with automated tests that the marks survive, unchanged: saving and
+     reloading; backup and restore; restoring any safety copy; a currency
+     change and its "Before currency change" copy; the stale-tab check; both
+     choices of the "two versions" decision (keeping the v1.6 data keeps its
+     marks; choosing older-version data starts with none, and the v1.6 data
+     with its marks is kept in Data safety); and the v2 → v3 upgrade (v2 data
+     has no marks, so it starts with none).
+  Phase 4 alerts must not be introduced until these pass. Because v1.6.0 is
+  released only after Phase 6, no published v3 data will lack this support; the
+  field is an addition within format v3, so no new format version is needed.
+- **New key.** v3 data lives under `pesaotas.data.v3`; the old key
+  `pesaotas.data.v2` keeps a "moved" marker (version 3). *Changed during Phase 1
+  from the Phase 0 plan, which kept the data under the old key:* testing showed
+  that a v1.5.0 tab left open would otherwise overwrite v1.6 data with its own
+  older copy, and v1.5.0's code can't be changed to prevent that. With a separate
+  key, an older tab can only write under the old key; v1.6 detects it and never
+  lets it replace v1.6 data.
+- **The upgrade** (first v1.6 launch): check the v2 data → copy it exactly to
+  `pesaotas.preserved.v1-5` and read it back → write v3 and verify it → write
+  the marker. A failure at any step is reported exactly (`upgrade-failed` with
+  the stage: copy, write or marker), loses nothing, shows the data read-only
+  with **Try again** and **Download your data**, and completes at a later launch
+  (an interrupted write is set aside in quarantine, never deleted; a damaged copy
+  list is set aside rather than overwritten). Reopening never repeats it.
+- **Two versions.** If v3 data exists and an older version has since saved
+  different data under the old key (an open old tab, or after a rollback), v1.6
+  shows both and the user chooses: keep the v1.6 data, or use the older data
+  (upgraded). The other is kept in full in `pesaotas.preserved.older-version`
+  first. Old-key data that exactly matches a safety copy carries nothing new and
+  is simply replaced by the marker.
+- **Stale tabs.** Every save checks that the stored data is exactly what this
+  tab last read or wrote; if not, nothing is written and the tab stops saving
+  until it is reloaded. Tabs are also told at once when another tab changes the
+  data.
+- **Going back to v1.5.0** uses a *v1.5.0-compatible backup* (format v2, KES only)
+  or the pre-upgrade copy. The backup keeps every financial record and the
+  `meta` fields v1.5.0 understands (`onboarding`, `createdAt`, `migratedFrom`).
+  It leaves out exactly the v1.6-only metadata: `meta.currencyHistory` (the
+  record of currency changes) and `meta.upgradedFrom` (when the budget was
+  upgraded to format v3), and `meta.alertReviews` (alert review records, since
+  Phase 4). `toV15Backup()` reports what it left out, and the app lists it when
+  the file is downloaded. Procedure: [ROLLBACK.md](ROLLBACK.md). The stable release is tag
+  `v1.5.0-baseline` (commit `4d8f130`).
+
+## D-17 Currency — approved 2026-11-06 (v1.6 Phase 0), implemented v1.6.0 Phase 1
+
+- One currency per budget: KES (default), UGX, TZS, NGN, ZAR, USD, GBP, EUR, in
+  `src/currency.js` (adding one is a one-line change). Only the ISO code is
+  stored. Display: grouping via `Intl.NumberFormat("en")`, symbols from the
+  table (browsers disagree on symbols). KES looks exactly as in v1.5.0.
+- **Whole units only** in v1.6 for every currency (no cents). Decimal support
+  would need its own data migration in a later release.
+- **No conversion, ever.** Changing the currency relabels the same numbers.
+  With nothing recorded yet (onboarding), the choice applies at once. Otherwise
+  a dialog shows the current and new currency with the user's own figures,
+  states that no exchange-rate conversion takes place, offers a backup download,
+  and needs a ticked confirmation. A verified copy is saved first in its own
+  list (`pesaotas.pre-currency`), never replacing any other copy; if it can't be
+  saved, nothing changes. The change is recorded in `meta.currencyHistory`. To
+  undo: change back (lossless) or restore that copy.
+- Backups carry the currency; restoring a backup in another currency says so
+  in the preview and brings that currency back.
+- Small-purchase investigation thresholds per currency (used by Insights'
+  potential spending leaks, D-18, and by Expense Detective, Phase 4): KES 500, UGX 15,000, TZS 10,000, NGN 3,000, ZAR 100, USD/GBP/EUR 5.
+  They are prompts to look, never judgements.
+
+## D-18 Insights foundation — approved 2026-11-06 (v1.6 Phase 2), implemented v1.6.0 Phase 2
+
+Insights is read-only analysis of recorded transactions (`src/insights.js`).
+It never changes data, never saves anything to the budget, and sends nothing
+anywhere. Calculations of balances and safe-to-spend (`src/finance.js`) are
+unchanged; Insights only adds up recorded entries.
+
+- **Periods**: Last 30 days (default), Last 6 months, All time. Every period
+  ends today and includes today. Last 30 days = today and the 29 days before;
+  Last 6 months = the day after the same date six months ago, to today; All
+  time = from the first record. Entries dated after today are left out and
+  counted ("1 entry dated after today isn't included").
+- **What counts**: only *expense* entries are spending and only *income*
+  entries are income. A savings transfer is never spending and a withdrawal is
+  never income (D-04). **Net cash movement** = income − expenses − moved to
+  savings + taken from savings, which equals the change in spending cash over
+  the period (tested against `computeTotals`).
+- **Fair comparisons only**: each figure is compared with the previous period of
+  exactly the same length (the previous 30 days; the 6 months before), and only
+  when the records cover **all** of that previous period. Otherwise the card
+  says there is no comparison yet and from which date records would be needed.
+  All time has no comparison. A change under 1% is given as an amount, not
+  "0%"; a change from zero is given as an amount, never as a percentage.
+- **Average daily spending and partial coverage** (wording approved 2026-11-06
+  in the Phase 2 review): Where records begin part-way through a selected
+  period, average daily spending is calculated using the calendar days from the
+  later of the selected period's start date and the first recorded transaction
+  date, through today inclusive. Days without recorded transactions within this
+  coverage are treated as days with no recorded spending. The interface must
+  explain the coverage period and number of days used.
+  - When records cover the whole period, this is the period's full number of
+    calendar days. The number of distinct dates that have entries is never used.
+  - The first recorded transaction of any type (income, expense, savings
+    transfer or withdrawal) starts the covered history; entries dated after
+    today are ignored. With no covered history there is no daily average.
+  - The previous period's average follows the same rule, ending on the previous
+    period's last day. A comparison exists only when records cover that whole
+    previous period, so there it is the previous period's full length.
+  - Implemented once, in `PesaInsights.coveredDaysBetween`, which also gives
+    the covered days of each row of the history table.
+  - **Assumption:** PesaOtas treats the period from the first recorded
+    transaction onward as covered history. It cannot independently determine
+    whether missing entries represent days with no spending or transactions
+    that were never recorded.
+- **KPI cards** (each with a label, the figure, a plain explanation and, where
+  fair, a comparison): total expenses; average daily spending; largest spending
+  category (with its share); income vs expenses (share of income spent, or "no
+  income recorded"); net cash movement; potential spending leaks.
+- **Potential spending leaks** = expenses at or below the currency's
+  small-purchase threshold (D-17: KES 500, UGX 15,000, TZS 10,000, NGN 3,000,
+  ZAR 100, USD/GBP/EUR 5) plus expenses with no current category. An entry that
+  is both is counted once. They are described as "worth a look", never as
+  waste: everyday fares and small essentials are included by design.
+- **Categories**: spending per category with its share; entries whose category
+  no longer exists are grouped as "Other / uncategorised". Category changes are
+  listed only when the comparison is fair.
+- **History table**: weeks (Monday–Sunday) for Last 30 days, calendar months
+  otherwise; weeks or months only partly inside the period, or only partly
+  covered by records, are marked as partial.
+- **Patterns** (Last 6 months and All time only), from **complete** calendar
+  months fully covered by records, and only with at least **3** of them:
+  months above **125%** of the median complete month ("unusually high", with
+  the evidence), categories with spending in **every** complete month (with a
+  monthly average), and up to **3** biggest category increases and decreases
+  when the comparison is fair. With less data the screen says how many complete
+  months are needed and how many there are. Thresholds live in
+  `PesaInsights.SETTINGS`.
+- **Period preference**: the chosen period is a device preference
+  (`pesaotas.device` → `insightsPeriod`), not budget data: it isn't in backups,
+  doesn't mark the budget as changed and is never shared between devices.
+- The previous Insights screen (all-time totals, a transaction count, category
+  spending against plan, and a fixed tip) is replaced. Spending against each
+  category's plan remains on the Budget screen; previous pay cycles remain on
+  Insights.
+
+## D-19 Insights charts — plan approved 2026-11-06 (v1.6 Phase 3), implemented v1.6.0 Phase 3
+
+Three read-only charts in Insights, following the selected period (D-18). Data
+is prepared in `src/insights.js` (built on the tested `series` and
+`categoryBreakdown`); `src/charts.js` only turns those figures into SVG; the
+interface (`app.js`) chooses, formats and shows them. No charting library,
+external service or new dependency. Nothing in the charts saves anything.
+
+- **Spending trend**: one bar per day (Last 30 days), Monday–Sunday week (Last
+  6 months) or calendar month (All time). The bars add up to total expenses.
+- **Income vs expenses**: a pair of bars per calendar month, income left and
+  expenses right. Months are cut to the period's dates: Last 30 days shows the
+  two months it overlaps (for example 8–31 Oct and 1–6 Nov), each labelled as a
+  partial month and never presented as a whole month's total; other periods cut
+  only their edge months. Savings transfers and withdrawals are neither (D-04).
+- **Spending by category (donut)**: largest first, ties alphabetical. Five or
+  fewer categories: all shown separately. Exactly six: all six shown
+  separately. More than six: the five largest, then the rest grouped as
+  `Other categories (N)` (N is 2 or more). `Other / uncategorised` is an ordinary
+  category: shown separately when it is among those shown, otherwise one of
+  the grouped categories. Slices are drawn at their true size.
+- **Period clipping and coverage are separate** (owner safeguard). A bar cut
+  short by the period's start or end (`clipped`; `soFar` when it ends today) is
+  labelled with its actual dates and "partial week/month". Coverage (D-18) is a
+  separate state: *no history* (before the first record; hatched), *partly
+  covered* (records begin inside the bar; lighter fill, dashed outline),
+  *no spending recorded* (covered, nothing spent; a zero marker) and *spending*.
+  A clipped bar is never called partly covered for that reason alone.
+- **Selection and details**: each chart is one keyboard control (arrow keys,
+  Home, End) with Previous/Next buttons (44px) and click or tap selection
+  (nearest bar). The latest day/week/month and the largest category are
+  selected by default; selection resets when the period changes. A details
+  panel replaces hover-only tooltips; mouse hover adds a light highlight and the
+  browser's own tooltip. Selections are announced politely.
+- **Drill-through (read-only)**: a trend bar lists that day's, week's or
+  month's expenses; a category lists its expenses in the period; `Other
+  categories (N)` lists its categories (amount, share, entries) and their
+  expenses. Newest first (the Transactions screen's order), 25 at a time with
+  "Show 25 more", always with the count and total of the whole selection; never
+  entries dated after today. No edit or delete actions; the Transactions screen
+  is unchanged (no new filters).
+- **Tables**: each chart has "Show as table" with the same figures and the same
+  grouping, including partial-period and coverage notes and the categories inside
+  the group.
+- **Drawing**: SVG drawn at the chart area's measured width (no viewBox scaling),
+  so text is never below 12px; redrawn on resize; never drawn while Insights is
+  hidden. Bars at most 24px wide with 4px rounded tops; crowded labels are
+  thinned, not shrunk. If a chart can't be drawn, the card says so and opens
+  its table. Empty, future-only and no-spending periods say what's missing.
+- **Colours** (checked with a colour-blindness validator, light background):
+  spending/expenses `#d76c59` and income `#2a78d6` pass every check;
+  categories use `#2a78d6`, `#eb6834`, `#1baf7a`, `#eda100`, `#e87ba4`,
+  `#008300` in order, which pass for neighbouring slices including the last
+  next to the first. Three of these are below 3:1 contrast against white, so
+  every slice is also named in the legend, with its amount, and in the table.
+  Colour is never the only signal: hatching, zero markers, dashed outlines,
+  fixed positions and text carry the same meaning. Category colours follow the
+  slice's rank in the current chart (six colours can't each belong to one
+  category permanently).
+- **Performance**: with 20,000 fictional entries, preparing every chart for All
+  time takes about 95 ms in Node (measured; no optimisation needed).
+- **Not included** (owner decisions): cross-filtering, configurable
+  dashboards, cross-chart drill-down, Sankey diagrams. Richer desktop
+  analytics is recorded as a future enhancement in the roadmap.
+
+## D-20 Expense Detective — specification approved 2026-11-06 (v1.6 Phase 4), implemented v1.6.0 Phase 4
+
+Deterministic, explainable, local-only rules (`src/detective.js`, pure and
+read-only). No AI or machine learning, no network, no new dependency. Nothing
+is categorised, edited, deleted, reviewed or dismissed automatically.
+*Final-gate clarifications (2026-11-06, no decision changed):* alert-ID
+encoding for unusual IDs, the exact format limits, and the duplicate-record
+note are spelled out below; the pace table says "Too early to judge" or
+"Ahead, small amount so far" instead of "On pace" when those are the facts (an
+alert still needs every condition below).
+
+**Windows** (inclusive; entries dated after today are never used):
+- *S* — this pay cycle to today (cycle start on or before today), otherwise this
+  calendar month to today: small purchases, uncategorised spending, the label.
+- *C* — S start minus 30 days, to today: which entries can raise single-entry
+  alerts.
+- *R1* — for a bill dated *d*: the same series from 12 months before *d* to the
+  day before. *R2* — for an expense dated *d*: the same category, *d*−180 days
+  to *d*−1. *P* — pay cycle start to today (pace needs a pay cycle; with none,
+  the Budget screen counts all-time use, so a month-based pace would contradict
+  it).
+
+**Rules** (thresholds in `PesaDetective.SETTINGS`; currency small-purchase
+amounts from D-17):
+- *Unusual bill (U1)*: Bills-type category; series = category + normalised note
+  (lower case, digits removed, non-letters → spaces, collapsed). **A blank
+  normalised note is never grouped.** Needs ≥ 3 earlier entries (strictly
+  earlier dates) in ≥ 3 different months within R1. Typical = median of the
+  latest ≤ 6. Flagged when amount > 125% of typical (exactly 125% is not) **and**
+  amount − typical ≥ the threshold. With typical KSh 2,000: 2,499 and 2,500 not
+  flagged, 2,501 flagged. Only higher amounts.
+- *Unusually large expense (U2)*: non-Bills, categorised. Needs ≥ 5 earlier
+  expenses in R2. Flagged when amount ≥ 3 × their median **and** amount − median
+  ≥ the threshold.
+- *Repeated bills (U3)*: **deferred** — several entries in a month aren't enough
+  evidence of duplication.
+- *Small purchases*: expenses ≤ the threshold in S (figures from
+  `PesaInsights.leakSummary`, so they match the KPI card), with share,
+  average, top 3 categories, and the previous equal window when fully covered.
+  An **alert** only with ≥ 10 purchases **and** ≥ 10% of spending; otherwise an
+  **observation** (no review buttons, not counted as "to review").
+- *Uncategorised spending*: expenses in S whose category isn't a current one;
+  an alert from one entry. **Edit** opens the existing edit form; the user saves.
+- *Spending pace*: L = cycle length (cycle start to payday), e = days elapsed
+  including today; spending to date from `cycleSummary(start, today+1)`.
+  Eligible: Essential, Flexible, Personal, Event, Other with an allocation > 0
+  (Bills and Savings excluded). *Ahead of pace* (alert) when spending is below
+  the allocation, e ≥ 3, spending ≥ the threshold, and the share used is ≥ 25
+  percentage points above the share of the cycle gone. Spending at or over the
+  allocation is the informational status **Over allocation** (the Overview already
+  warns). No forecasts. Entries dated after today are left out (the Budget
+  screen includes them; the card says so when it matters).
+- A "What Expense Detective checked" panel explains every rule's result,
+  including where evidence was insufficient.
+
+**Review records — `meta.alertReviews`** (format v3, an addition; D-16):
+`{id, rule, status, actedAt, fingerprint, basis?, …}`. Statuses: New (no record),
+`reviewed`, `dismissed`; "Move back to To review" removes the record (the user's
+action). IDs: `unusual-bill:<txId>`, `large-expense:<txId>`,
+`small-purchases:<S start>`, `uncategorised:<S start>`,
+`spending-pace:<cycle start>:<categoryId>`. An entry or category ID made only
+of letters, digits and `: _ . -` (at most 120 characters) is used as it is; any
+other ID (spaces, `&`, `/`, accents — all allowed for entries and categories)
+is written as `_h` + its 64-bit hash, so every alert can be reviewed. Alert IDs
+are never parsed back. `basis`: small purchases
+`{count, total, frame}`, uncategorised `{entryHashes}` (≤ 2,000; above that the
+alert can't be reviewed, with a message), pace `{gapPoints, frame}`.
+- **Forward compatibility:** records are kept exactly — unknown rules, statuses
+  and fields (plain JSON, ≤ 4 levels, ≤ 64 KB per record), in order. A status
+  this version doesn't know shows the alert under To review, unchanged until the
+  user acts. Updating a status keeps every existing field.
+- **Format limits checked** (records outside them are unreadable, not
+  changed): `id` = a rule name, `:`, then 1–200 of `A–Z a–z 0–9 : _ . -`;
+  `rule` = 2–40 of lower-case letters, digits and `-`, starting with a letter;
+  `status` = 2–24 of lower-case letters and `-`; `actedAt` = an ISO date-time
+  (with `T`) of at most 40 characters; `fingerprint` = 8–64 lower-case hex
+  characters; `basis` as above; uncategorised `entryHashes` ≤ 2,000.
+- **Validation:** unreadable records are reported in `reviewIssues`, never in
+  the financial `rejected` list, and make the data "not clean" so they can't be
+  saved away silently. An exact duplicate is removed with a note; a conflicting
+  one is an issue. Removing an exact duplicate loses nothing (the remaining copy
+  is identical); the note is shown in restore and recovery previews, while an
+  ordinary load drops the identical copy without a message. Older formats ignore the field with a visible note.
+- **Separate decision flow (Option A; additive `storage.js` change):** when the
+  only problem is review records, `load()` returns `review-records-invalid` after
+  copying the exact original to `pesaotas.preserved.review-records` and
+  verifying it. The app opens read-only: "Your budget and transactions are
+  fine", each record listed, **Continue without these records** (only with a
+  verified copy; re-checks the copy, then a normal verified, stale-tab-checked
+  save; the copy is never changed or deleted), **Try again** (when the copy
+  failed), **Download the original data**, **Not now**. Financial damage takes
+  priority (the usual recovery, review problems listed separately). Restore
+  previews count readable records and list unreadable ones separately.
+- **Privacy:** records are locally stored metadata. This version writes only IDs,
+  rule and status names, action times, hex hashes and whole numbers — never
+  notes, descriptions or other personal text. Fields from future versions are
+  kept but no guarantee is made about their content. Records travel only in the
+  user's own backups and safety copies; the v1.5.0-compatible backup leaves them
+  out and says so. No pruning.
+
+**Fingerprints and reappearance:** 64-bit FNV-1a over the actual evidence —
+each transaction's ID, amount, date and category reference, plus the rule's
+settings — used **only to notice change; not a security or privacy mechanism**.
+U1: the bill and every series entry in R1, the typical amount, thresholds. U2:
+the expense and every entry in R2, the median, thresholds. Uncategorised: every
+entry (also hashed one by one). Small purchases and pace: every entry counted,
+plus a separate *frame* (window, currency, threshold, allocation, cycle dates).
+A reviewed or dismissed alert reappears ("Changed since you reviewed it on …")
+only on material change: U1/U2 any evidence change; uncategorised a new entry or
+a changed amount, date or category reference of one still uncategorised
+(categorising or deleting doesn't); small purchases a frame change or growth to
+≥ 125% and by ≥ the threshold; pace a frame change or a gap ≥ 25 points larger.
+Time alone never brings an alert back; a new pay cycle or month is a new subject.
+
+**Interface:** Insights only, after the KPI cards, with its own window label
+("…not the period chosen above"); To review / Reviewed / Dismissed; review
+buttons save through the normal save, are disabled with the reason when saving
+is blocked, are announced, and move focus to the next card. No Overview shortcut.
+
+**Performance:** 20,000 fictional entries — about 108 ms for every rule (Node).
+
+## D-21 Logo and interface refinement — v1.6 Phase 5 (implemented, awaiting review)
+
+Presentation only. No calculation, storage format, migration, backup or
+restore behaviour, Expense Detective rule or currency handling changed.
+
+- **Logo: approved recolour, Option 2** (confirmed by the owner 2026-11-06,
+  from the Phase 0 options sheet): the owner's mark, traced from the supplied
+  design with its geometry unchanged, in brand green `#147D62` with a white
+  arrow line on forest `#102C25`. Used for the app icon (`icon.svg`: the
+  approved Option 2 rounded tile, corner radius 112.64 of 512, i.e. 22%),
+  favicon, installable-app icons (maskable: full-bleed square, mark inside the
+  40% safe circle; Apple touch: full-bleed opaque square, since iOS rounds the
+  corners itself), the desktop sidebar (44px) and the phone header (36px). No
+  redesign: only colours, position and size. The decorative "PO" circle, which
+  looked like a profile button but wasn't one, is replaced by the logo on phones.
+  Tests check that every source carries the approved mark unchanged and only
+  the approved colours, and that every PNG is exactly its SVG rendered at that
+  size (when `rsvg-convert` is installed; otherwise that test reports itself
+  skipped).
+- **Dates (KI-37):** formatted deterministically by the app, never by the
+  browser, so every browser shows the same text. Formats differ by context on
+  purpose: "6 Nov 2026" (lists, ranges, previews), "6 November 2026" (restore
+  and recovery summaries), "Friday, 6 November 2026" (payday card, header) and
+  "6 Nov 2026, 10:05" in the device's local time (safety-copy times). Month
+  names come from fixed lists ("Sep", never "Sept"), matching Insights and
+  Expense Detective, which keep their own compact forms ("6 Nov", "Sep 2026").
+- **Long dashes:** not used as joiners in messages; rewritten case by case as a
+  full stop, colon, comma or brackets. Kept where they are the right mark: the
+  page title and installed app name ("PesaOtas — Personal Finance"). En dashes
+  in date ranges ("1 – 6 Nov") are kept. Placeholders are words ("Not set",
+  "Not available"), which screen readers read sensibly.
+- **Consistency:** section headings no longer repeat the page title; the
+  saved-on-device pill shows "Saved" on phones (screen readers hear "Saved on
+  this device" once, at every width); singular and plural wording for
+  over-budget categories; a blank payday card says "Not set" instead of a long
+  dash and no longer repeats itself; spacing fixes (over-budget warning, the
+  safe-to-spend explainer, Settings cards, Expense Detective disclosures,
+  setup checklist alignment).
+- **Transaction history:** unchanged. A "Show 50 more" pagination added during
+  Phase 5 was removed at the owner's review as outside the phase's scope; the
+  list renders exactly as in Phase 4.
+- **KI-39 (category donut colours): investigated, not changed.** Substantiated
+  in a narrow case: colours follow slice rank, so a category can change colour
+  between periods (in the test data "Other / uncategorised" is pink in Last 30
+  days and green in All time). Names, amounts and the table always identify
+  slices. Fixing it would change D-19's approved colour rule, so it is left for
+  the owner's decision. *Proposal:* keep "Other / uncategorised" and the grouped
+  "Other categories" slice in a fixed neutral grey, and give named categories
+  colours by their rank over all time, so a category keeps its colour when the
+  period changes (still at most six colours on screen).
+- **Fixed while auditing:** a 17px sideways scroll on the blank Overview at
+  320px (the currency list in the setup checklist), and the chart legend's
+  hatch pattern ID appearing more than once on the page.
+
+## D-22 v1.6.0 release candidate — approved 2026-11-07 (v1.6 Phase 6 brief)
+
+Phase 6 verifies the approved v1.6 work and prepares a release candidate. It
+adds no features and publishes nothing. The owner's decisions:
+
+1. **Candidate version `1.6.0`.** The candidate carries the final version, so
+   the approved candidate is exactly what would ship (same files, same build
+   ID). A defect found after a candidate gives a new commit and a new
+   candidate (`rc.2`), with every check rerun.
+2. **Local tag `v1.6.0-rc.1`** on the candidate commit. Never pushed.
+3. **KI-39 unchanged:** donut colours stay as approved in D-19.
+4. **Both taglines kept:** "Money, made clearer." (sidebar) and "Make your
+   money make sense." (phone footer).
+5. **Real-device testing is required before publication:** the owner checks
+   Android and iPhone installation, offline use and the upgrade from live
+   v1.5.0, a short screen-reader pass, and large text and zoom, after
+   downloading a backup (`docs/DEPLOYMENT.md`, "Before publishing v1.6.0").
+
+Publishing stays a separate step that needs the owner's explicit approval.
 
 ## D-08 Phase gating — approved 2026-11-05
 

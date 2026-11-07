@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#10231f">
-  <meta name="description" content="PesaOtas — a private, local-first budgeting assistant in Kenyan shillings.">
+  <meta name="description" content="PesaOtas: a private, local-first budgeting assistant in Kenyan shillings.">
   <title>PesaOtas — Personal Finance</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -20,7 +20,7 @@
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="#" aria-label="PesaOtas home">
-        <span class="brand-mark" aria-hidden="true">P</span>
+        <img class="brand-mark" src="icon.svg" alt="" width="44" height="44">
         <span><strong>PesaOtas</strong><small>Money, made clearer.</small></span>
       </a>
       <nav class="side-nav" aria-label="Main navigation">
@@ -35,7 +35,7 @@
         <strong>Small steps count.</strong>
         <p>Know what your money needs to do before you spend it.</p>
       </div>
-      <div class="sidebar-footer">PesaOtas <span class="app-version">v1.5.0</span> · Your data stays on this device</div>
+      <div class="sidebar-footer">PesaOtas <span class="app-version">v1.6.0</span> · Your data stays on this device</div>
     </aside>
 
     <main class="main-content" id="main" tabindex="-1">
@@ -45,8 +45,8 @@
           <h1 id="page-title" tabindex="-1">Your money at a glance</h1>
         </div>
         <div class="topbar-actions">
-          <span class="local-pill"><span class="status-dot" aria-hidden="true"></span><span class="pill-text"> Saved on this device</span></span>
-          <span class="avatar" aria-hidden="true">PO</span>
+          <span class="local-pill"><span class="status-dot" aria-hidden="true"></span><span class="pill-short" aria-hidden="true">Saved</span><span class="pill-text"> Saved on this device</span></span>
+          <img class="topbar-logo" src="icon.svg" alt="" width="36" height="36">
         </div>
       </header>
 
@@ -74,12 +74,12 @@
 
         <article id="onboarding" class="card panel-card onboarding hidden" aria-labelledby="onboarding-title">
           <div class="panel-heading">
-            <div><h3 id="onboarding-title">Welcome to PesaOtas — let's set up your budget</h3>
+            <div><h3 id="onboarding-title">Welcome to PesaOtas. Let's set up your budget</h3>
             <p class="muted">Everything starts empty. Nothing is filled in for you, and your data stays on this device.</p></div>
             <button class="text-button" type="button" id="onboarding-hide">Hide</button>
           </div>
           <ol class="setup-steps">
-            <li data-step="settings"><span class="step-status" aria-hidden="true"></span><div class="step-text"><strong>Set your money and payday</strong><small>How much you have now, when this pay cycle started and your next payday.</small></div><div class="step-actions"><button class="button button-secondary" type="button" data-view-link="settings">Open settings</button></div></li>
+            <li data-step="settings"><span class="step-status" aria-hidden="true"></span><div class="step-text"><strong>Choose your currency, then set your money and payday</strong><small>How much you have now, when this pay cycle started and your next payday.</small><span class="onboarding-currency"><label class="field-label" for="onboarding-currency">Currency</label><select id="onboarding-currency" class="input compact-input" data-currency-select></select></span></div><div class="step-actions"><button class="button button-secondary" type="button" data-view-link="settings">Open settings</button></div></li>
             <li data-step="categories"><span class="step-status" aria-hidden="true"></span><div class="step-text"><strong>Add budget categories</strong><small>Rent, food, transport… then give each one an allocation.</small></div><div class="step-actions"><button class="button button-secondary" type="button" data-suggest-categories>Add common categories</button><button class="button button-secondary" type="button" data-new-category>Add your own</button></div></li>
             <li data-step="entry"><span class="step-status" aria-hidden="true"></span><div class="step-text"><strong>Record your first entry</strong><small>Your salary, a purchase, or money you save.</small></div><div class="step-actions"><button class="button button-secondary" type="button" data-open-transaction>Add an entry</button></div></li>
           </ol>
@@ -98,18 +98,18 @@
               <span class="card-label">Cash available</span>
               <span class="subtle-tag">Current plan</span>
             </div>
-            <div class="hero-amount" id="cash-balance">KSh 0</div>
+            <div class="hero-amount" id="cash-balance">0</div>
             <p class="hero-caption">Your opening balance, adjusted for recorded transactions.</p>
             <div class="balance-meta">
-              <div><span class="meta-label">Allocated but unspent</span><strong id="reserved-total">KSh 0</strong></div>
-              <div><span class="meta-label">Unallocated</span><strong id="unallocated-total">KSh 0</strong></div>
+              <div><span class="meta-label">Allocated but unspent</span><strong id="reserved-total">0</strong></div>
+              <div><span class="meta-label">Unallocated</span><strong id="unallocated-total">0</strong></div>
             </div>
           </article>
           <article class="card payday-card">
             <div class="card-topline"><span class="card-label">Next payday</span><span class="calendar-icon" aria-hidden="true">▦</span></div>
-            <div class="payday-number" id="days-to-payday">— <small>no payday set</small></div>
-            <p class="hero-caption" id="payday-date">Set your payday in Settings</p>
-            <div class="payday-line"><span id="payday-progress" style="width:10%"></span></div>
+            <div class="payday-number" id="days-to-payday"><span class="payday-unset">Not set</span></div>
+            <p class="hero-caption" id="payday-date">Add your next payday in Settings</p>
+            <div class="payday-line"><span id="payday-progress" style="width:0%"></span></div>
             <p class="tiny-muted" id="cycle-progress-note">Plan your spending to make your money last.</p>
           </article>
         </div>
@@ -118,25 +118,25 @@
           <article class="card stat-card">
             <span aria-hidden="true" class="stat-icon green">↗</span>
             <span class="stat-label">Income recorded</span>
-            <strong id="income-total">KSh 0</strong>
+            <strong id="income-total">0</strong>
             <small class="period-label">This pay cycle</small>
           </article>
           <article class="card stat-card">
             <span aria-hidden="true" class="stat-icon coral">↘</span>
             <span class="stat-label">Expenses recorded</span>
-            <strong id="expense-total">KSh 0</strong>
+            <strong id="expense-total">0</strong>
             <small class="period-label">This pay cycle</small>
           </article>
           <article class="card stat-card">
             <span aria-hidden="true" class="stat-icon purple">◎</span>
             <span class="stat-label">Safe to spend now</span>
-            <strong id="safe-to-spend">KSh 0</strong>
+            <strong id="safe-to-spend">0</strong>
             <small>After bills, essentials and savings</small>
           </article>
           <article class="card stat-card">
             <span aria-hidden="true" class="stat-icon amber">◷</span>
             <span class="stat-label">Daily guide</span>
-            <strong id="daily-guide">KSh 0</strong>
+            <strong id="daily-guide">0</strong>
             <small id="daily-guide-note">Suggested pace until payday</small>
           </article>
         </div>
@@ -174,7 +174,7 @@
 
       <section id="view-transactions" class="view">
         <div class="section-intro">
-          <div><h2>Transactions</h2><p class="muted">Record money coming in and going out. Your totals update automatically.</p></div>
+          <div><h2>Money in and out</h2><p class="muted">Record money coming in and going out. Your totals update automatically.</p></div>
         </div>
         <div class="content-grid transaction-layout">
           <article class="card panel-card">
@@ -186,7 +186,7 @@
                 <label><input type="radio" name="transaction-type" value="savings_transfer"><span><span aria-hidden="true">→</span> Save</span></label>
                 <label><input type="radio" name="transaction-type" value="savings_withdrawal"><span><span aria-hidden="true">←</span> Withdraw</span></label>
               </div>
-              <label class="field-label" for="tx-amount">Amount (KSh)</label>
+              <label class="field-label" for="tx-amount">Amount (<span data-currency-symbol>KSh</span>)</label>
               <input id="tx-amount" class="input amount-input" type="number" min="1" step="1" inputmode="numeric" placeholder="e.g. 250" required>
               <div id="tx-category-field" class="form-stack">
                 <label class="field-label" for="tx-category" id="tx-category-label">Category</label>
@@ -221,13 +221,13 @@
 
       <section id="view-budget" class="view">
         <div class="section-intro">
-          <div><h2>Your budget plan</h2><p class="muted">Give every shilling a job. Change allocations whenever your plans change.</p></div>
+          <div><h2>Allocations</h2><p class="muted">Give every shilling a job. Change allocations whenever your plans change.</p></div>
           <button class="button button-secondary" type="button" id="add-category-button"><span aria-hidden="true">＋</span> Add category</button>
         </div>
         <article class="card panel-card budget-summary-card">
           <div class="budget-summary">
-            <div><span class="stat-label">Total planned allocations</span><strong id="budget-total">KSh 0</strong></div>
-            <div><span class="stat-label">Unallocated cash</span><strong id="budget-unallocated">KSh 0</strong></div>
+            <div><span class="stat-label">Total planned allocations</span><strong id="budget-total">0</strong></div>
+            <div><span class="stat-label">Unallocated cash</span><strong id="budget-unallocated">0</strong></div>
             <div><span class="stat-label">Over-budget categories</span><strong id="over-budget-count">0</strong></div>
           </div>
           <p class="tiny-muted">Allocations are what you plan to spend or save in this pay cycle. Unspent money in Flexible categories counts towards safe to spend; everything else stays set aside.</p>
@@ -241,19 +241,107 @@
       </section>
 
       <section id="view-insights" class="view">
-        <div class="section-intro"><div><h2>Expense Detective</h2><p class="muted">Understand your habits without the complicated spreadsheets.</p></div></div>
-        <div class="stat-grid insight-stats">
-          <article class="card stat-card"><span aria-hidden="true" class="stat-icon coral">↘</span><span class="stat-label">Total expenses</span><strong id="insight-expenses">KSh 0</strong><small>Recorded spending</small></article>
-          <article class="card stat-card"><span aria-hidden="true" class="stat-icon green">＋</span><span class="stat-label">Total income</span><strong id="insight-income">KSh 0</strong><small>Recorded income</small></article>
-          <article class="card stat-card"><span aria-hidden="true" class="stat-icon purple">◎</span><span class="stat-label">Transactions</span><strong id="insight-count">0</strong><small>Entries recorded</small></article>
+        <div class="section-intro insights-intro">
+          <div><h2>How your money moved</h2><p class="muted">Where your money goes, how it changes, and what deserves a closer look.</p></div>
+          <fieldset class="period-switch" id="insight-period">
+            <legend class="sr-only">Period to analyse</legend>
+            <label><input type="radio" name="insight-period" value="30d"><span>Last 30 days</span></label>
+            <label><input type="radio" name="insight-period" value="6m"><span>Last 6 months</span></label>
+            <label><input type="radio" name="insight-period" value="all"><span>All time</span></label>
+          </fieldset>
         </div>
-        <article class="card panel-card">
-          <div class="panel-heading"><div><h3>Where your money is going</h3><p class="muted">Recorded expenses compared with each category's plan.</p></div></div>
-          <div id="insight-categories" class="insight-category-list"></div>
+        <p id="insight-coverage" class="insight-coverage" aria-live="polite"></p>
+        <article id="insight-empty" class="card panel-card insight-empty hidden">
+          <h3>No records yet</h3>
+          <p class="muted">Record a few transactions and Insights will show where your money goes, how your spending changes over time, and what deserves a closer look.</p>
+          <button class="button button-primary" type="button" data-view-link="transactions">Add a transaction</button>
         </article>
-        <article class="card panel-card insight-tip">
-          <span class="tip-sparkle" aria-hidden="true">✦</span><div><h3>Your first financial insight</h3><p id="insight-message">Record a few transactions and PesaOtas will start identifying spending patterns.</p></div>
-        </article>
+        <div id="insight-body">
+          <div class="kpi-grid" id="insight-kpis"></div>
+          <article class="card panel-card detective" id="detective" aria-labelledby="detective-title">
+            <div class="panel-heading"><div><h3 id="detective-title">Expense Detective</h3><p class="muted" id="detective-window"></p></div></div>
+            <p class="detective-blocked hidden" id="detective-blocked" role="status"></p>
+            <div class="detective-filter" role="group" aria-label="Show alerts">
+              <button type="button" class="detective-filter-button" data-detective-filter="toReview" aria-pressed="true" id="detective-filter-toReview">To review</button>
+              <button type="button" class="detective-filter-button" data-detective-filter="reviewed" aria-pressed="false" id="detective-filter-reviewed">Reviewed</button>
+              <button type="button" class="detective-filter-button" data-detective-filter="dismissed" aria-pressed="false" id="detective-filter-dismissed">Dismissed</button>
+            </div>
+            <div id="detective-list" class="detective-list" tabindex="-1" role="group" aria-label="Alerts"></div>
+            <div id="detective-observations" class="detective-list"></div>
+            <section class="detective-pace" aria-labelledby="detective-pace-title">
+              <h4 id="detective-pace-title">Spending pace</h4>
+              <div id="detective-pace"></div>
+            </section>
+            <details class="detective-checks" aria-labelledby="detective-checks-toggle"><summary id="detective-checks-toggle">What Expense Detective checked</summary><div id="detective-checks"></div></details>
+            <p class="sr-only" id="detective-announcer" aria-live="polite"></p>
+          </article>
+          <div class="chart-grid" id="insight-charts">
+          <article class="card panel-card chart-card chart-card-wide" id="chart-trend" aria-labelledby="chart-trend-title">
+            <div class="panel-heading"><div><h3 id="chart-trend-title">Spending trend</h3><p class="muted">Spending over time in this period. Choose a bar to see its entries.</p></div></div>
+            <p class="chart-summary" id="chart-trend-summary"></p>
+            <p class="chart-empty hidden" id="chart-trend-empty"></p>
+            <div class="chart-body" id="chart-trend-body">
+              <ul class="chart-key" id="chart-trend-key" aria-label="Key"></ul>
+              <div class="chart-figure">
+                <div class="chart-area" id="chart-trend-area" tabindex="0" role="group" aria-roledescription="chart" aria-labelledby="chart-trend-title" aria-describedby="chart-trend-summary chart-trend-help"></div>
+                
+              </div>
+              <p class="sr-only" id="chart-trend-help"></p>
+              <p class="chart-error hidden" id="chart-trend-error" role="alert"></p>
+              <div class="chart-nav"><button class="button button-secondary" type="button" data-chart-step="trend:-1" id="chart-trend-prev"><span aria-hidden="true">‹</span> Previous</button><button class="button button-secondary" type="button" data-chart-step="trend:1" id="chart-trend-next">Next <span aria-hidden="true">›</span></button></div>
+              <div class="chart-detail" id="chart-trend-detail"></div>
+              <details class="chart-table" aria-labelledby="chart-trend-table-toggle"><summary id="chart-trend-table-toggle">Show as table</summary><div class="table-wrap" id="chart-trend-table"></div></details>
+            </div>
+          </article>
+          <article class="card panel-card chart-card" id="chart-flow" aria-labelledby="chart-flow-title">
+            <div class="panel-heading"><div><h3 id="chart-flow-title">Income vs expenses</h3><p class="muted">Money in and spending by month. Savings moves are neither, so they're not included.</p></div></div>
+            <p class="chart-summary" id="chart-flow-summary"></p>
+            <p class="chart-empty hidden" id="chart-flow-empty"></p>
+            <div class="chart-body" id="chart-flow-body">
+              <ul class="chart-key" id="chart-flow-key" aria-label="Key"></ul>
+              <div class="chart-figure">
+                <div class="chart-area" id="chart-flow-area" tabindex="0" role="group" aria-roledescription="chart" aria-labelledby="chart-flow-title" aria-describedby="chart-flow-summary chart-flow-help"></div>
+                
+              </div>
+              <p class="sr-only" id="chart-flow-help"></p>
+              <p class="chart-error hidden" id="chart-flow-error" role="alert"></p>
+              <div class="chart-nav"><button class="button button-secondary" type="button" data-chart-step="flow:-1" id="chart-flow-prev"><span aria-hidden="true">‹</span> Previous</button><button class="button button-secondary" type="button" data-chart-step="flow:1" id="chart-flow-next">Next <span aria-hidden="true">›</span></button></div>
+              <div class="chart-detail" id="chart-flow-detail"></div>
+              <details class="chart-table" aria-labelledby="chart-flow-table-toggle"><summary id="chart-flow-table-toggle">Show as table</summary><div class="table-wrap" id="chart-flow-table"></div></details>
+            </div>
+          </article>
+          <article class="card panel-card chart-card" id="chart-cats" aria-labelledby="chart-cats-title">
+            <div class="panel-heading"><div><h3 id="chart-cats-title">Spending by category</h3><p class="muted">Your largest categories in this period. Choose one to see its entries.</p></div></div>
+            <p class="chart-summary" id="chart-cats-summary"></p>
+            <p class="chart-empty hidden" id="chart-cats-empty"></p>
+            <div class="chart-body" id="chart-cats-body">
+              <ul class="chart-key" id="chart-cats-key" aria-label="Key"></ul>
+              <div class="chart-figure chart-figure-donut">
+                <div class="chart-area" id="chart-cats-area" tabindex="0" role="group" aria-roledescription="chart" aria-labelledby="chart-cats-title" aria-describedby="chart-cats-summary chart-cats-help"></div>
+                <div class="chart-legend" id="chart-cats-legend" role="group" aria-label="Categories"></div>
+              </div>
+              <p class="sr-only" id="chart-cats-help"></p>
+              <p class="chart-error hidden" id="chart-cats-error" role="alert"></p>
+              <div class="chart-nav"><button class="button button-secondary" type="button" data-chart-step="cats:-1" id="chart-cats-prev"><span aria-hidden="true">‹</span> Previous</button><button class="button button-secondary" type="button" data-chart-step="cats:1" id="chart-cats-next">Next <span aria-hidden="true">›</span></button></div>
+              <div class="chart-detail" id="chart-cats-detail"></div>
+              <details class="chart-table" aria-labelledby="chart-cats-table-toggle"><summary id="chart-cats-table-toggle">Show as table</summary><div class="table-wrap" id="chart-cats-table"></div></details>
+            </div>
+          </article>
+            <p class="sr-only" id="chart-announcer" aria-live="polite"></p>
+          </div>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Where your money went</h3><p class="muted" id="insight-breakdown-note">Spending by category in this period. Savings transfers aren't spending, so they're not included.</p></div></div>
+            <div id="insight-breakdown" class="breakdown-list"></div>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3 id="insight-history-title">Month by month</h3><p class="muted">Money in and out over this period. Savings moves are shown separately and are never counted as income or spending.</p></div></div>
+            <div id="insight-history" class="table-wrap"></div>
+          </article>
+          <article class="card panel-card">
+            <div class="panel-heading"><div><h3>Patterns</h3><p class="muted">Facts from your records, shown only when there's enough data to support them.</p></div></div>
+            <div id="insight-patterns" class="patterns"></div>
+          </article>
+        </div>
         <article class="card panel-card" id="cycle-history-card">
           <div class="panel-heading"><div><h3>Previous pay cycles</h3><p class="muted">Worked out from your transactions, so they stay accurate if you correct an old entry.</p></div></div>
           <div id="cycle-history" class="cycle-history"></div>
@@ -261,12 +349,12 @@
       </section>
 
       <section id="view-settings" class="view">
-        <div class="section-intro"><div><h2>Settings & backup</h2><p class="muted">Manage your starting position and keep a copy of your data.</p></div></div>
+        <div class="section-intro"><div><h2>Your setup and data</h2><p class="muted">Manage your starting position and keep a copy of your data.</p></div></div>
         <div class="content-grid">
           <article class="card panel-card">
             <div class="panel-heading"><div><h3>Budget settings</h3><p class="muted">Your starting balance and your pay cycle.</p></div></div>
             <form id="settings-form" class="form-stack">
-              <label class="field-label" for="opening-balance">Opening balance (KSh)</label>
+              <label class="field-label" for="opening-balance">Opening balance (<span data-currency-symbol>KSh</span>)</label>
               <input id="opening-balance" class="input" type="number" min="0" step="1" required>
               <small class="tiny-muted">The money you had when you started recording in PesaOtas. Your spending cash is worked out from this plus every transaction, so it carries across pay cycles by itself.</small>
               <label class="field-label" for="cycle-start-input">This pay cycle started on <span class="optional">(optional)</span></label>
@@ -281,13 +369,26 @@
               <p class="tiny-muted">You'll see a summary first. Nothing is deleted, and nothing changes until you confirm.</p>
             </div>
           </article>
+          <article class="card panel-card" id="currency-settings">
+            <div class="panel-heading"><div><h3>Currency</h3><p class="muted">The currency your budget is kept in. One currency per budget.</p></div></div>
+            <div class="form-stack">
+              <label class="field-label" for="currency-select">Currency</label>
+              <select id="currency-select" class="input" data-currency-select></select>
+              <button class="button button-secondary" type="button" id="currency-change-button" disabled>Change currency…</button>
+              <p class="tiny-muted" id="currency-note">PesaOtas never converts amounts between currencies. Changing the currency only changes the label shown with your amounts.</p>
+            </div>
+          </article>
           <article class="card panel-card">
             <div class="panel-heading"><div><h3>Backup your data</h3><p class="muted">Export a copy before changing devices or clearing browser data.</p></div></div>
             <div class="backup-actions">
               <button class="button button-primary button-full" type="button" id="export-button"><span aria-hidden="true">↓</span> Download backup (JSON)</button>
               <label class="button button-secondary button-full file-button"><span aria-hidden="true">↑</span> Restore from backup<input id="import-file" type="file" accept="application/json,.json" aria-label="Restore from backup"></label>
             </div>
-            <p class="tiny-muted">Backups include your budget, settings and transaction history. Keep the file somewhere private.</p>
+            <p class="tiny-muted">Backups include your budget, settings, currency and transaction history. Keep the file somewhere private.</p>
+            <div class="v15-backup">
+              <button class="button button-secondary button-full" type="button" id="export-v15-button"><span aria-hidden="true">↓</span> Download a v1.5.0-compatible backup</button>
+              <p class="tiny-muted" id="export-v15-note">Only needed if you ever go back to PesaOtas v1.5.0. It keeps every amount, transaction, category, savings account and pay cycle. It leaves out only things v1.6 alone keeps, none of them financial: the record of currency changes, when your budget was upgraded, and alert review records.</p>
+            </div>
           </article>
         </div>
         <article class="card panel-card" id="savings-settings">
@@ -308,7 +409,7 @@
               <li>you clear this browser's history, cookies or site data, or uninstall the browser or the installed app;</li>
               <li>you use a private or incognito window (its data is deleted when you close it);</li>
               <li>the phone or computer is lost, reset or replaced;</li>
-              <li>on iPhone, iPad or Mac, you open PesaOtas in Safari rather than from the Home Screen and don't use it for 7 days of Safari use — Safari may delete its data. Added to the Home Screen, PesaOtas is treated as its own app.</li>
+              <li>on iPhone, iPad or Mac, you open PesaOtas in Safari rather than from the Home Screen and don't use it for 7 days of Safari use: Safari may delete its data. Added to the Home Screen, PesaOtas is treated as its own app.</li>
             </ul>
             <p>A downloaded backup file is the only copy that survives all of these.</p>
           </div>
@@ -319,7 +420,7 @@
         </article>
         <article class="card panel-card danger-zone">
           <h3>Erase everything and start again</h3>
-          <p class="muted">Removes your budget, transactions, pay cycles and savings records from this browser and starts PesaOtas empty. A copy of your current data is kept in Data safety, but download a backup first if you might need it.</p>
+          <p class="muted">Removes your budget, transactions, pay cycles, savings records and alert review records from this browser and starts PesaOtas empty. A copy of your current data is kept in Data safety, but download a backup first if you might need it.</p>
           <button class="button button-danger" type="button" id="reset-button">Erase and start empty</button>
         </article>
         <article class="privacy-note"><strong>Privacy note</strong><p>PesaOtas does not connect to your bank or M-Pesa, and does not send your financial data to a server. Anyone with access to this browser profile may be able to open the app, so protect your device and keep backups secure.</p></article>
@@ -367,7 +468,7 @@
       <section class="rollover-save">
         <h4>Optional: move some leftover to savings now</h4>
         <div class="rollover-save-row">
-          <input id="roll-amount" class="input" type="number" min="1" step="1" placeholder="KSh amount (optional)" aria-label="Amount to move to savings">
+          <input id="roll-amount" class="input" type="number" min="1" step="1" placeholder="Amount (optional)" aria-label="Amount to move to savings">
           <select id="roll-dest" class="input" aria-label="Savings destination"></select>
         </div>
         <p class="tiny-muted">Recorded as a normal Save dated on the new cycle's first day. Leave empty to keep it all as spending cash.</p>
@@ -390,7 +491,7 @@
           <label class="field-label" for="cat-kind">Type</label>
           <select id="cat-kind" class="input" aria-describedby="cat-kind-help"></select>
           <p id="cat-kind-help" class="tiny-muted"></p>
-          <label class="field-label" for="cat-budget">Allocation for this pay cycle (KSh)</label>
+          <label class="field-label" for="cat-budget">Allocation for this pay cycle (<span data-currency-symbol>KSh</span>)</label>
           <input id="cat-budget" class="input" type="number" min="0" step="1" inputmode="numeric">
           <div id="cat-link-field" class="form-stack hidden">
             <label class="field-label" for="cat-link">Saved to</label>
@@ -435,11 +536,58 @@
     </div>
   </dialog>
 
+  <dialog id="currency-dialog" class="sheet" aria-labelledby="currency-dialog-title" aria-describedby="currency-dialog-content">
+    <div class="sheet-body">
+      <h2 id="currency-dialog-title">Change the currency?</h2>
+      <div id="currency-dialog-content"></div>
+      <button class="button button-secondary" id="currency-dialog-download" type="button">↓ Download a backup first (recommended)</button>
+      <label class="check-line" for="currency-dialog-check"><input id="currency-dialog-check" type="checkbox"><span id="currency-dialog-check-text">I understand.</span></label>
+      <p id="currency-dialog-error" class="replace-note hidden" role="alert"></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="button button-secondary" id="currency-dialog-cancel" type="button">Keep the current currency</button>
+      <button class="button button-primary" id="currency-dialog-confirm" type="button" disabled>Change currency</button>
+    </div>
+  </dialog>
+
+  <dialog id="conflict-dialog" class="sheet" aria-labelledby="conflict-title" aria-describedby="conflict-intro">
+    <div class="sheet-body">
+      <h2 id="conflict-title">Two versions of your budget were found</h2>
+      <div id="conflict-intro"></div>
+      <div id="conflict-content" class="conflict-grid"></div>
+      <p id="conflict-error" class="replace-note hidden" role="alert"></p>
+    </div>
+    <div class="sheet-actions sheet-actions-stack">
+      <button class="button button-primary" id="conflict-keep" type="button">Keep the v1.6 data</button>
+      <button class="button button-secondary" id="conflict-older" type="button">Use the data saved by the older version</button>
+      <button class="text-button" id="conflict-later" type="button">Decide later (nothing will be saved)</button>
+    </div>
+  </dialog>
+
+  <dialog id="reviews-dialog" class="sheet" aria-labelledby="reviews-title" aria-describedby="reviews-intro">
+    <div class="sheet-body">
+      <h2 id="reviews-title">Some alert review records couldn't be read</h2>
+      <div id="reviews-intro"></div>
+      <div id="reviews-content"></div>
+      <p id="reviews-error" class="replace-note hidden" role="alert"></p>
+    </div>
+    <div class="sheet-actions sheet-actions-stack">
+      <button class="button button-primary" id="reviews-continue" type="button">Continue without these records</button>
+      <button class="button button-primary hidden" id="reviews-retry" type="button">Try again to save a safety copy</button>
+      <button class="button button-secondary" id="reviews-download" type="button">↓ Download the original data</button>
+      <button class="text-button" id="reviews-later" type="button">Not now (nothing will be saved)</button>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="src/version.js"></script>
+  <script src="src/currency.js"></script>
   <script src="src/validation.js"></script>
   <script src="src/finance.js"></script>
   <script src="src/data-model.js"></script>
+  <script src="src/insights.js"></script>
+  <script src="src/charts.js"></script>
+  <script src="src/detective.js"></script>
   <script src="src/storage.js"></script>
   <script src="src/entries.js"></script>
   <script src="app.js"></script>

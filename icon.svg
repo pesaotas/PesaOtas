@@ -1,4 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="18" fill="#102c25"/>
-  <path d="M19 14h18c10 0 16 5 16 14S47 43 37 43H29v9H19V14zm10 9v11h8c4 0 6-2 6-6s-2-5-6-5h-8z" fill="#a7e2c3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<!-- PesaOtas logo (the owner's mark, traced; geometry unchanged). Colours: approved recolour, Option 2 (v1.6 Phase 5). Rounded tile, corner radius 112.64 (22%) as in the approved Option 2 tile. -->
+<rect width="512" height="512" rx="112.64" fill="#102C25"/>
+<g transform="translate(-283.73 1.00) scale(0.78222)"><defs>
+ <clipPath id="pia"><path d="M226.2,764.1 L499.5,472.0 L646.5,315.5 L703.0,370.0 L842.5,223.5 L1115.8,-68.6 L1400,0 L0,0 Z"/></clipPath>
+ <clipPath id="pib"><path d="M226.2,764.1 L499.5,472.0 L646.5,315.5 L703.0,370.0 L842.5,223.5 L1115.8,-68.6 L1400,800 L0,800 Z"/></clipPath>
+ <mask id="pik" maskUnits="userSpaceOnUse" x="0" y="0" width="1408" height="768">
+  <rect width="1408" height="768" fill="#fff"/>
+  <polyline points="499.5,472.0 646.5,315.5 703.0,370.0 842.5,223.5" fill="none" stroke="#000" stroke-width="60" stroke-linejoin="miter" stroke-miterlimit="10"/>
+  <polygon points="875.4,254.2 891.0,171.7 809.6,192.8" fill="#000" stroke="#000" stroke-width="29" stroke-linejoin="miter"/>
+ </mask></defs>
+<g fill="#147D62" mask="url(#pik)">
+ <path clip-path="url(#pia)" fill-rule="evenodd" d="M547,174 H697 A95 95 0 0 1 697,364 H547 Z M603,224 H687 A49 49 0 0 1 736,273 V420 H603 Z"/>
+ <rect x="547" y="174" width="56" height="312"/>
+ <g clip-path="url(#pib)"><rect x="636" y="174" width="55" height="312"/><rect x="719" y="174" width="55" height="312"/><rect x="802" y="174" width="55" height="312"/></g>
+</g>
+<polygon fill="#147D62" points="875.4,254.2 891.0,171.7 809.6,192.8"/>
+<polyline points="499.5,472.0 646.5,315.5 703.0,370.0 842.5,223.5" fill="none" stroke="#FFFFFF" stroke-width="31" stroke-linejoin="miter" stroke-miterlimit="10"/></g>
 </svg>

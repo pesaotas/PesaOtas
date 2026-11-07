@@ -32,7 +32,7 @@ function fingerprintBuffer(buffer, file) {
 
 function readVersion(dir) {
   const text = fs.readFileSync(path.join(dir, "src/version.js"), "utf8");
-  const m = text.match(/PESAOTAS_VERSION\s*=\s*"(\d+\.\d+\.\d+)"/);
+  const m = text.match(/PESAOTAS_VERSION\s*=\s*"(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)"/); // allows "1.6.0-dev"
   if (!m) throw new Error("Couldn't find PESAOTAS_VERSION in src/version.js");
   return m[1];
 }

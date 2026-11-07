@@ -5,6 +5,6 @@
  */
 (function (root) {
   "use strict";
-  root.PESAOTAS_VERSION = "1.5.0";
+  root.PESAOTAS_VERSION = "1.6.0";
   if (typeof module === "object" && module.exports) module.exports = root.PESAOTAS_VERSION;
 })(typeof self !== "undefined" ? self : this);

@@ -64,7 +64,7 @@ describe("editing a transaction", () => {
     const a = t("expense", 1000, "2026-11-05", { categoryId: "food" });
     const s = plan(a);
     assert.ok(edit(s, a.id, { type: "expense", amount: "-5", date: "2026-11-05", categoryId: "food" }).errors[0].includes("cannot be negative"));
-    assert.ok(edit(s, a.id, { type: "expense", amount: "12.5", date: "2026-11-05", categoryId: "food" }).errors[0].includes("whole shillings"));
+    assert.ok(edit(s, a.id, { type: "expense", amount: "12.5", date: "2026-11-05", categoryId: "food" }).errors[0].includes("whole amount (no decimals)"));
     assert.ok(edit(s, a.id, { type: "expense", amount: 100, date: "2026-02-30", categoryId: "food" }).errors[0].includes("valid date"));
     assert.ok(edit(s, a.id, { type: "expense", amount: 100, date: "2026-11-05", categoryId: "nope" }).errors[0].includes("Choose a category"));
     assert.ok(edit(s, a.id, { type: "income", amount: 100, date: "2026-11-05", categoryId: "food" }).errors[0].includes("income source"));

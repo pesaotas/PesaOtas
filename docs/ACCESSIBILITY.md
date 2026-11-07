@@ -33,6 +33,49 @@ Settings — with realistic data, and in the dialogs:
 These checks are part of the browser test suites that are run for each phase
 (see the CHANGELOG for counts).
 
+### Insights charts (v1.6 Phase 3, DECISIONS D-19)
+
+| Check | How | Result |
+|---|---|---|
+| Each chart is one Tab stop; arrow keys, Home and End choose a bar or category; focus ring visible | Browser suite presses the keys and reads the selected bar and the details panel | Pass |
+| Previous/Next buttons, category buttons and "Show as table" are at least 44px and work by click and by touch | Browser suite with touch emulation on a 375px phone | Pass |
+| Selections are announced politely (`aria-live`) | Announcer text checked after each selection | Pass |
+| Charts are named groups with a description (summary and keyboard help); the SVG drawing is hidden from screen readers; every chart has a captioned table with the same figures | Chrome's accessibility tree; table rows compared with the tested figures | Pass |
+| Step buttons have specific names ("Previous day", "Next category") | Accessibility tree | Pass |
+| No sideways scrolling, text at least 12px including inside the charts, contrast, names, 44px targets | In-page audit at 320, 375, 390, 768, 1280 and 1600px, all three periods; SVG drawn at its real width (no scaling) | Pass |
+| Meaning never by colour alone | Hatching (no records), zero markers (no spending), dashed outlines (partly covered), fixed positions (income left, expenses right), legend and table text | By design; drawn states checked |
+
+### Expense Detective (v1.6 Phase 4, DECISIONS D-20)
+
+| Check | How | Result |
+|---|---|---|
+| Filter buttons show their counts and pressed state; action buttons name their alert ("Mark as reviewed: Unusual bill: Electricity") | Chrome's accessibility tree | Pass |
+| Tab reaches every action button, which shows a focus ring; Enter works | Browser suite presses Tab and Enter | Pass |
+| After an action, it is announced politely and focus moves to the next card | Announcer text and the focused element checked | Pass |
+| Every card is labelled by its title and has a text type label (never colour alone); "Why was this flagged?" and entry lists are named disclosures | Accessibility tree and DOM checks | Pass |
+| No sideways scrolling, text at least 12px, contrast, names, 44px targets | In-page audit at 320, 375, 390, 768, 1280 and 1600px, with every disclosure open | Pass |
+| The unreadable-review-records dialog is a named dialog with its choices as buttons | Accessibility tree | Pass |
+
+### Whole app after the interface refinement (v1.6 Phase 5, DECISIONS D-21)
+
+| Check | How | Result |
+|---|---|---|
+| Every screen (Overview, Transactions, Budget, Insights, Settings), with a full budget and an empty one: text at least 12px, AA contrast, every control named, 44px targets, no sideways scrolling | In-page audit at 320, 375, 390, 768, 1280 and 1600px with every disclosure open | Pass (found and fixed a 17px sideways scroll on the empty Overview at 320px) |
+| Element IDs are unique on every screen | DOM check | Pass (the chart legend's hatch pattern ID was repeated; fixed) |
+| Navigating moves focus to the screen heading; Tab then lands on a control with a visible focus ring | Browser check on every screen and width | Pass |
+| No section heading repeats the page title | DOM check | Pass |
+| The logo is decorative (empty alt text) next to the written name; exactly one is shown (sidebar on desktop, header on phones) | DOM check | Pass |
+| The saved-on-device pill is read once as "Saved on this device" at every width (on phones the visible word "Saved" is hidden from screen readers and the full words are visually hidden, not removed) | Chrome's accessibility tree at 320–1600px | Pass |
+| Placeholders are words ("Not set", "Not available"), not a long dash a screen reader would read as "em dash" | Text review | Done |
+
+### Release candidate v1.6.0-rc.1 (v1.6 Phase 6, DECISIONS D-22)
+
+| Check | How | Result |
+|---|---|---|
+| Every dialog (category, currency change, restore preview, delete a safety copy, new pay cycle, recovery, unreadable review records, two versions): text at least 12px, contrast, names, 44px targets, no sideways scrolling, and named by its title | In-page audit with each dialog open, at 375 and 1280px, at the site root and `/PesaOtas/` | Pass (32 checks at each path) |
+| Every screen, with a full budget and an empty one | The Phase 5 audit (320 to 1600px) rerun on the candidate | Pass (528 checks) |
+| A real screen reader, the phone's largest text and 200% zoom | The owner's checks before publishing (`docs/DEPLOYMENT.md` section 8) | Required before publication |
+
 ## What has not been tested
 
 - **Real screen readers.** No testing with TalkBack (Android), VoiceOver (iPhone,
@@ -74,6 +117,10 @@ assistive technology. Each item should take a minute or two.
       green ring.
 - [ ] Dialogs: Tab stays inside; Escape closes (except the recovery dialog);
       focus returns to where you were.
+- [ ] Insights charts: Tab reaches each chart; the arrow keys, Home and End
+      change the selected bar or category, and the details below update.
+- [ ] Expense Detective: Tab reaches the filter and every Mark as reviewed /
+      Dismiss button; after pressing one, the next alert gets focus.
 
 ### Zoom and text size
 - [ ] Browser zoom 200%: nothing overlaps or is cut off; no sideways scrolling.

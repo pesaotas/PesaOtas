@@ -17,18 +17,33 @@
  *   categories[].destinationId   optional; Savings categories only (D-04)
  *   transactions[].type          also "savings_transfer" / "savings_withdrawal",
  *                                which carry destinationId instead of categoryId
+ *
+ * Schema v3 (v1.6, decision D-16) adds:
+ *   currency               ISO 4217 code chosen by the user (D-17); v2 data is KES
+ *   meta.currencyHistory   [{from, to, changedAt}] — every currency relabel
+ *   meta.upgradedFrom      {version: 2, upgradedAt} — set by the v2 → v3 upgrade
+ *   meta.alertReviews      [{id, rule, status, actedAt, fingerprint, basis?, …}] —
+ *                          Expense Detective review records (v1.6 Phase 4, D-20).
+ *                          Kept exactly, including rules, statuses and fields this
+ *                          version doesn't know. Unreadable records are reported in
+ *                          `reviewIssues` and are never dropped silently.
+ * v1.5.0 and earlier refuse v3 data ("made by a newer version"), so they can
+ * never show it under the wrong currency or quietly drop the new fields.
+ * v2 data and backups are still read, and are converted to v3.
  */
 (function (root, factory) {
   "use strict";
   if (typeof module === "object" && module.exports) {
-    module.exports = factory(require("./validation.js"), require("./finance.js"));
+    module.exports = factory(require("./validation.js"), require("./finance.js"), require("./currency.js"));
   } else {
-    root.PesaData = factory(root.PesaValidation, root.PesaFinance);
+    root.PesaData = factory(root.PesaValidation, root.PesaFinance, root.PesaCurrency);
   }
-})(typeof self !== "undefined" ? self : this, function (V, F) {
+})(typeof self !== "undefined" ? self : this, function (V, F, C) {
   "use strict";
 
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
+  /** The format v1.1.0–v1.5.0 read and write. Still accepted; converted to v3. */
+  const PREVIOUS_SCHEMA_VERSION = 2;
   const APP_ID = "PesaOtas";
   const MAX_BACKUP_CHARS = 5000000; // ~5 MB, about LocalStorage's own limit
   const MAX_NOTE_LENGTH = 200;
@@ -69,12 +84,95 @@
   const RESERVED = new Set(RESERVED_CATEGORY_IDS);
 
   const isObject = (o) => o !== null && typeof o === "object" && !Array.isArray(o);
-  const ksh = (n) => "KSh " + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const show = (v) => {
     const s = typeof v === "string" ? `"${v}"` : JSON.stringify(v);
     return s === undefined ? "nothing" : (s.length > 30 ? s.slice(0, 27) + "…" : s);
   };
   const isBlank = (v) => v === undefined || v === null || v === "";
+
+  // ---------------------------------------------------------------------------
+  // Alert review records (v1.6 Phase 4, decision D-20)
+  // ---------------------------------------------------------------------------
+  const REVIEW_LIMITS = Object.freeze({ recordChars: 65536, depth: 4, entryHashes: 2000, actedAtChars: 40 });
+  const REVIEW_ID = /^[a-z][a-z0-9-]{0,31}:[A-Za-z0-9:_.-]{1,200}$/;
+  const REVIEW_RULE = /^[a-z][a-z0-9-]{1,39}$/;
+  const REVIEW_STATUS = /^[a-z][a-z-]{1,23}$/;
+  const HEX_ANY = /^[0-9a-f]{8,64}$/;
+  const HEX16 = /^[0-9a-f]{16}$/;
+  const isWhole = (n) => Number.isSafeInteger(n);
+  const isPlainObject = (o) => isObject(o) && (Object.getPrototypeOf(o) === Object.prototype || Object.getPrototypeOf(o) === null);
+  /** Plain JSON data no more than `depth` levels deep (strings, finite numbers, booleans, null, arrays, plain objects). */
+  function plainJSON(v, depth) {
+    if (v === null || typeof v === "string" || typeof v === "boolean") return true;
+    if (typeof v === "number") return Number.isFinite(v);
+    if (depth <= 0) return false;
+    if (Array.isArray(v)) return v.every(x => plainJSON(x, depth - 1));
+    if (isPlainObject(v)) return Object.values(v).every(x => plainJSON(x, depth - 1));
+    return false;
+  }
+  /** Same content regardless of key order. */
+  function canonical(v) {
+    if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+    if (isPlainObject(v)) return `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}`;
+    return JSON.stringify(v);
+  }
+  /** Checks for the `basis` of rules this version writes. Unknown rules: kept as they are. */
+  const BASIS_CHECKS = Object.freeze({
+    "uncategorised": (b) => isPlainObject(b) && Array.isArray(b.entryHashes) && b.entryHashes.length <= REVIEW_LIMITS.entryHashes &&
+      b.entryHashes.every(h => typeof h === "string" && HEX16.test(h)) && new Set(b.entryHashes).size === b.entryHashes.length,
+    "small-purchases": (b) => isPlainObject(b) && isWhole(b.count) && b.count >= 0 && isWhole(b.total) && b.total >= 0 && typeof b.frame === "string" && HEX16.test(b.frame),
+    "spending-pace": (b) => isPlainObject(b) && isWhole(b.gapPoints) && typeof b.frame === "string" && HEX16.test(b.frame)
+  });
+  const reviewLabel = (v) => (typeof v === "string" && v.length <= 80 ? v : null);
+
+  /**
+   * Read `meta.alertReviews`. Valid records are kept exactly (a deep copy, in
+   * order, with every field). Anything unreadable becomes an issue — the caller
+   * must never save without the user deciding (`isClean` is false).
+   * @returns {{records:object[], issues:object[], fixed:string[]}}
+   */
+  function readAlertReviews(list) {
+    const out = { records: [], issues: [], fixed: [] };
+    if (!Array.isArray(list)) {
+      out.issues.push({ index: null, id: null, rule: null, status: null, reason: "not-a-list",
+        text: "The alert review records aren't stored as a list, so none of them can be read." });
+      return out;
+    }
+    const seen = new Map(); // id → {index, canon}
+    list.forEach((rec, i) => {
+      const n = i + 1;
+      const issue = (reason, why) => out.issues.push({
+        index: n, id: isObject(rec) ? reviewLabel(rec.id) : null, rule: isObject(rec) ? reviewLabel(rec.rule) : null,
+        status: isObject(rec) ? reviewLabel(rec.status) : null, reason, text: `Alert review record ${n}${isObject(rec) && reviewLabel(rec.id) ? ` ("${rec.id}")` : ""} ${why}.`
+      });
+      if (!isPlainObject(rec)) return issue("not-a-record", "isn't a valid record");
+      let text;
+      try { text = JSON.stringify(rec); } catch { return issue("unreadable", "can't be read"); }
+      if (text.length > REVIEW_LIMITS.recordChars) return issue("too-large", "is too large to keep safely");
+      if (!plainJSON(rec, REVIEW_LIMITS.depth)) return issue("unsupported-data", "contains data that can't be kept safely");
+      if (typeof rec.id !== "string" || !REVIEW_ID.test(rec.id)) return issue("id", "has a missing or invalid alert ID");
+      if (typeof rec.rule !== "string" || !REVIEW_RULE.test(rec.rule)) return issue("rule", "has a missing or invalid rule name");
+      if (typeof rec.status !== "string" || !REVIEW_STATUS.test(rec.status)) return issue("status", "has a missing or invalid status");
+      if (typeof rec.actedAt !== "string" || rec.actedAt.length > REVIEW_LIMITS.actedAtChars || !rec.actedAt.includes("T") || !Number.isFinite(Date.parse(rec.actedAt))) {
+        return issue("actedAt", "has a missing or invalid date it was marked");
+      }
+      if (typeof rec.fingerprint !== "string" || !HEX_ANY.test(rec.fingerprint)) return issue("fingerprint", "has a missing or invalid fingerprint");
+      const basisCheck = BASIS_CHECKS[rec.rule];
+      if (basisCheck && !basisCheck(rec.basis)) return issue("basis", "is missing details its rule needs, or they are invalid");
+      const canon = canonical(rec);
+      const first = seen.get(rec.id);
+      if (first) {
+        if (first.canon === canon) {
+          out.fixed.push(`Alert review record ${n} was an exact copy of record ${first.index}; the copy was removed.`);
+          return;
+        }
+        return issue("duplicate-id", `has the same alert ID as record ${first.index} but different details`);
+      }
+      seen.set(rec.id, { index: n, canon });
+      out.records.push(JSON.parse(text));
+    });
+    return out;
+  }
   const defaultDestinations = () => DEFAULT_DESTINATIONS.map(d => ({ ...d }));
 
   /** The standard spelling of a category type, or null if it isn't one. */
@@ -85,9 +183,9 @@
   }
 
   /** An empty plan: no categories, no transactions, no payday yet (Phase 4: shows the setup checklist). */
-  function createBlankState() {
+  function createBlankState(currency) {
     return {
-      app: APP_ID, version: SCHEMA_VERSION, currency: "KES",
+      app: APP_ID, version: SCHEMA_VERSION, currency: C.isSupported(currency) ? currency : C.DEFAULT_CURRENCY,
       openingBalance: 0, payday: "",
       categories: [], transactions: [],
       savingsDestinations: defaultDestinations(),
@@ -113,13 +211,14 @@
    *            errors:string[], rejected:string[], fixed:string[], warnings:string[], notes:string[]}}
    */
   function normalizeState(input) {
-    const r = { ok: false, format: null, state: null, errors: [], rejected: [], fixed: [], warnings: [], notes: [] };
+    const r = { ok: false, format: null, state: null, errors: [], rejected: [], fixed: [], warnings: [], notes: [], reviewIssues: [] };
 
     if (!isObject(input)) {
       r.errors.push("This isn't PesaOtas or PesaFlow budget data.");
       return r;
     }
-    if (input.version === SCHEMA_VERSION && input.app === APP_ID) r.format = "pesaotas-v2";
+    if (input.version === SCHEMA_VERSION && input.app === APP_ID) r.format = "pesaotas-v3";
+    else if (input.version === PREVIOUS_SCHEMA_VERSION && input.app === APP_ID) r.format = "pesaotas-v2";
     else if (input.version === 1) r.format = "pesaflow-v1";
     else if (typeof input.version === "number" && input.version > SCHEMA_VERSION) {
       r.errors.push("This data was made by a newer version of PesaOtas. Update the app, then try again.");
@@ -128,6 +227,18 @@
       r.errors.push("This isn't a recognised PesaOtas or PesaFlow format (missing or unknown version).");
       return r;
     }
+
+    // --- Currency (v3, D-17). Older formats were always Kenyan shillings. -----
+    let currency = C.DEFAULT_CURRENCY;
+    if (r.format === "pesaotas-v3") {
+      if (!C.isSupported(input.currency)) {
+        r.errors.push(`This data uses the currency ${show(input.currency)}, which this version of PesaOtas doesn't support. Nothing has been changed.`);
+        return r;
+      }
+      currency = input.currency;
+    }
+    // Amounts in messages below are shown in this data's own currency.
+    const ksh = (n) => C.format(n, currency);
 
     // --- Settings -----------------------------------------------------------
     const opening = V.parseWholeShillings(input.openingBalance, { allowZero: true });
@@ -141,13 +252,13 @@
     let payday = "";
     if (isBlank(input.payday)) payday = "";
     else if (V.isValidISODate(input.payday)) payday = input.payday;
-    else r.rejected.push(`Payday ${show(input.payday)} is not a valid date and will be cleared — set it again in Settings.`);
+    else r.rejected.push(`Payday ${show(input.payday)} is not a valid date and will be cleared. Set it again in Settings.`);
 
     // --- Pay cycle (Phase 3, additive) ---------------------------------------
     let cycleStart = "";
     if (!isBlank(input.cycleStart)) {
       if (V.isValidISODate(input.cycleStart)) cycleStart = input.cycleStart;
-      else r.rejected.push(`The pay cycle start ${show(input.cycleStart)} is not a valid date and will be cleared — set it again in Settings.`);
+      else r.rejected.push(`The pay cycle start ${show(input.cycleStart)} is not a valid date and will be cleared. Set it again in Settings.`);
     }
     if (cycleStart && payday && cycleStart >= payday) {
       r.warnings.push(`This pay cycle starts on ${cycleStart}, which is on or after payday (${payday}). Check the dates in Settings.`);
@@ -269,7 +380,7 @@
     } else {
       input.transactions.forEach((t, i) => {
         const label = rowLabel(i, t);
-        const reject = (why) => r.rejected.push(`${label} ${why} — it will be left out.`);
+        const reject = (why) => r.rejected.push(`${label} ${why}, so it will be left out.`);
         if (!isObject(t)) return reject("is not a valid entry");
 
         const isSavings = SAVINGS_TYPES.has(t.type);
@@ -351,7 +462,7 @@
         if (count > 1) {
           const [type, amount, , date, note] = JSON.parse(key);
           const word = type === "income" ? "income" : type === "expense" ? "expense" : "savings";
-          r.warnings.push(`${count} ${word} entries look identical (${date}, ${ksh(amount)}${note ? `, "${note.slice(0, 30)}"` : ""}). All are kept — check they aren't duplicates.`);
+          r.warnings.push(`${count} ${word} entries look identical (${date}, ${ksh(amount)}${note ? `, "${note.slice(0, 30)}"` : ""}). All are kept. Check they aren't duplicates.`);
         }
       }
     }
@@ -366,9 +477,31 @@
       if (isObject(input.meta.migratedFrom) && typeof input.meta.migratedFrom.key === "string") {
         meta.migratedFrom = { key: input.meta.migratedFrom.key, migratedAt: String(input.meta.migratedFrom.migratedAt || "") };
       }
+      // v3 only: the record of currency relabels, and of the v2 → v3 upgrade.
+      if (r.format === "pesaotas-v3") {
+        if (Array.isArray(input.meta.currencyHistory)) {
+          const good = input.meta.currencyHistory.filter(h => isObject(h) && C.isSupported(h.from) && C.isSupported(h.to) && typeof h.changedAt === "string");
+          if (good.length) meta.currencyHistory = good.map(h => ({ from: h.from, to: h.to, changedAt: h.changedAt }));
+          const bad = input.meta.currencyHistory.length - good.length;
+          if (bad) r.warnings.push(`${bad} currency-change record${bad === 1 ? "" : "s"} couldn't be read and will be left out (amounts are not affected).`);
+        }
+        if (isObject(input.meta.upgradedFrom) && input.meta.upgradedFrom.version === PREVIOUS_SCHEMA_VERSION) {
+          meta.upgradedFrom = { version: PREVIOUS_SCHEMA_VERSION, upgradedAt: String(input.meta.upgradedFrom.upgradedAt || "") };
+        }
+        // Expense Detective review records (D-20): kept exactly; problems are
+        // reported separately from financial problems and block a silent save.
+        if (input.meta.alertReviews !== undefined) {
+          const reviews = readAlertReviews(input.meta.alertReviews);
+          if (reviews.records.length) meta.alertReviews = reviews.records;
+          r.reviewIssues.push(...reviews.issues);
+          r.fixed.push(...reviews.fixed);
+        }
+      } else if (input.meta.alertReviews !== undefined) {
+        r.notes.push("This file contains alert review records, which only the v1.6 format can hold, so they aren't used. Your transactions and amounts are not affected.");
+      }
     }
     const state = {
-      app: APP_ID, version: SCHEMA_VERSION, currency: "KES",
+      app: APP_ID, version: SCHEMA_VERSION, currency,
       openingBalance, payday, categories, transactions, savingsDestinations, meta
     };
     if (typeof input.month === "string" && /^\d{4}-\d{2}$/.test(input.month)) state.month = input.month;
@@ -395,13 +528,16 @@
   }
 
   /** True when a report can be applied with no loss and no user decision. */
-  const isClean = (report) => report.ok && report.rejected.length === 0;
+  const isClean = (report) => report.ok && report.rejected.length === 0 && !(report.reviewIssues && report.reviewIssues.length);
+  /** True when the data's only problem is unreadable alert review records (D-20): the money data is fine. */
+  const onlyReviewIssues = (report) => !!(report && report.ok && report.rejected.length === 0 && report.reviewIssues && report.reviewIssues.length);
 
   /** Plain facts about a (valid) state, for previews. */
   function summarize(state) {
     const t = F.computeTotals(state);
     const dates = state.transactions.map(x => x.date).sort();
     return {
+      currency: state.currency || C.DEFAULT_CURRENCY,
       openingBalance: state.openingBalance,
       payday: state.payday,
       cycleStart: state.cycleStart || "",
@@ -417,7 +553,8 @@
       totalSavings: t.totalSavings,
       firstDate: dates[0] || null,
       lastDate: dates[dates.length - 1] || null,
-      destinations: state.savingsDestinations.filter(d => !d.archived).map(d => d.name)
+      destinations: state.savingsDestinations.filter(d => !d.archived).map(d => d.name),
+      alertReviewCount: Array.isArray(state.meta && state.meta.alertReviews) ? state.meta.alertReviews.length : 0
     };
   }
 
@@ -427,7 +564,7 @@
    * @returns {ReturnType<typeof normalizeState> & {summary?: object}}
    */
   function analyzeBackup(text) {
-    const empty = { ok: false, format: null, state: null, errors: [], rejected: [], fixed: [], warnings: [], notes: [] };
+    const empty = { ok: false, format: null, state: null, errors: [], rejected: [], fixed: [], warnings: [], notes: [], reviewIssues: [] };
     if (typeof text !== "string" || !text.trim()) return { ...empty, errors: ["The file is empty."] };
     if (text.length > MAX_BACKUP_CHARS) return { ...empty, errors: ["The file is too large to be a PesaOtas backup."] };
     let parsed;
@@ -442,9 +579,46 @@
   /** Text for a backup file. */
   const serializeBackup = (state) => JSON.stringify(state, null, 2);
 
+  /**
+   * A backup that PesaOtas v1.5.0 can restore (format v2), for going back to
+   * v1.5.0 (D-16). Only possible for KES budgets: v1.5.0 shows every amount as
+   * KSh, so any other currency would be misread. Every financial record is
+   * kept; information only v1.6 knows is left out and listed in `omitted`.
+   * The result is re-checked with the v2 rules and compared with the original.
+   *
+   * @param {object} state  valid v3 state
+   * @returns {{ok:true, text:string, omitted:string[]} | {ok:false, reason:"currency"|"invalid", currency?:string}}
+   */
+  function toV15Backup(state) {
+    const check = normalizeState(state);
+    if (!isClean(check)) return { ok: false, reason: "invalid" };
+    const s = check.state;
+    if (s.currency !== "KES") return { ok: false, reason: "currency", currency: s.currency };
+    const meta = {};
+    for (const k of ["createdAt", "onboarding", "migratedFrom"]) if (s.meta[k] !== undefined) meta[k] = s.meta[k];
+    const omitted = [];
+    if (s.meta.currencyHistory) omitted.push("the record of currency changes");
+    if (s.meta.upgradedFrom) omitted.push("the note of when this budget was upgraded to the v1.6 format");
+    if (s.meta.alertReviews && s.meta.alertReviews.length) omitted.push(`alert review records (${s.meta.alertReviews.length})`);
+    const out = {
+      app: APP_ID, version: PREVIOUS_SCHEMA_VERSION, currency: "KES",
+      openingBalance: s.openingBalance, payday: s.payday,
+      categories: s.categories, transactions: s.transactions, savingsDestinations: s.savingsDestinations, meta
+    };
+    if (s.month) out.month = s.month;
+    if (s.cycleStart) out.cycleStart = s.cycleStart;
+    if (s.cycles) out.cycles = s.cycles;
+    // Prove the file reads back as the same budget under the v2 rules.
+    const back = normalizeState(JSON.parse(JSON.stringify(out)));
+    const financial = (x) => JSON.stringify([x.openingBalance, x.payday, x.cycleStart || "", x.cycles || [], x.categories, x.transactions, x.savingsDestinations]);
+    if (!isClean(back) || back.format !== "pesaotas-v2" || financial(back.state) !== financial(s)) return { ok: false, reason: "invalid" };
+    return { ok: true, text: JSON.stringify(out, null, 2), omitted };
+  }
+
   return Object.freeze({
-    SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS, CATEGORY_TYPES, INCOME_SOURCES,
+    SCHEMA_VERSION, PREVIOUS_SCHEMA_VERSION, APP_ID, MAX_BACKUP_CHARS, DEFAULT_DESTINATIONS, CATEGORY_TYPES, INCOME_SOURCES,
     UNCATEGORISED_ID, RESERVED_CATEGORY_IDS,
-    canonicalType, createBlankState, normalizeState, isClean, summarize, analyzeBackup, serializeBackup
+    canonicalType, createBlankState, normalizeState, isClean, onlyReviewIssues, summarize, analyzeBackup, serializeBackup, toV15Backup,
+    REVIEW_LIMITS, readAlertReviews
   });
 });

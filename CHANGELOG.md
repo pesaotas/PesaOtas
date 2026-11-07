@@ -3,6 +3,270 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0] — Unreleased (release candidate 2, 7 Nov 2026; rc.1 `3f4ed6c` superseded)
+
+v1.6.0 adds a choice of eight currencies, Insights with charts, Expense
+Detective, and the PesaOtas logo with a refined interface. Data saved by
+v1.5.0 is upgraded automatically after an exact copy is kept, and a
+v1.5.0-compatible backup makes going back possible (`docs/ROLLBACK.md`).
+Calculations are unchanged: `src/finance.js` is identical to v1.5.0.
+
+Not yet published: `main` and the live v1.5.0 are unchanged (stable tag
+`v1.5.0-baseline`, commit `4d8f130`). Publishing needs the owner's approval
+after the phone checks in `docs/DEPLOYMENT.md` section 8 (D-22).
+
+### Release candidate 2 — Android home-screen icon (KI-43)
+- **Fixed:** an app installed from v1.5.0 on Android kept the old "P" icon
+  after updating to rc.1. The new logo files kept v1.5.0's addresses, and from
+  Chrome 144 Chrome treats icons as unchanged while the manifest's icon
+  addresses stay the same. The four manifest PNGs are renamed, contents
+  unchanged: `icons/pesaotas-192.png`, `icons/pesaotas-512.png`,
+  `icons/pesaotas-maskable-192.png`, `icons/pesaotas-maskable-512.png`.
+  Chrome then offers installed apps the new icon (the user confirms it). The
+  favicon, Apple touch icon and `icon.svg` are unchanged.
+- References updated: `manifest.json`, `tools/release-files.js`, `sw.js`
+  (restamped: build `6789934fb7f5`), `icons/src/README.md`, the icon tests,
+  DEPLOYMENT (the Android icon check), KNOWN_ISSUES (KI-43), ROADMAP.
+- New regression tests (`ui-text-and-logo.test.js`, "REGRESSION (rc.2)"):
+  the manifest's PNG icon addresses differ from v1.5.0's (checked against
+  v1.5.0's own manifest), and each renamed PNG is byte-identical to rc.1's,
+  with its size and purpose. They fail on rc.1.
+- No app code, calculation, currency, storage, backup or restore change.
+- QA: 537 unit tests pass, 0 skipped; release and build checks pass; 1,730
+  browser checks at the site root and `/PesaOtas/` and 16 installability
+  checks, 0 failures.
+- Note: `npm run build-site` refuses to replace a `_site` folder from an
+  earlier build that still holds the old icon names; delete that folder first.
+  The GitHub workflow always builds from a fresh checkout, so it is unaffected.
+
+### Phase 6 — Final QA and release candidate (D-22)
+- **Version 1.6.0** in `src/version.js`, `package.json` and the sidebar text
+  in `index.html`; a new test checks that the version written into
+  `index.html` matches.
+- **Documentation for the release**: README (v1.6.0 overview, data formats),
+  DEPLOYMENT (version-neutral checks; section 8, the owner's phone checks;
+  section 9, the publishing steps), KNOWN_ISSUES (KI-27, KI-30, KI-39),
+  ACCESSIBILITY, DECISIONS D-22, ROADMAP.
+- **No defects found that block the release**, so no app code changed apart
+  from the version.
+- **QA of the candidate** (build `3d498859c804`, built from a clean export of
+  the commit, byte-identical to the working build): 534 unit tests pass (0
+  skipped in the repository; 2 that need a git checkout skip in a bare
+  export); release and build checks pass. Browser, at the site root and
+  `/PesaOtas/`: 1,730 checks, 0 failures, including:
+  - calculation parity with the real v1.5.0: 500 random fictional budgets
+    give identical totals, safe to spend, daily guide and pay-cycle figures,
+    and 20 show identical figures on Overview and Budget (both checks shown to
+    catch a planted one-shilling error);
+  - the upgrade from the real v1.5.0 through its own update prompt, the
+    rollback round trip, and the "two versions" choice;
+  - every dialog and every screen passing the accessibility audit;
+  - only the app's own files requested, and no console errors;
+  - 20,000 entries: Expense Detective 103 ms, a full Insights redraw 313 to
+    369 ms (Chrome).
+- Two browser suites expected the old version text `1.6.0-dev`; they now read
+  the version under test. No check's logic changed.
+- Still required before publishing: the owner's phone checks
+  (`docs/DEPLOYMENT.md` section 8).
+
+### Phase 5 — Logo and interface refinement (D-21)
+- **Logo**: the owner's mark (traced, geometry unchanged) in the approved
+  recolour, Option 2 (brand green `#147D62`, white arrow line, forest
+  `#102C25`), for the app icon (the approved rounded tile, corner radius
+  22%), favicon, installable-app icons (maskable and Apple touch as full-bleed
+  squares), the desktop sidebar and the phone header. The decorative "PO"
+  circle is gone. No redesign.
+- **Dates (KI-37 fixed)**: formatted by the app, never by the browser, so every
+  browser shows the same text. Each context keeps its own format ("6 Nov
+  2026", "6 November 2026", "Friday, 6 November 2026"), all with fixed month
+  names ("Sep", never "Sept").
+- **Long dashes**: rewritten in about 30 messages as full stops, colons,
+  commas or brackets; kept in the page title and installed app name. Empty
+  values say "Not set" or "Not available" instead of a dash.
+- **Interface**: section headings no longer repeat the page title; "Saved" is
+  shown next to the dot on phones (screen readers hear "Saved on this device"
+  once); correct singular/plural for over-budget
+  categories; the empty payday card no longer shows a long bar or repeats
+  itself; spacing fixes on Overview, Settings, Expense Detective and the setup
+  checklist; the savings starting-balance form is no longer page-wide.
+- **Final correction pass (owner review)**: the app icon's corner radius is back
+  to the approved Option 2 value (112.64, was 144); the sidebar logo is declared
+  at the size it is drawn (44px); a "Show 50 more" pagination of the
+  transaction history was removed (the list is exactly as in Phase 4); comments
+  and documentation now describe the date rule accurately.
+- **Fixed while auditing**: a 17px sideways scroll on the empty Overview at
+  320px; the chart legend's hatch pattern ID appeared more than once.
+- **KI-39 investigated, not changed**: category donut colours follow slice
+  rank, so a category can change colour between periods. Changing that would
+  change D-19, so a proposal is recorded for the owner (D-21, KNOWN_ISSUES).
+- **Not changed**: calculations, storage format, migration, backup and
+  restore behaviour, Expense Detective rules, currency handling. In `src/`, only
+  four messages in `data-model.js` were reworded (long dashes).
+- Tests: `ui-text-and-logo.test.js` (16) with a small zero-dependency PNG
+  reader (`tests/helpers/png.js`): no browser date formatting; no long dashes
+  outside comments; each logo source carries the approved mark unchanged, on
+  the right background, in the approved colours only; every PNG equals its SVG
+  rendered at that size; the app icon's 22% corner; the maskable mark inside
+  the safe circle; declared logo sizes match CSS; the Saved pill read once.
+  **533 tests, 533 pass.** Planted faults caught: 7 of 7. Browser: every
+  screen audited (rich and empty data) at 320, 375, 390, 768, 1280 and 1600px
+  (528 checks); all earlier browser suites pass at the site root and
+  `/PesaOtas/`. One earlier check was updated: it expected "—" as the daily
+  guide's empty value, now "Not available".
+
+### Phase 4 — Expense Detective (D-20)
+- **Added — Expense Detective in Insights**, for this pay cycle (or this month
+  without one): unusual bills, unusually large expenses, small purchases (an
+  alert only with at least 10 making up at least 10% of spending; otherwise an
+  observation), uncategorised spending (with **Edit** through the existing
+  form), and spending pace (Over allocation shown as information). Every alert
+  explains its figures and the entries behind it; "What Expense Detective
+  checked" says where more history is needed.
+- **Alert review**: Mark as reviewed, Dismiss, Move back to To review. Saved as
+  `meta.alertReviews` in format v3; an alert comes back only when its evidence
+  changes materially, never because time passes.
+- **Review records are never dropped silently**: kept exactly (including fields
+  from future versions); unreadable ones open a separate decision ("Your budget
+  and transactions are fine") after a verified copy of the original is kept in
+  the new Data safety list; restore previews count and list them separately.
+- **Changed**: `src/storage.js` (approved, additive): the
+  `review-records-invalid` load status, the review-records safety list, and
+  `continueWithoutInvalidReviews`. `src/data-model.js`: the review-record rules,
+  `reviewIssues`, a stricter `isClean`, the restore-preview count, and the
+  v1.5.0-compatible backup now lists "alert review records (N)" as left out
+  (the note under its button says so). Erase wording mentions review records.
+- **Not built**: repeated-bill alerts (U3, deferred) and an Overview shortcut.
+- **Not changed**: every calculation (`src/finance.js`, `src/insights.js` and
+  `src/charts.js` untouched), Phase 2 and 3 Insights, and the restore and
+  recovery wording when no review records are involved.
+- Tests: `alert-reviews-format.test.js` (36), `alert-reviews-persistence.test.js`
+  (22, the D-16 gate), `detective.test.js` (39, including the unknown-fields
+  regression test); one existing assertion updated for the new summary field.
+  **517 tests, 517 pass** (after the final-gate fixes). Planted faults caught: 8 of 8 (format), 6 of 6
+  (persistence), 21 of 21 (rules). Phase 4 browser suite: 84 checks (74 before the final-gate fixes) at the site
+  root and at `/PesaOtas/`, including the real v1.5.0.
+- Known issues KI-40 (earlier development builds would drop review records),
+  KI-41 (pace vs Budget screen with future-dated entries) and KI-42 (pace
+  reappearance rounding).
+- **Final-gate fixes** (independent review; no D-20 decision changed):
+  alerts for entries or categories whose IDs contain spaces, `&`, `/` or
+  accents can now be reviewed (such IDs are hashed inside the alert ID; IDs
+  that already worked are unchanged); the review-records dialog says what to do
+  when the safety list itself is damaged; a backup downloaded while that
+  decision is pending says it leaves the unreadable records out; restore
+  previews count the review records they replace; the pace table no longer says
+  "On pace" when it's too early or the amount is small; card element IDs can't
+  clash. One more regression test (`detective.test.js`, 40).
+
+### Phase 3 — Insights charts (D-19)
+- **Added — three charts in Insights**, following the selected period:
+  spending trend (by day, Monday–Sunday week or month), income vs expenses by
+  month (months cut to the period and labelled partial; Last 30 days shows e.g.
+  8–31 Oct and 1–6 Nov), and spending by category (donut: up to six categories
+  shown separately; more than six → five plus `Other categories (N)`).
+- Choose a bar or category by click, tap, arrow keys, Home/End or
+  Previous/Next; a details panel shows the figures and a read-only list of the
+  entries behind it (newest first, 25 at a time, with the count and total).
+  "Show as table" gives the same figures for every chart.
+- Missing history (hatched), partly covered bars (dashed) and covered days with
+  no spending (zero marker) are drawn differently; partial weeks and months cut
+  by the period are labelled separately from coverage.
+- Empty, future-only and no-spending states; a chart that can't be drawn says
+  so and opens its table.
+- `src/charts.js` (SVG only, no calculations) is part of the release and the
+  offline copy. No chart library or new dependency.
+- **Not changed**: every existing Insights section, the Transactions screen,
+  balances and calculations (`src/finance.js`), the data format
+  (`src/data-model.js`), storage, backups and safety copies. Charts never save
+  anything.
+- Tests: `insights-charts.test.js` (30) and `charts.test.js` (18); 11 of 11 and
+  10 of 10 deliberate faults caught. **419 tests, 419 pass.** Browser suite for
+  Phase 3: 134 checks from the site root and from `/PesaOtas/`.
+- 20,000 fictional entries: preparing every chart for All time takes about 95 ms.
+
+### Phase 2 — Insights foundation (D-18)
+- **Added — new Insights screen** (`src/insights.js`, read-only):
+  - Period choice: Last 30 days (default), Last 6 months, All time. Remembered
+    on this device only (`pesaotas.device`), never in the budget data.
+  - Six cards, each with a label, figure, explanation and (where fair) a
+    comparison with the previous period of the same length: total expenses,
+    average daily spending, largest spending category, income vs expenses, net
+    cash movement, potential spending leaks.
+  - Where your money went (spending by category with shares), a weekly or
+    monthly history table (cards on phones), and patterns (unusually high
+    months, categories every month, biggest category changes) once there are at
+    least 3 complete months.
+  - Clear empty, partial and not-enough-data states: how many days are covered,
+    from when records are needed for a comparison, and how many complete months
+    are needed for patterns. Future-dated entries are left out and counted.
+  - Amounts and the small-purchase threshold follow the budget's currency.
+- **Changed**: the old Insights screen (all-time totals, a transaction count,
+  category spending against plan, and a fixed tip) is replaced. Spending against
+  plan remains on the Budget screen; *Previous pay cycles* remains on Insights.
+- **Not changed**: balances, safe-to-spend and every other calculation
+  (`src/finance.js` untouched); the data format (`src/data-model.js` untouched);
+  `src/storage.js` only lists the new device preference.
+- Tests: `insights.test.js` (47, including 14 for the average's denominator)
+  with the fictional fixture `tests/helpers/insights-data.js`, and
+  `insights-preference.test.js` (12) for the period preference (saved, restored, default, invalid values, never in the
+  budget data, backups or safety copies). **371 tests, 371 pass.** Mutation
+  check: 18 of 18 deliberate faults in the Insights calculations, 6 of 6 in the
+  average's denominator and 5 of 5 in the preference handling are caught.
+- Clarified during review (D-18 wording approved): average daily spending is
+  divided by calendar days of covered history (from the later of the period's
+  start and the first record, through today), never by the number of dates with
+  entries; the previous period uses the same rule (`coveredDaysBetween`). The
+  screen now says "calendar days", shows the dates used, and explains that days
+  without entries count as no recorded spending. The figures themselves are
+  unchanged.
+- Fixed during review: a saved period such as `"toString"` (an inherited name)
+  was not rejected; every unsupported value now falls back to Last 30 days
+  (`PesaInsights.resolvePeriod`).
+- Known issues KI-37 (date format inconsistency, Phase 5) and KI-38 (leaks
+  include routine small spending, by design).
+
+### Phase 1 — Added
+- **Currencies** (D-17): KES (default), UGX, TZS, NGN, ZAR, USD, GBP, EUR
+  (`src/currency.js`). Chosen during setup or in Settings → Currency. Every
+  amount, label, message, preview and backup uses the budget's currency. Whole
+  units only; never converted.
+- **Protected currency change**: shows both currencies with your own figures,
+  states there is no conversion, offers a backup, needs a ticked confirmation,
+  saves a verified "Before currency change" copy first (its own list), and
+  records the change. Undo by changing back or restoring the copy.
+- **Storage format v3** (D-16) under a new key, with a verified upgrade from
+  v1.5.0 (copy → write → marker), exact failure reporting at every step,
+  read-only mode with *Try again* / *Download your data*, and automatic
+  completion at a later launch.
+- **Old-version protection**: v1.5.0 refuses v1.6 data (tested with the real
+  v1.5.0). Data an older version saves later never replaces v1.6 data: v1.6
+  shows both and you choose; the other is kept.
+- **Stale-tab protection**: saves are refused if another tab changed the data;
+  the tab says so and stops saving until reloaded.
+- **v1.5.0-compatible backup** (Settings → Backup), KES budgets only. Keeps
+  every financial record; leaves out the v1.6-only metadata
+  `meta.currencyHistory` and `meta.upgradedFrom` (listed when downloaded).
+  *Since Phase 4 it also leaves out `meta.alertReviews` (see Phase 4 above and
+  KI-36), so it omits exactly these three fields.*
+  Alert review marks (`meta.alertReviews`) are **not** part of format v3 yet:
+  their support is deferred to Phase 4 and must be in place and tested before
+  alerts are introduced (DECISIONS D-16).
+- Data safety: new copy types (before upgrading, two versions, before currency
+  change) and a **Restore…** button on every copy (preview first).
+- `docs/ROLLBACK.md`; DECISIONS D-16, D-17.
+- Tests: `currency.test.js` (16), `format-v3.test.js` (16), `upgrade.test.js`
+  (31, including a failure at every upgrade step and partial writes),
+  fictional fixture `tests/helpers/v15-data.js`. **312 tests, 312 pass.**
+  Mutation check: 15 of 15 deliberate faults in the new safeguards are caught.
+
+### Phase 1 — Changed
+- Amount error text no longer mentions shillings: "must be a whole amount (no
+  decimals)".
+- Warnings show amounts with a non-breaking space, like every other amount.
+- Version label `1.6.0-dev`; release tooling accepts pre-release labels.
+- The note under *Download a v1.5.0-compatible backup* now lists exactly what the
+  file leaves out (KI-36).
+
 ## [1.5.0] — 2026-11-06 — Phase 5: installable app, safe updates, storage protection, GitHub Pages
 
 Fixes KI-17 and KI-19; KI-27 partly (see below). No change to the approved

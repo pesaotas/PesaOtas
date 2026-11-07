@@ -30,7 +30,7 @@ describe("migration from PesaFlow", () => {
     assert.deepEqual(res.state.transactions, legacyState().transactions);
     const saved = JSON.parse(store.getItem(KEYS.current));
     assert.deepEqual(saved, res.state);
-    assert.equal(saved.version, 2);
+    assert.equal(saved.version, 3);
     assert.deepEqual(saved.meta.migratedFrom, { key: KEYS.legacy, migratedAt: NOW.toISOString() });
   });
 
