@@ -23,7 +23,7 @@ Each phase is small, tested and approved before the next begins (see
 | 3 | Charts: spending trend, income vs expenses, category donut, read-only drill-through (D-19) | **Approved** (commit `e31151d`, tag `v1.6.0-phase3-dev`) |
 | 4 | Expense Detective: unusual bills and large expenses, small purchases, uncategorised spending, spending pace, alert review. **First** add and test `meta.alertReviews` in format v3 (D-16) | **Approved** (commit `bd6b1c5`; D-20) |
 | 5 | Logo (approved recolour, Option 2) and app-wide UI/UX refinement | **Approved** (commit `0b4bb5d`; D-21) |
-| 6 | Final QA and v1.6.0 release candidate (D-22) | **Release candidate `v1.6.0-rc.1` ready, awaiting owner approval** (phone checks required before publishing) |
+| 6 | Final QA and v1.6.0 release candidate (D-22) | **Release candidate rc.2 ready, awaiting owner approval** (rc.1 `3f4ed6c` superseded: Android icon fix; phone checks required before publishing) |
 
 Future versions (not before the core is reliable): voice entry, M-Pesa
 statement import with user approval, recurring bills, savings goals,

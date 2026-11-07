@@ -116,8 +116,8 @@ describe("Logo: the owner's traced mark in the approved recolour (Option 2)", ()
 
 describe("Logo: generated PNG icons", () => {
   const ICONS = [
-    ["icons/icon-192.png", "icon.svg", 192], ["icons/icon-512.png", "icon.svg", 512], ["icons/favicon-32.png", "icon.svg", 32],
-    ["icons/maskable-192.png", "icons/src/maskable.svg", 192], ["icons/maskable-512.png", "icons/src/maskable.svg", 512],
+    ["icons/pesaotas-192.png", "icon.svg", 192], ["icons/pesaotas-512.png", "icon.svg", 512], ["icons/favicon-32.png", "icon.svg", 32],
+    ["icons/pesaotas-maskable-192.png", "icons/src/maskable.svg", 192], ["icons/pesaotas-maskable-512.png", "icons/src/maskable.svg", 512],
     ["icons/apple-touch-icon.png", "icons/src/apple-touch.svg", 180]
   ];
   const png = (f) => readPNG(fs.readFileSync(path.join(ROOT, f)));
@@ -153,14 +153,14 @@ describe("Logo: generated PNG icons", () => {
   });
 
   it("the app icon is the rounded tile with the approved corner (22%), transparent outside it", () => {
-    const p = png("icons/icon-512.png");
+    const p = png("icons/pesaotas-512.png");
     assert.equal(p.pixel(0, 0)[3], 0, "corner transparent");
     assert.equal(p.pixel(25, 25)[3], 0, "outside the 112.64 corner arc");
     assert.equal(p.pixel(40, 40)[3], 255, "inside the 112.64 corner arc (a 144 corner would be transparent here)");
     assert.ok(near(p.pixel(256, 20), FOREST, 6), "forest background");
   });
 
-  for (const f of ["icons/maskable-192.png", "icons/maskable-512.png"]) {
+  for (const f of ["icons/pesaotas-maskable-192.png", "icons/pesaotas-maskable-512.png"]) {
     it(`${f}: the whole mark lies inside the maskable safe area (a centred circle of radius 40%)`, () => {
       const p = png(f), c = (p.width - 1) / 2, r = 0.4 * p.width;
       let ink = 0, outside = 0, far = 0;
@@ -175,4 +175,45 @@ describe("Logo: generated PNG icons", () => {
       assert.equal(outside, 0, `${outside} mark pixels outside the safe area (farthest ${far.toFixed(1)} px, limit ${r.toFixed(1)} px)`);
     });
   }
+});
+
+describe("REGRESSION (rc.2): installed Android apps are offered the new icon", () => {
+  // Chrome 144+ treats icons as unchanged while the manifest's `icons` field is unchanged, and only offers an
+  // installed app the new icon when an icon URL (or its metadata) changes. v1.5.0's manifest listed these:
+  const V15_PNG_ICONS = ["icons/icon-192.png", "icons/icon-512.png", "icons/maskable-192.png", "icons/maskable-512.png"];
+  // The approved logo's PNGs as built in rc.1 (3f4ed6c): rc.2 only renames them, byte for byte.
+  const RC1_SHA256 = {
+    "icons/pesaotas-192.png": "97e946f552a52a987b9e63f95fbf5b3a925ff8c547842ec3dc23df25bedee10d",
+    "icons/pesaotas-512.png": "05b3c99acd29d71f65ddec64bd7f40892a33b1c54c06587fdae9154f6f8a9aae",
+    "icons/pesaotas-maskable-192.png": "56fb867347f6298709a5c0aa62bb2bf082897d964afb4c1d590f1d76be0fcebb",
+    "icons/pesaotas-maskable-512.png": "2f29848b79a3c4ab98e75aa1e4915f875a01ed5eff32408cc32e9311033510b3"
+  };
+  const manifest = JSON.parse(read("manifest.json"));
+  const pngs = manifest.icons.filter(i => i.type === "image/png");
+  const hasGit = spawnSync("git", ["-C", ROOT, "rev-parse", "--verify", "-q", "v1.5.0-baseline^{commit}"]).status === 0;
+
+  it("no PNG icon in the manifest uses a v1.5.0 address, so the icons field differs from v1.5.0's", () => {
+    for (const i of pngs) assert.ok(!V15_PNG_ICONS.includes(i.src), `${i.src} is a v1.5.0 icon address`);
+    assert.deepEqual(pngs.map(i => i.src).sort(), Object.keys(RC1_SHA256).sort());
+  });
+
+  it("the v1.5.0 addresses above are exactly those in v1.5.0's own manifest", { skip: hasGit ? false : "not a git checkout with the v1.5.0-baseline tag" }, () => {
+    const old = JSON.parse(spawnSync("git", ["-C", ROOT, "show", "v1.5.0-baseline:manifest.json"]).stdout.toString());
+    assert.deepEqual(old.icons.filter(i => i.type === "image/png").map(i => i.src).sort(), [...V15_PNG_ICONS].sort());
+    assert.notDeepEqual(old.icons, manifest.icons);
+  });
+
+  it("every manifest icon exists, and each PNG is the rc.1 file unchanged, with its size and purpose", () => {
+    const crypto = require("crypto");
+    for (const i of manifest.icons) assert.ok(fs.existsSync(path.join(ROOT, i.src)), `${i.src} missing`);
+    const want = { "icons/pesaotas-192.png": ["192x192", "any"], "icons/pesaotas-512.png": ["512x512", "any"], "icons/pesaotas-maskable-192.png": ["192x192", "maskable"], "icons/pesaotas-maskable-512.png": ["512x512", "maskable"] };
+    for (const i of pngs) {
+      const bytes = fs.readFileSync(path.join(ROOT, i.src));
+      assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"), RC1_SHA256[i.src], `${i.src} differs from rc.1`);
+      assert.deepEqual([i.sizes, i.purpose], want[i.src], i.src);
+      const p = readPNG(bytes);
+      assert.equal(`${p.width}x${p.height}`, i.sizes, i.src);
+    }
+    for (const old of V15_PNG_ICONS) assert.ok(!fs.existsSync(path.join(ROOT, old)), `${old} should no longer exist`);
+  });
 });

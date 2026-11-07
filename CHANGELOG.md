@@ -3,7 +3,7 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0] — Unreleased (release candidate `v1.6.0-rc.1`, 7 Nov 2026)
+## [1.6.0] — Unreleased (release candidate 2, 7 Nov 2026; rc.1 `3f4ed6c` superseded)
 
 v1.6.0 adds a choice of eight currencies, Insights with charts, Expense
 Detective, and the PesaOtas logo with a refined interface. Data saved by
@@ -14,6 +14,30 @@ Calculations are unchanged: `src/finance.js` is identical to v1.5.0.
 Not yet published: `main` and the live v1.5.0 are unchanged (stable tag
 `v1.5.0-baseline`, commit `4d8f130`). Publishing needs the owner's approval
 after the phone checks in `docs/DEPLOYMENT.md` section 8 (D-22).
+
+### Release candidate 2 — Android home-screen icon (KI-43)
+- **Fixed:** an app installed from v1.5.0 on Android kept the old "P" icon
+  after updating to rc.1. The new logo files kept v1.5.0's addresses, and from
+  Chrome 144 Chrome treats icons as unchanged while the manifest's icon
+  addresses stay the same. The four manifest PNGs are renamed, contents
+  unchanged: `icons/pesaotas-192.png`, `icons/pesaotas-512.png`,
+  `icons/pesaotas-maskable-192.png`, `icons/pesaotas-maskable-512.png`.
+  Chrome then offers installed apps the new icon (the user confirms it). The
+  favicon, Apple touch icon and `icon.svg` are unchanged.
+- References updated: `manifest.json`, `tools/release-files.js`, `sw.js`
+  (restamped: build `6789934fb7f5`), `icons/src/README.md`, the icon tests,
+  DEPLOYMENT (the Android icon check), KNOWN_ISSUES (KI-43), ROADMAP.
+- New regression tests (`ui-text-and-logo.test.js`, "REGRESSION (rc.2)"):
+  the manifest's PNG icon addresses differ from v1.5.0's (checked against
+  v1.5.0's own manifest), and each renamed PNG is byte-identical to rc.1's,
+  with its size and purpose. They fail on rc.1.
+- No app code, calculation, currency, storage, backup or restore change.
+- QA: 537 unit tests pass, 0 skipped; release and build checks pass; 1,730
+  browser checks at the site root and `/PesaOtas/` and 16 installability
+  checks, 0 failures.
+- Note: `npm run build-site` refuses to replace a `_site` folder from an
+  earlier build that still holds the old icon names; delete that folder first.
+  The GitHub workflow always builds from a fresh checkout, so it is unaffected.
 
 ### Phase 6 — Final QA and release candidate (D-22)
 - **Version 1.6.0** in `src/version.js`, `package.json` and the sidebar text

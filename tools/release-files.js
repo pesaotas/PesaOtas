@@ -25,10 +25,10 @@ const PRECACHE_FILES = Object.freeze([
   "src/insights.js",
   "src/charts.js",
   "src/detective.js",
-  "icons/icon-192.png",
-  "icons/icon-512.png",
-  "icons/maskable-192.png",
-  "icons/maskable-512.png",
+  "icons/pesaotas-192.png",
+  "icons/pesaotas-512.png",
+  "icons/pesaotas-maskable-192.png",
+  "icons/pesaotas-maskable-512.png",
   "icons/apple-touch-icon.png",
   "icons/favicon-32.png"
 ]);

@@ -185,8 +185,11 @@ Then check, on the phone:
       **Update now** works.
 - [ ] Every figure is the same as before the update, and **Settings → Data
       safety** lists the copy of your v1.5.0 data.
-- [ ] The sidebar footer (or Settings) shows version 1.6.0; the home-screen
-      icon and the app header show the new green logo.
+- [ ] The sidebar footer (or Settings) shows version 1.6.0, and the app
+      header shows the new green logo.
+- [ ] Close the app fully and reopen it. Chrome offers the new icon (a prompt,
+      or a suggestion in Chrome's ⋮ menu); after accepting, the home-screen
+      icon shows the green logo. Chrome may take a short while to offer it.
 - [ ] With airplane mode on, the installed app opens with your data.
 - [ ] Insights and Expense Detective open, and the charts fit the screen.
 
