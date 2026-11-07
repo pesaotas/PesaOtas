@@ -805,6 +805,11 @@ adds no features and publishes nothing. The owner's decisions:
 
 Publishing stays a separate step that needs the owner's explicit approval.
 
+*Publication (7 Nov 2026):* the owner explicitly authorised publishing v1.6.0
+from rc.2 (commit `d087657`). Android was tested on the owner's phone; the
+owner deferred the iPhone testing that point 5 required, and deferred the
+Android home-screen icon correction (KI-43) to a future update.
+
 ## D-08 Phase gating — approved 2026-11-05
 
 Each phase ends with a report (files changed, tests run, results, outstanding

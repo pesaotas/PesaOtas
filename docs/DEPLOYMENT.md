@@ -226,16 +226,17 @@ here is fixed in a new candidate (`rc.2`) and every check runs again.
 Do these steps yourself, in order, only after you have approved the candidate.
 Nothing here is done by the release candidate work.
 
-1. Check the candidate: `git rev-parse --short v1.6.0-rc.1` must be the commit
-   you approved, and `git status` must show a clean working tree on `v1.6-dev`.
+1. Check the candidate: the approved release candidate is rc.2, commit
+   `d087657` (rc.1, `3f4ed6c`, was superseded). `git status` must show a
+   clean working tree on `v1.6-dev`.
 2. Do Step 0 of [ROLLBACK.md](ROLLBACK.md): push the stable tag
    (`git push origin v1.5.0-baseline`) and download a backup from the live app.
 3. Merge with a merge commit, so the release can be undone in one step:
 
    ```bat
    git checkout main
-   git merge --no-ff v1.6.0-rc.1 -m "Release PesaOtas v1.6.0"
-   git diff --stat v1.6.0-rc.1 main
+   git merge --no-ff d087657 -m "Release PesaOtas v1.6.0"
+   git diff --stat d087657 main
    ```
 
    The last command must print nothing: `main` then holds exactly the candidate.
@@ -244,6 +245,7 @@ Nothing here is done by the release candidate work.
    own devices, and finish any iPhone checks left from section 8.
 6. If anything is wrong, follow [ROLLBACK.md](ROLLBACK.md).
 
-`v1.6.0-rc.1` stays a local tag and is never pushed. Whether to add a `v1.6.0`
-release tag on the merge commit is your choice at that point.
+`v1.6.0-rc.1` stays a local tag and is never pushed. The `v1.6.0` release tag
+marks the approved commit `d087657`; `main`'s merge commit holds exactly the
+same files.
 

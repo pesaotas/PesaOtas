@@ -3,7 +3,7 @@
 All notable changes to PesaOtas (formerly PesaFlow) are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.6.0] — Unreleased (release candidate 2, 7 Nov 2026; rc.1 `3f4ed6c` superseded)
+## [1.6.0] — 2026-11-07
 
 v1.6.0 adds a choice of eight currencies, Insights with charts, Expense
 Detective, and the PesaOtas logo with a refined interface. Data saved by
@@ -11,9 +11,22 @@ v1.5.0 is upgraded automatically after an exact copy is kept, and a
 v1.5.0-compatible backup makes going back possible (`docs/ROLLBACK.md`).
 Calculations are unchanged: `src/finance.js` is identical to v1.5.0.
 
-Not yet published: `main` and the live v1.5.0 are unchanged (stable tag
-`v1.5.0-baseline`, commit `4d8f130`). Publishing needs the owner's approval
-after the phone checks in `docs/DEPLOYMENT.md` section 8 (D-22).
+Released from release candidate 2 (commit `d087657`, tag `v1.6.0`, build
+`6789934fb7f5`), approved by the owner on 7 Nov 2026. v1.5.0 stays available
+for rollback (tag `v1.5.0-baseline`, commit `4d8f130`; `docs/ROLLBACK.md`).
+
+**Known limitations of this release**
+- **Currency** selection changes the currency label only; it does not convert
+  amounts at an exchange rate (by design, D-17).
+- **iPhone (Safari) testing was deferred by the owner** and has not been done:
+  installing, offline use, VoiceOver and large text on iPhone are untested.
+  Android (Samsung Galaxy A16, Chrome) was tested: the v1.5.0 upgrade kept the
+  data and balances, and Insights, charts and Expense Detective work.
+- **Android home-screen icon (KI-43, deferred):** an existing installation may
+  keep the old "P" icon. rc.2 renamed the icon files so Chrome can detect the
+  new icon, but on the owner's phone the existing icon had not changed, and the
+  cause was not confirmed. The correction is deferred to a future update. The
+  new logo shows inside the app.
 
 ### Release candidate 2 — Android home-screen icon (KI-43)
 - **Fixed:** an app installed from v1.5.0 on Android kept the old "P" icon
